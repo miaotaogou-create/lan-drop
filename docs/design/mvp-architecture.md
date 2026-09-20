@@ -61,5 +61,8 @@ MVP 优先把发现、聊天、传文件跑通并交叉编译到 arm64。UI 用�
 
 ## 构建
 
-- Windows：`go build -o landrop.exe ./cmd/landrop`
-- ARM64 Linux：`GOOS=linux GOARCH=arm64 go build -o landrop-linux-arm64 ./cmd/landrop`
+- Windows 客户端（无黑框、内嵌 UI）：`go build -ldflags "-H windowsgui -s -w" -o landrop.exe ./cmd/landrop`
+- ARM64 Linux：`GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -o landrop-linux-arm64 ./cmd/landrop`
+- 一键：`powershell -File scripts\build.ps1`
+
+Windows 使用系统自带的 WebView2 显示界面；没有运行时时回退到浏览器。界面资源通过 `go:embed` 打进同一个 exe。

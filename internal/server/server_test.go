@@ -112,7 +112,7 @@ func TestUploadHTTP(t *testing.T) {
 	pageReq := httptest.NewRequest(http.MethodGet, "/", nil)
 	pageRR := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(pageRR, pageReq)
-	if pageRR.Code != http.StatusOK || !strings.Contains(pageRR.Body.String(), "HTTP API 已启动") {
-		t.Fatalf("占位页 %d %s", pageRR.Code, pageRR.Body.String())
+	if pageRR.Code != http.StatusOK || !strings.Contains(pageRR.Body.String(), "局域快传") {
+		t.Fatalf("界面页 %d %s", pageRR.Code, pageRR.Body.String())
 	}
 }

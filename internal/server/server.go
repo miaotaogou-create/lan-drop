@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/miaotaogou-create/lan-drop/internal/config"
 	"github.com/miaotaogou-create/lan-drop/internal/discover"
+	"github.com/miaotaogou-create/lan-drop/web"
 )
 
 // Message 是一条聊天记录。会话只留在内存里。
@@ -107,7 +109,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/upload", s.handleUpload)
 	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
 	mux.HandleFunc("PUT /api/settings", s.handlePutSettings)
-	if dir := distDir(); dir != "" {
+	if sub, err := fs.Sub(web.Dist, "dist"); err == nil {
+		mux.Handle("/", http.FileServer(http.FS(sub)))
+	} else if dir := distDir(); dir != "" {
 		mux.Handle("/", http.FileServer(http.Dir(dir)))
 	} else {
 		mux.HandleFunc("GET /{$}", s.handlePlaceholder)
