@@ -7,6 +7,7 @@
 #include <QNetworkInterface>
 #include <QTimer>
 #include <QUdpSocket>
+#include <QFile>
 #include <QHostInfo>
 
 static bool skipIface(const QNetworkInterface &iface)
@@ -54,6 +55,74 @@ QStringList localIpv4()
         }
     }
     return ips;
+}
+
+#ifdef Q_OS_WIN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#endif
+
+QString localLinkLabel()
+{
+    const QString want = localIpv4().value(0);
+#ifdef Q_OS_WIN
+    ULONG sz = 32 * 1024;
+    QByteArray buf(int(sz), 0);
+    const ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+    ULONG ret = GetAdaptersAddresses(AF_INET, flags, 0,
+                                     reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buf.data()), &sz);
+    if (ret == ERROR_BUFFER_OVERFLOW) {
+        buf.resize(int(sz));
+        ret = GetAdaptersAddresses(AF_INET, flags, 0,
+                                   reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buf.data()), &sz);
+    }
+    if (ret == NO_ERROR) {
+        for (IP_ADAPTER_ADDRESSES *a = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buf.data());
+             a; a = a->Next) {
+            if (a->OperStatus != IfOperStatusUp)
+                continue;
+            bool match = false;
+            for (IP_ADAPTER_UNICAST_ADDRESS *u = a->FirstUnicastAddress; u; u = u->Next) {
+                if (!u->Address.lpSockaddr || u->Address.lpSockaddr->sa_family != AF_INET)
+                    continue;
+                char text[64];
+                DWORD n = sizeof(text);
+                if (WSAAddressToStringA(u->Address.lpSockaddr, u->Address.iSockaddrLength,
+                                        0, text, &n) != 0)
+                    continue;
+                if (QString::fromLatin1(text) == want)
+                    match = true;
+            }
+            if (!match)
+                continue;
+            const qint64 mbps = qint64(a->TransmitLinkSpeed / 1000000ULL);
+            const bool wifi = (a->IfType == 71);
+            return formatLinkLabel(mbps, wifi);
+        }
+    }
+#else
+    const QList<QNetworkInterface> all = QNetworkInterface::allInterfaces();
+    for (int i = 0; i < all.size(); ++i) {
+        if (skipIface(all.at(i)))
+            continue;
+        bool match = want.isEmpty();
+        const QList<QNetworkAddressEntry> ents = all.at(i).addressEntries();
+        for (int j = 0; j < ents.size(); ++j) {
+            if (ents.at(j).ip().toString() == want)
+                match = true;
+        }
+        if (!match)
+            continue;
+        QFile speedFile(QStringLiteral("/sys/class/net/%1/speed").arg(all.at(i).name()));
+        qint64 mbps = -1;
+        if (speedFile.open(QIODevice::ReadOnly))
+            mbps = QString::fromLatin1(speedFile.readAll()).trimmed().toLongLong();
+        const bool wifi = QFile::exists(QStringLiteral("/sys/class/net/%1/wireless").arg(all.at(i).name()));
+        return formatLinkLabel(mbps, wifi);
+    }
+#endif
+    return formatLinkLabel(-1, false);
 }
 
 bool Peer::online() const

@@ -52,6 +52,12 @@ int runSelfCheck()
         return fail("kind phone");
     if (deviceKindFromOs(QStringLiteral("iPadOS")) != 2)
         return fail("kind tablet");
+    if (formatLinkLabel(2500, false) != QString::fromUtf8(u8"2.5 GbE 网线"))
+        return fail("link 2.5");
+    if (formatLinkLabel(1000, true) != QString::fromUtf8(u8"千兆 Wi-Fi"))
+        return fail("link wifi");
+    if (formatLinkLabel(-1, false) != QString::fromUtf8(u8"链路 —"))
+        return fail("link unknown");
     {
         const qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(
             "http://192.168.1.108:8848/share/", qrcodegen::QrCode::Ecc::MEDIUM);

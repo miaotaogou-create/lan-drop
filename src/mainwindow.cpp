@@ -620,6 +620,38 @@ static QString renderChatHtml(const QVector<ChatMsg> &msgs)
     return html;
 }
 
+static int countFiles(const QVector<ChatMsg> &msgs)
+{
+    int n = 0;
+    for (int i = 0; i < msgs.size(); ++i) {
+        if (msgs.at(i).type == ChatMsg::FileIn || msgs.at(i).type == ChatMsg::FileOut)
+            ++n;
+    }
+    return n;
+}
+
+static QString renderFilesHtml(const QVector<ChatMsg> &msgs)
+{
+    QString html = QStringLiteral(
+        "<html><body style=\"margin:0;padding:8px;background:#f8fafc;\">");
+    int n = 0;
+    for (int i = 0; i < msgs.size(); ++i) {
+        const ChatMsg &m = msgs.at(i);
+        if (m.type != ChatMsg::FileIn && m.type != ChatMsg::FileOut)
+            continue;
+        html += QStringLiteral("<div style=\"margin:10px 0;\">");
+        html += renderFileCard(m);
+        html += QStringLiteral("</div>");
+        ++n;
+    }
+    if (n == 0) {
+        html += QStringLiteral(
+            "<p align=\"center\"><font color=\"#94a3b8\">还没有与该对端的文件传输</font></p>");
+    }
+    html += QStringLiteral("</body></html>");
+    return html;
+}
+
 static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
 {
     QPushButton *b = new QPushButton;
@@ -659,6 +691,9 @@ MainWindow::MainWindow(QWidget *parent)
     QTimer *tick = new QTimer(this);
     connect(tick, SIGNAL(timeout()), this, SLOT(refreshPeers()));
     tick->start(1000);
+    QTimer *ping = new QTimer(this);
+    connect(ping, SIGNAL(timeout()), this, SLOT(measurePing()));
+    ping->start(2000);
     boot();
 }
 
@@ -999,16 +1034,28 @@ void MainWindow::buildUi()
     chatBodyLay->addWidget(m_chat, 1);
     chatBodyLay->addWidget(m_composer);
 
-    QLabel *filesPlaceholder = new QLabel(QString::fromUtf8(
-        u8"文件传输列表将在后续版本实现。\n本轮只对齐「文件传输」页壳。"));
-    filesPlaceholder->setObjectName(QStringLiteral("filesPlaceholder"));
-    filesPlaceholder->setAlignment(Qt::AlignCenter);
-    filesPlaceholder->setWordWrap(true);
+    QWidget *filesPage = new QWidget;
+    QVBoxLayout *filesLay = new QVBoxLayout(filesPage);
+    filesLay->setContentsMargins(0, 0, 0, 0);
+    filesLay->setSpacing(0);
+    m_fileLive = new QLabel;
+    m_fileLive->setObjectName(QStringLiteral("progress"));
+    m_fileLive->setContentsMargins(16, 10, 16, 0);
+    m_fileLive->hide();
+    m_files = new QTextBrowser;
+    m_files->setObjectName(QStringLiteral("filesView"));
+    m_files->setReadOnly(true);
+    m_files->setFrameShape(QFrame::NoFrame);
+    m_files->setOpenExternalLinks(false);
+    m_files->setOpenLinks(false);
+    connect(m_files, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
+    filesLay->addWidget(m_fileLive);
+    filesLay->addWidget(m_files, 1);
 
     m_sessionStack = new QStackedWidget;
     m_sessionStack->setObjectName(QStringLiteral("sessionStack"));
     m_sessionStack->addWidget(chatBody);
-    m_sessionStack->addWidget(filesPlaceholder);
+    m_sessionStack->addWidget(filesPage);
 
     chatLay->addWidget(m_peerHeader);
     chatLay->addWidget(m_connBannerHost);
@@ -1077,7 +1124,7 @@ void MainWindow::applyStyle()
         "#connBannerHost { background: #ffffff; }"
         "#connBanner { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; }"
         "#connBannerText { color: #64748b; font-size: 12px; }"
-        "#filesPlaceholder { color: #94a3b8; font-size: 13px; padding: 40px; background: #f8fafc; }"
+        "#filesView { background: #f8fafc; border: none; }"
         "#chat { background: #f8fafc; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
@@ -1727,11 +1774,17 @@ void MainWindow::updatePeerSession()
     m_peerName->setText(label);
     m_peerOnlineDot->setPixmap(makeStatusDot(found ? peer.online() : true, 8));
     m_peerAddr->setText(addr);
-    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping —  ·  链路 —").arg(osTag));
+    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping %2  ·  %3")
+                            .arg(osTag)
+                            .arg(m_pingKey == addr && !m_pingText.isEmpty()
+                                     ? m_pingText
+                                     : QString::fromUtf8(u8"—"))
+                            .arg(localLinkLabel()));
     m_connBannerText->setText(
         QString::fromUtf8(u8"已建立局域网直连: %1 (%2)").arg(label).arg(addr));
     if (m_tabFiles)
-        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (0)"));
+        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
+                                .arg(countFiles(m_log.value(currentKey()))));
 }
 
 void MainWindow::showChat()
@@ -1744,8 +1797,10 @@ void MainWindow::showChat()
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
     refreshChatHtml();
+    refreshFilesView();
     updatePeerSession();
     updateInputPlaceholder();
+    QTimer::singleShot(0, this, SLOT(measurePing()));
 }
 
 void MainWindow::setProgress(const QString &text)
@@ -1755,10 +1810,18 @@ void MainWindow::setProgress(const QString &text)
     if (text.isEmpty()) {
         m_progress->clear();
         m_progress->hide();
+        if (m_fileLive) {
+            m_fileLive->clear();
+            m_fileLive->hide();
+        }
         return;
     }
     m_progress->setText(text);
     m_progress->show();
+    if (m_fileLive) {
+        m_fileLive->setText(text);
+        m_fileLive->show();
+    }
 }
 
 void MainWindow::noteFail(const QString &key, QNetworkReply *rep)
@@ -1784,8 +1847,10 @@ void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
     if (lines.size() > 500)
         lines = lines.mid(lines.size() - 500);
     m_log.insert(key, lines);
-    if (key == currentKey())
+    if (key == currentKey()) {
         refreshChatHtml();
+        refreshFilesView();
+    }
 }
 
 void MainWindow::refreshChatHtml()
@@ -1797,6 +1862,44 @@ void MainWindow::refreshChatHtml()
     QTextCursor c = m_chat->textCursor();
     c.movePosition(QTextCursor::End);
     m_chat->setTextCursor(c);
+}
+
+void MainWindow::refreshFilesView()
+{
+    const QVector<ChatMsg> msgs = m_log.value(currentKey());
+    if (m_files)
+        m_files->setHtml(renderFilesHtml(msgs));
+    if (m_tabFiles)
+        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)").arg(countFiles(msgs)));
+}
+
+void MainWindow::measurePing()
+{
+    if (m_pingBusy || !m_pages || m_pages->currentIndex() != 1)
+        return;
+    QString ip;
+    int port = 0;
+    if (!currentPeer(&ip, &port, 0))
+        return;
+    m_pingBusy = true;
+    QElapsedTimer *clock = new QElapsedTimer;
+    clock->start();
+    const QString key = ip + QLatin1Char(':') + QString::number(port);
+    QNetworkReply *rep = m_nam->get(
+        QNetworkRequest(QUrl(QStringLiteral("http://%1:%2/api/info").arg(ip).arg(port))));
+    connect(rep, &QNetworkReply::finished, this, [this, rep, clock, key]() {
+        rep->deleteLater();
+        const double ms = clock->nsecsElapsed() / 1000000.0;
+        delete clock;
+        m_pingBusy = false;
+        m_pingKey = key;
+        if (rep->error() != QNetworkReply::NoError)
+            m_pingText = QString::fromUtf8(u8"超时");
+        else
+            m_pingText = QString::number(ms, 'f', ms < 10.0 ? 1 : 0) + QStringLiteral("ms");
+        if (key == currentKey())
+            updatePeerSession();
+    });
 }
 
 void MainWindow::onChatAnchor(const QUrl &url)

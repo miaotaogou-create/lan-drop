@@ -22,6 +22,9 @@ QString broadcastAddress(const QString &ipv4, const QString &mask);
 // 0 笔记本，1 手机，2 平板（按对端 os 字段启发式）
 int deviceKindFromOs(const QString &osName);
 
+// 把链路速率（Mbps，未知为负数）格式化成「2.5 GbE 网线」这类文案。
+QString formatLinkLabel(qint64 mbps, bool wifi);
+
 // 本机对外报告的系统类型：windows / linux / arm-linux
 QString localOsTag();
 

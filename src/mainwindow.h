@@ -65,6 +65,7 @@ private slots:
     void showChatTab();
     void showFilesTab();
     void onChatAnchor(const QUrl &url);
+    void measurePing();
 
 private:
     void boot();
@@ -72,6 +73,7 @@ private:
     void applyStyle();
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
+    void refreshFilesView();
     void updateChrome();
     void updateEmpty();
     void updateHostPill();
@@ -119,6 +121,8 @@ private:
     QLabel *m_connBannerText = 0;
     QStackedWidget *m_sessionStack = 0;
     QTextBrowser *m_chat = 0;
+    QTextBrowser *m_files = 0;
+    QLabel *m_fileLive = 0;
     QPlainTextEdit *m_input = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
@@ -130,6 +134,9 @@ private:
     QHash<QString, QVector<ChatMsg> > m_log;
     QStringList m_uploadQueue;
     bool m_uploading = false;
+    bool m_pingBusy = false;
+    QString m_pingKey;
+    QString m_pingText;
     QPoint m_dragOrigin;
     bool m_dragging = false;
 };

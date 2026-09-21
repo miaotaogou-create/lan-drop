@@ -104,6 +104,24 @@ QString broadcastAddress(const QString &ipv4, const QString &mask)
     return QHostAddress(b).toString();
 }
 
+QString formatLinkLabel(qint64 mbps, bool wifi)
+{
+    QString speed;
+    if (mbps >= 10000)
+        speed = QStringLiteral("10 GbE");
+    else if (mbps >= 2500)
+        speed = QStringLiteral("2.5 GbE");
+    else if (mbps >= 1000)
+        speed = QString::fromUtf8(u8"千兆");
+    else if (mbps >= 100)
+        speed = QString::fromUtf8(u8"百兆");
+    else if (mbps > 0)
+        speed = QString::number(mbps) + QStringLiteral(" Mbps");
+    else
+        return QString::fromUtf8(u8"链路 —");
+    return speed + (wifi ? QString::fromUtf8(u8" Wi-Fi") : QString::fromUtf8(u8" 网线"));
+}
+
 int deviceKindFromOs(const QString &osName)
 {
     const QString o = osName.toLower();

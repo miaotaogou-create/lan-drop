@@ -64,5 +64,6 @@ private:
 
 QString deviceId();
 QStringList localIpv4();
+QString localLinkLabel();
 
 #endif
