@@ -6,8 +6,10 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QDialog>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -98,6 +100,32 @@ static QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
     }
     }
     return QIcon(pm);
+}
+
+static QPixmap makeGlobeBadge(int logical = 36)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#2563eb")));
+    p.drawRoundedRect(QRectF(0, 0, logical, logical), 8, 8);
+    QPen pen(Qt::white, 1.6);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal pad = 8.0;
+    const QRectF box(pad, pad, logical - pad * 2, logical - pad * 2);
+    p.drawEllipse(box);
+    p.drawEllipse(QRectF(logical * 0.36, pad, logical * 0.28, logical - pad * 2));
+    p.drawLine(QPointF(pad + 1, logical * 0.40), QPointF(logical - pad - 1, logical * 0.40));
+    p.drawLine(QPointF(pad + 1, logical * 0.60), QPointF(logical - pad - 1, logical * 0.60));
+    return pm;
 }
 
 static QPixmap makeRadioLogo(int logical = 36)
@@ -1443,39 +1471,234 @@ void MainWindow::updateInputPlaceholder()
 void MainWindow::addPeer()
 {
     QDialog dlg(this);
-    dlg.setWindowTitle(QString::fromUtf8(u8"添加节点"));
-    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    QLineEdit *ip = new QLineEdit;
-    ip->setPlaceholderText(QStringLiteral("192.168.1.10"));
-    QLineEdit *port = new QLineEdit(QStringLiteral("8848"));
-    QLineEdit *alias = new QLineEdit;
-    QFormLayout *form = new QFormLayout;
-    form->addRow(QStringLiteral("IP"), ip);
-    form->addRow(QString::fromUtf8(u8"端口"), port);
-    form->addRow(QString::fromUtf8(u8"备注"), alias);
-    QPushButton *ok = new QPushButton(QString::fromUtf8(u8"确定"));
+    dlg.setObjectName(QStringLiteral("addPeerDlg"));
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setModal(true);
+    dlg.setFixedWidth(460);
+    dlg.setStyleSheet(QStringLiteral(
+        "#addPeerDlg { background: transparent; }"
+        "#addPeerRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#addPeerHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
+        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
+        "#addPeerTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#addPeerSub { color: #64748b; font-size: 11px; }"
+        "#addPeerClose { background: transparent; border: none; border-radius: 6px; padding: 0; color: #94a3b8; }"
+        "#addPeerClose:hover { background: #e2e8f0; color: #334155; }"
+        "#addPeerLabel { color: #334155; font-size: 12px; font-weight: 600; }"
+        "#addPeerField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
+        "#addPeerField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#addPeerProbe { background: transparent; border: none; color: #2563eb; font-size: 12px;"
+        " font-weight: 600; text-align: left; padding: 0; }"
+        "#addPeerProbe:hover { color: #1d4ed8; }"
+        "#addPeerProbe:disabled { color: #93c5fd; }"
+        "#addPeerProbeResult { color: #64748b; font-size: 11px; }"
+        "#addPeerFoot { border-top: 1px solid #e2e8f0; }"
+        "#addPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #475569; padding: 8px 14px; }"
+        "#addPeerCancel:hover { background: #f8fafc; }"
+        "#addPeerOk { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
+        " padding: 8px 16px; font-weight: 600; }"
+        "#addPeerOk:hover { background: #1d4ed8; }"));
+
+    QWidget *root = new QWidget(&dlg);
+    root->setObjectName(QStringLiteral("addPeerRoot"));
+    QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
+    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->addWidget(root);
+    QVBoxLayout *rootLay = new QVBoxLayout(root);
+    rootLay->setContentsMargins(0, 0, 0, 0);
+    rootLay->setSpacing(0);
+
+    QWidget *head = new QWidget;
+    head->setObjectName(QStringLiteral("addPeerHead"));
+    QHBoxLayout *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(20, 14, 12, 14);
+    headLay->setSpacing(10);
+
+    QLabel *globeBg = new QLabel;
+    globeBg->setFixedSize(36, 36);
+    globeBg->setPixmap(makeGlobeBadge(36));
+
+    QVBoxLayout *titleCol = new QVBoxLayout;
+    titleCol->setContentsMargins(0, 0, 0, 0);
+    titleCol->setSpacing(2);
+    QLabel *title = new QLabel(QString::fromUtf8(u8"跨网段直连 / 手动添加节点"));
+    title->setObjectName(QStringLiteral("addPeerTitle"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"当设备处于不同 VLAN、VPN 或禁用了 mDNS 广播时使用"));
+    sub->setObjectName(QStringLiteral("addPeerSub"));
+    sub->setWordWrap(true);
+    titleCol->addWidget(title);
+    titleCol->addWidget(sub);
+
+    QPushButton *closeBtn = new QPushButton(QStringLiteral("×"));
+    closeBtn->setObjectName(QStringLiteral("addPeerClose"));
+    closeBtn->setFixedSize(28, 28);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setFocusPolicy(Qt::NoFocus);
+    connect(closeBtn, SIGNAL(clicked()), &dlg, SLOT(reject()));
+
+    headLay->addWidget(globeBg, 0, Qt::AlignVCenter);
+    headLay->addLayout(titleCol, 1);
+    headLay->addWidget(closeBtn, 0, Qt::AlignTop);
+
+    QWidget *body = new QWidget;
+    QVBoxLayout *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(20, 16, 20, 12);
+    bodyLay->setSpacing(12);
+
+    auto fieldLabel = [](const QString &text) {
+        QLabel *l = new QLabel(text);
+        l->setObjectName(QStringLiteral("addPeerLabel"));
+        return l;
+    };
+    auto fieldEdit = [](const QString &text = QString(), const QString &ph = QString()) {
+        QLineEdit *e = new QLineEdit(text);
+        e->setObjectName(QStringLiteral("addPeerField"));
+        if (!ph.isEmpty())
+            e->setPlaceholderText(ph);
+        return e;
+    };
+
+    QHBoxLayout *rowIp = new QHBoxLayout;
+    rowIp->setSpacing(10);
+    QVBoxLayout *ipCol = new QVBoxLayout;
+    ipCol->setSpacing(4);
+    QLineEdit *ip = fieldEdit(QString(), QStringLiteral("192.168.1.10"));
+    ipCol->addWidget(fieldLabel(QString::fromUtf8(u8"目标 IP 地址")));
+    ipCol->addWidget(ip);
+    QVBoxLayout *portCol = new QVBoxLayout;
+    portCol->setSpacing(4);
+    QLineEdit *port = fieldEdit(QStringLiteral("8848"));
+    port->setFixedWidth(110);
+    portCol->addWidget(fieldLabel(QString::fromUtf8(u8"服务端口")));
+    portCol->addWidget(port);
+    rowIp->addLayout(ipCol, 1);
+    rowIp->addLayout(portCol, 0);
+
+    QVBoxLayout *aliasCol = new QVBoxLayout;
+    aliasCol->setSpacing(4);
+    QLineEdit *alias = fieldEdit(QString(), QString::fromUtf8(u8"例如：跨网段工控机"));
+    aliasCol->addWidget(fieldLabel(QString::fromUtf8(u8"设备别名")));
+    aliasCol->addWidget(alias);
+
+    QHBoxLayout *rowOs = new QHBoxLayout;
+    rowOs->setSpacing(10);
+    QVBoxLayout *osCol = new QVBoxLayout;
+    osCol->setSpacing(4);
+    QComboBox *osBox = new QComboBox;
+    osBox->setObjectName(QStringLiteral("addPeerField"));
+    osBox->addItem(QStringLiteral("Windows PC"), QStringLiteral("windows"));
+    osBox->addItem(QString::fromUtf8(u8"Linux (Ubuntu / 麒麟)"), QStringLiteral("linux"));
+    osBox->addItem(QString::fromUtf8(u8"ARM64 Linux (工控/树莓派)"), QStringLiteral("arm-linux"));
+    osBox->addItem(QString::fromUtf8(u8"iOS / Android 手机"), QStringLiteral("ios"));
+    osBox->setCurrentIndex(2);
+    osCol->addWidget(fieldLabel(QString::fromUtf8(u8"系统类型")));
+    osCol->addWidget(osBox);
+    QVBoxLayout *tagCol = new QVBoxLayout;
+    tagCol->setSpacing(4);
+    QLineEdit *tag = fieldEdit(QString(), QString::fromUtf8(u8"可选，本轮不入库"));
+    tagCol->addWidget(fieldLabel(QString::fromUtf8(u8"部门 / 标签")));
+    tagCol->addWidget(tag);
+    rowOs->addLayout(osCol, 1);
+    rowOs->addLayout(tagCol, 1);
+
+    QHBoxLayout *probeRow = new QHBoxLayout;
+    probeRow->setSpacing(8);
+    QPushButton *probeBtn = new QPushButton(QString::fromUtf8(u8"测试目标端口连通性 (Ping /api/info)"));
+    probeBtn->setObjectName(QStringLiteral("addPeerProbe"));
+    probeBtn->setCursor(Qt::PointingHandCursor);
+    probeBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/zap.svg"), 14)));
+    probeBtn->setIconSize(QSize(14, 14));
+    probeBtn->setFocusPolicy(Qt::NoFocus);
+    QLabel *probeResult = new QLabel;
+    probeResult->setObjectName(QStringLiteral("addPeerProbeResult"));
+    probeRow->addWidget(probeBtn, 0, Qt::AlignVCenter);
+    probeRow->addWidget(probeResult, 1, Qt::AlignVCenter);
+
+    bodyLay->addLayout(rowIp);
+    bodyLay->addLayout(aliasCol);
+    bodyLay->addLayout(rowOs);
+    bodyLay->addLayout(probeRow);
+
+    QWidget *foot = new QWidget;
+    foot->setObjectName(QStringLiteral("addPeerFoot"));
+    QHBoxLayout *footLay = new QHBoxLayout(foot);
+    footLay->setContentsMargins(20, 12, 20, 16);
+    footLay->setSpacing(8);
     QPushButton *cancel = new QPushButton(QString::fromUtf8(u8"取消"));
-    QHBoxLayout *btns = new QHBoxLayout;
-    btns->addStretch();
-    btns->addWidget(ok);
-    btns->addWidget(cancel);
-    QVBoxLayout *lay = new QVBoxLayout(&dlg);
-    lay->addLayout(form);
-    lay->addLayout(btns);
-    connect(ok, SIGNAL(clicked()), &dlg, SLOT(accept()));
+    cancel->setObjectName(QStringLiteral("addPeerCancel"));
+    cancel->setCursor(Qt::PointingHandCursor);
+    QPushButton *ok = new QPushButton(QString::fromUtf8(u8"+ 添加并连接"));
+    ok->setObjectName(QStringLiteral("addPeerOk"));
+    ok->setCursor(Qt::PointingHandCursor);
+    ok->setDefault(true);
+    footLay->addStretch(1);
+    footLay->addWidget(cancel);
+    footLay->addWidget(ok);
+
+    rootLay->addWidget(head);
+    rootLay->addWidget(body);
+    rootLay->addWidget(foot);
+
     connect(cancel, SIGNAL(clicked()), &dlg, SLOT(reject()));
-    if (dlg.exec() != QDialog::Accepted)
-        return;
-    const QString host = ip->text().trimmed();
-    bool portOk = false;
-    int p = port->text().trimmed().toInt(&portOk);
-    if (host.isEmpty() || host.contains(QLatin1Char(' ')) || !portOk || p < 1 || p > 65535) {
-        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"), QString::fromUtf8(u8"IP 或端口无效"));
-        return;
-    }
-    m_disc->addManual(host, p, alias->text());
-    refreshPeers();
-    probePeer();
+    connect(probeBtn, &QPushButton::clicked, &dlg, [&]() {
+        const QString host = ip->text().trimmed();
+        bool portOk = false;
+        const int p = port->text().trimmed().toInt(&portOk);
+        if (host.isEmpty() || !portOk || p < 1 || p > 65535) {
+            probeResult->setText(QString::fromUtf8(u8"请先填写有效的 IP 与端口"));
+            return;
+        }
+        probeBtn->setEnabled(false);
+        probeResult->setText(QString::fromUtf8(u8"正在探测…"));
+        QElapsedTimer *timer = new QElapsedTimer;
+        timer->start();
+        QNetworkReply *rep = m_nam->get(
+            QNetworkRequest(QUrl(QStringLiteral("http://%1:%2/api/info").arg(host).arg(p))));
+        connect(rep, &QNetworkReply::finished, &dlg, [=]() {
+            rep->deleteLater();
+            const qint64 ms = timer->elapsed();
+            delete timer;
+            probeBtn->setEnabled(true);
+            if (rep->error() != QNetworkReply::NoError) {
+                probeResult->setText(QString::fromUtf8(u8"不通：%1").arg(rep->errorString()));
+                return;
+            }
+            const QJsonObject o = QJsonDocument::fromJson(rep->readAll()).object();
+            const QString name = o.value(QStringLiteral("name")).toString();
+            probeResult->setText(QString::fromUtf8(u8"连通 %1 ms%2")
+                                     .arg(ms)
+                                     .arg(name.isEmpty() ? QString()
+                                                         : (QStringLiteral(" · ") + name)));
+        });
+    });
+    connect(ok, &QPushButton::clicked, &dlg, [&]() {
+        const QString host = ip->text().trimmed();
+        bool portOk = false;
+        const int p = port->text().trimmed().toInt(&portOk);
+        if (host.isEmpty() || host.contains(QLatin1Char(' ')) || !portOk || p < 1 || p > 65535) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"IP 或端口无效"));
+            return;
+        }
+        Q_UNUSED(tag);
+        const QString osName = osBox->currentData().toString();
+        m_disc->addManual(host, p, alias->text(), osName);
+        refreshPeers();
+        for (int i = 0; i < m_list->count(); ++i) {
+            QListWidgetItem *it = m_list->item(i);
+            if (it->data(Qt::UserRole).toString() == host
+                && it->data(Qt::UserRole + 1).toInt() == p) {
+                m_list->setCurrentRow(i);
+                break;
+            }
+        }
+        probePeer();
+        dlg.accept();
+    });
+
+    dlg.exec();
 }
 
 void MainWindow::probePeer()

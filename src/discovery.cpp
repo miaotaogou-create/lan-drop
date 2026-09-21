@@ -161,13 +161,14 @@ void Discovery::upsert(const Peer &in)
     emit changed();
 }
 
-Peer Discovery::addManual(const QString &ip, int port, const QString &alias)
+Peer Discovery::addManual(const QString &ip, int port, const QString &alias, const QString &osName)
 {
     Peer p;
     p.ip = ip.trimmed();
     p.port = port > 0 ? port : 8848;
     p.alias = alias.trimmed();
     p.name = p.alias;
+    p.osName = osName.trimmed();
     p.manual = true;
     p.id = p.key();
     upsert(p);
