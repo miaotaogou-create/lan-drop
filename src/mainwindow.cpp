@@ -9,6 +9,8 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
@@ -43,8 +45,11 @@
 #include <QStyle>
 #include <QStyleFactory>
 #include <QSvgRenderer>
+#include <QTextBrowser>
+#include <QTextCursor>
 #include <QTextEdit>
 #include <QTimer>
+#include <QTime>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -348,6 +353,273 @@ static QPixmap makeCheckCircleIcon(int logical = 14)
     return pm;
 }
 
+static QPixmap loadSvgPixmap(const QString &path, int logical)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logical * dpr, logical * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QSvgRenderer r(path);
+    if (r.isValid()) {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        r.render(&p, QRectF(0, 0, logical, logical));
+    }
+    return pm;
+}
+
+static QString nowClock()
+{
+    return QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
+}
+
+static QString htmlEsc(const QString &s)
+{
+    return s.toHtmlEscaped();
+}
+
+static QString humanBytesChat(qint64 n)
+{
+    if (n < 1024)
+        return QString::number(n) + QStringLiteral(" B");
+    if (n < 1024 * 1024)
+        return QString::number(n / 1024.0, 'f', 1) + QStringLiteral(" KB");
+    return QString::number(n / 1024.0 / 1024.0, 'f', 1) + QStringLiteral(" MB");
+}
+
+static QString fileSha256Short(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return QString();
+    QCryptographicHash h(QCryptographicHash::Sha256);
+    if (!h.addData(&f))
+        return QString();
+    const QByteArray hex = h.result().toHex();
+    return QString::fromLatin1(hex.left(16)) + QStringLiteral("...");
+}
+
+static QString letterAvatarHtml(const QString &name, const QString &bg)
+{
+    QString ch = QStringLiteral("?");
+    for (int i = 0; i < name.size(); ++i) {
+        if (!name.at(i).isSpace()) {
+            ch = name.at(i).toUpper();
+            break;
+        }
+    }
+    return QStringLiteral(
+               "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+               "<td width=\"28\" height=\"28\" bgcolor=\"%1\" align=\"center\" valign=\"middle\">"
+               "<font color=\"#ffffff\" size=\"2\"><b>%2</b></font></td></tr></table>")
+        .arg(bg, htmlEsc(ch));
+}
+
+static bool splitCodeFence(const QString &text, QString *lang, QString *body)
+{
+    const QString t = text;
+    if (!t.startsWith(QStringLiteral("```")))
+        return false;
+    int nl = t.indexOf(QLatin1Char('\n'));
+    if (nl < 0)
+        return false;
+    QString head = t.mid(3, nl - 3).trimmed();
+    if (head.isEmpty())
+        head = QStringLiteral("text");
+    int end = t.lastIndexOf(QStringLiteral("```"));
+    if (end <= nl)
+        return false;
+    *lang = head;
+    *body = t.mid(nl + 1, end - nl - 1);
+    if (body->endsWith(QLatin1Char('\n')))
+        body->chop(1);
+    return true;
+}
+
+static QString renderCodeBlock(const QString &lang, const QString &code, bool alignRight)
+{
+    const QString href = QStringLiteral("landrop://copy/")
+        + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+    const QString block =
+        QStringLiteral(
+            "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"420\">"
+            "<tr><td>"
+            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+            "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
+            "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
+            "<font color=\"#93c5fd\" size=\"2\">复制</font></a></td>"
+            "</tr></table>"
+            "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
+            "</td></tr></table>")
+            .arg(htmlEsc(lang), href, htmlEsc(code));
+    if (alignRight)
+        return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                              "<td></td><td align=\"right\" valign=\"top\">%1</td>"
+                              "<td width=\"36\" valign=\"bottom\">%2</td></tr></table>")
+            .arg(block, letterAvatarHtml(QStringLiteral("我"), QStringLiteral("#2563eb")));
+    return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                          "<td width=\"36\" valign=\"bottom\">%1</td>"
+                          "<td align=\"left\" valign=\"top\">%2</td><td></td></tr></table>")
+        .arg(letterAvatarHtml(QStringLiteral("P"), QStringLiteral("#f97316")), block);
+}
+
+static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
+{
+    QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
+    if (failed)
+        return mid + QStringLiteral(" <font color=\"#dc2626\" size=\"2\">发送失败</font>");
+    if (rttMs >= 0) {
+        const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
+        mid += QStringLiteral(" <font color=\"#16a34a\" size=\"2\">✓✓ 已送达 - %1ms</font>").arg(ms);
+    }
+    return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
+}
+
+static QString renderTextBubble(const ChatMsg &m)
+{
+    QString lang;
+    QString code;
+    if (splitCodeFence(m.text, &lang, &code)) {
+        const bool out = (m.type == ChatMsg::TextOut);
+        QString head = metaLine(m.who, m.time, m.rttMs, false);
+        QString block = renderCodeBlock(lang, code, out);
+        // 代码块已含头像；在上方补元数据
+        if (out)
+            return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
+                                  "<td align=\"right\">%1</td><td width=\"36\"></td></tr></table>%2")
+                .arg(head, block);
+        return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
+                              "<td width=\"36\"></td><td align=\"left\">%1</td></tr></table>%2")
+            .arg(head, block);
+    }
+    if (m.type == ChatMsg::TextOut) {
+        return QStringLiteral(
+                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                   "<td></td><td align=\"right\" valign=\"top\">"
+                   "<div>%1</div>"
+                   "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#2563eb\">"
+                   "<tr><td><font color=\"#ffffff\">%2</font></td></tr></table>"
+                   "</td><td width=\"36\" valign=\"bottom\">%3</td></tr></table>")
+            .arg(metaLine(m.who, m.time, m.rttMs, false),
+                 htmlEsc(m.text).replace(QLatin1Char('\n'), QStringLiteral("<br/>")),
+                 letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
+    }
+    return QStringLiteral(
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+               "<td width=\"36\" valign=\"bottom\">%1</td>"
+               "<td align=\"left\" valign=\"top\">"
+               "<div>%2</div>"
+               "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" "
+               "style=\"border:1px solid #e2e8f0;\">"
+               "<tr><td><font color=\"#0f172a\">%3</font></td></tr></table>"
+               "</td><td></td></tr></table>")
+        .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")),
+             metaLine(m.who, m.time, -1, false),
+             htmlEsc(m.text).replace(QLatin1Char('\n'), QStringLiteral("<br/>")));
+}
+
+static QString renderFileCard(const ChatMsg &m)
+{
+    const bool out = (m.type == ChatMsg::FileOut);
+    const QString size = humanBytesChat(m.size);
+    QString sha = m.sha256;
+    if (sha.isEmpty() && !m.path.isEmpty())
+        sha = fileSha256Short(m.path);
+    const QString openHref = m.path.isEmpty()
+        ? QString()
+        : (QStringLiteral("landrop://reveal/")
+           + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding)));
+    QString actions;
+    if (!openHref.isEmpty()) {
+        actions = QStringLiteral(
+                      "<a href=\"%1\" style=\"text-decoration:none;\">"
+                      "<font color=\"#2563eb\" size=\"2\">↓ 下载保存至本地</font></a>"
+                      "&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
+                      .arg(openHref);
+    } else {
+        actions = QStringLiteral("<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
+    }
+    const QString card =
+        QStringLiteral(
+            "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
+            "style=\"border:1px solid #e2e8f0;\">"
+            "<tr><td>"
+            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+            "<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"#ede9fe\">"
+            "<tr><td><font color=\"#7c3aed\" size=\"2\"><b>FILE</b></font></td></tr></table></td>"
+            "<td>"
+            "<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
+            "<font color=\"#94a3b8\" size=\"2\">%2</font>"
+            "</td></tr></table>"
+            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
+            "<tr><td height=\"6\"></td></tr></table>"
+            "<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>"
+            "%3"
+            "<br/>%4"
+            "</td></tr></table>")
+            .arg(htmlEsc(m.text), size,
+                 sha.isEmpty()
+                     ? QString()
+                     : QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>")
+                           .arg(htmlEsc(sha)),
+                 actions);
+    const QString head = metaLine(m.who, m.time, m.rttMs, false);
+    if (out) {
+        return QStringLiteral(
+                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                   "<td></td><td align=\"right\" valign=\"top\">"
+                   "<div>%1</div>%2</td>"
+                   "<td width=\"36\" valign=\"bottom\">%3</td></tr></table>")
+            .arg(head, card, letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
+    }
+    return QStringLiteral(
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+               "<td width=\"36\" valign=\"bottom\">%1</td>"
+               "<td align=\"left\" valign=\"top\"><div>%2</div>%3</td>"
+               "<td></td></tr></table>")
+        .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")), head, card);
+}
+
+static QString renderSystem(const ChatMsg &m)
+{
+    const bool fail = (m.type == ChatMsg::Fail);
+    const QString bg = fail ? QStringLiteral("#fef2f2") : QStringLiteral("#fffbeb");
+    const QString fg = fail ? QStringLiteral("#b91c1c") : QStringLiteral("#b45309");
+    return QStringLiteral(
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
+               "<table cellspacing=\"0\" cellpadding=\"6\" bgcolor=\"%1\">"
+               "<tr><td><font color=\"%2\" size=\"2\">%3</font></td></tr></table>"
+               "</td></tr></table>")
+        .arg(bg, fg, htmlEsc(m.text));
+}
+
+static QString renderChatHtml(const QVector<ChatMsg> &msgs)
+{
+    QString html = QStringLiteral(
+        "<html><body style=\"margin:0;padding:8px;background:#ffffff;\">");
+    for (int i = 0; i < msgs.size(); ++i) {
+        const ChatMsg &m = msgs.at(i);
+        html += QStringLiteral("<div style=\"margin:10px 0;\">");
+        switch (m.type) {
+        case ChatMsg::TextOut:
+        case ChatMsg::TextIn:
+            html += renderTextBubble(m);
+            break;
+        case ChatMsg::FileOut:
+        case ChatMsg::FileIn:
+            html += renderFileCard(m);
+            break;
+        case ChatMsg::System:
+        case ChatMsg::Fail:
+            html += renderSystem(m);
+            break;
+        }
+        html += QStringLiteral("</div>");
+    }
+    html += QStringLiteral("</body></html>");
+    return html;
+}
+
 static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
 {
     QPushButton *b = new QPushButton;
@@ -614,28 +886,38 @@ void MainWindow::buildUi()
     peerHeadLay->addWidget(m_tabChat, 0, Qt::AlignVCenter);
     peerHeadLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
 
+    m_connBannerHost = new QWidget;
+    m_connBannerHost->setObjectName(QStringLiteral("connBannerHost"));
+    QHBoxLayout *bannerHostLay = new QHBoxLayout(m_connBannerHost);
+    bannerHostLay->setContentsMargins(16, 10, 16, 6);
+    bannerHostLay->setSpacing(0);
     m_connBanner = new QWidget;
     m_connBanner->setObjectName(QStringLiteral("connBanner"));
     QHBoxLayout *bannerLay = new QHBoxLayout(m_connBanner);
-    bannerLay->setContentsMargins(16, 6, 16, 6);
+    bannerLay->setContentsMargins(14, 6, 16, 6);
     bannerLay->setSpacing(8);
     QLabel *bannerIcon = new QLabel;
-    bannerIcon->setFixedSize(14, 14);
-    bannerIcon->setPixmap(makeCheckCircleIcon(14));
+    bannerIcon->setFixedSize(16, 16);
+    bannerIcon->setPixmap(loadSvgPixmap(QStringLiteral(":/icons/shield-check.svg"), 16));
     m_connBannerText = new QLabel;
     m_connBannerText->setObjectName(QStringLiteral("connBannerText"));
-    m_connBannerText->setWordWrap(true);
     bannerLay->addWidget(bannerIcon, 0, Qt::AlignVCenter);
-    bannerLay->addWidget(m_connBannerText, 1, Qt::AlignVCenter);
+    bannerLay->addWidget(m_connBannerText, 0, Qt::AlignVCenter);
+    bannerHostLay->addStretch(1);
+    bannerHostLay->addWidget(m_connBanner, 0, Qt::AlignCenter);
+    bannerHostLay->addStretch(1);
 
     QWidget *chatBody = new QWidget;
     QVBoxLayout *chatBodyLay = new QVBoxLayout(chatBody);
     chatBodyLay->setContentsMargins(0, 0, 0, 0);
     chatBodyLay->setSpacing(0);
-    m_chat = new QTextEdit;
+    m_chat = new QTextBrowser;
     m_chat->setObjectName(QStringLiteral("chat"));
     m_chat->setReadOnly(true);
     m_chat->setFrameShape(QFrame::NoFrame);
+    m_chat->setOpenExternalLinks(false);
+    m_chat->setOpenLinks(false);
+    connect(m_chat, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
 
     m_composer = new QWidget;
     m_composer->setObjectName(QStringLiteral("composer"));
@@ -729,7 +1011,7 @@ void MainWindow::buildUi()
     m_sessionStack->addWidget(filesPlaceholder);
 
     chatLay->addWidget(m_peerHeader);
-    chatLay->addWidget(m_connBanner);
+    chatLay->addWidget(m_connBannerHost);
     chatLay->addWidget(m_sessionStack, 1);
 
     m_pages->addWidget(m_emptyHint);
@@ -792,10 +1074,11 @@ void MainWindow::applyStyle()
         "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
         " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #dbeafe; }"
-        "#connBanner { background: #ecfdf5; border-bottom: 1px solid #a7f3d0; }"
-        "#connBannerText { color: #047857; font-size: 12px; }"
+        "#connBannerHost { background: #ffffff; }"
+        "#connBanner { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; }"
+        "#connBannerText { color: #64748b; font-size: 12px; }"
         "#filesPlaceholder { color: #94a3b8; font-size: 13px; padding: 40px; background: #f8fafc; }"
-        "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
+        "#chat { background: #f8fafc; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
@@ -899,21 +1182,6 @@ void MainWindow::refreshShareBtn()
         m_shareBtn->setText(QString::fromUtf8(u8"共享中…"));
     else
         m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
-}
-
-static QPixmap loadSvgPixmap(const QString &path, int logical)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logical * dpr, logical * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QSvgRenderer r(path);
-    if (r.isValid()) {
-        QPainter p(&pm);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        r.render(&p, QRectF(0, 0, logical, logical));
-    }
-    return pm;
 }
 
 static QPixmap makeQrPixmap(const QString &text, int logical)
@@ -1434,7 +1702,7 @@ void MainWindow::showFilesTab()
 
 void MainWindow::updatePeerSession()
 {
-    if (!m_peerHeader || !m_connBanner)
+    if (!m_peerHeader || !m_connBannerHost)
         return;
     QString ip;
     int port = 0;
@@ -1461,7 +1729,7 @@ void MainWindow::updatePeerSession()
     m_peerAddr->setText(addr);
     m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping —  ·  链路 —").arg(osTag));
     m_connBannerText->setText(
-        QString::fromUtf8(u8"已建立局域网直连：%1 (%2)").arg(label).arg(addr));
+        QString::fromUtf8(u8"已建立局域网直连: %1 (%2)").arg(label).arg(addr));
     if (m_tabFiles)
         m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (0)"));
 }
@@ -1475,7 +1743,7 @@ void MainWindow::showChat()
     }
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
-    m_chat->setPlainText(m_log.value(key).join(QStringLiteral("\n")));
+    refreshChatHtml();
     updatePeerSession();
     updateInputPlaceholder();
 }
@@ -1501,19 +1769,51 @@ void MainWindow::noteFail(const QString &key, QNetworkReply *rep)
         why = rep->errorString();
     if (code >= 400)
         why = QString::number(code) + QLatin1Char(' ') + why;
-    note(key, QString::fromUtf8(u8"发送失败：%1").arg(why));
+    ChatMsg m;
+    m.type = ChatMsg::Fail;
+    m.text = QString::fromUtf8(u8"发送失败：%1").arg(why);
+    m.time = nowClock();
+    appendMsg(key, m);
     setProgress(QString());
 }
 
-void MainWindow::note(const QString &key, const QString &line)
+void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
 {
-    QStringList lines = m_log.value(key);
-    lines.append(line);
+    QVector<ChatMsg> lines = m_log.value(key);
+    lines.append(msg);
     if (lines.size() > 500)
         lines = lines.mid(lines.size() - 500);
     m_log.insert(key, lines);
     if (key == currentKey())
-        m_chat->append(line);
+        refreshChatHtml();
+}
+
+void MainWindow::refreshChatHtml()
+{
+    if (!m_chat)
+        return;
+    const QString key = currentKey();
+    m_chat->setHtml(renderChatHtml(m_log.value(key)));
+    QTextCursor c = m_chat->textCursor();
+    c.movePosition(QTextCursor::End);
+    m_chat->setTextCursor(c);
+}
+
+void MainWindow::onChatAnchor(const QUrl &url)
+{
+    if (url.scheme() != QLatin1String("landrop"))
+        return;
+    const QByteArray raw = QByteArray::fromBase64(
+        url.path().mid(1).toLatin1(), QByteArray::Base64UrlEncoding);
+    if (url.host() == QLatin1String("copy")) {
+        QApplication::clipboard()->setText(QString::fromUtf8(raw));
+        return;
+    }
+    if (url.host() == QLatin1String("reveal")) {
+        const QString path = QString::fromUtf8(raw);
+        if (QFileInfo(path).exists())
+            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    }
 }
 
 void MainWindow::onText(const QString &ip, const QString &fromId, const QString &fromName, int fromPort, const QString &text)
@@ -1522,26 +1822,38 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     const int port = fromPort > 0 ? fromPort : 8848;
     m_disc->touch(ip, port, fromId, fromName, QString());
     const QString key = ip + QLatin1Char(':') + QString::number(port);
+    const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
+    ChatMsg m;
+    m.time = nowClock();
+    m.who = who;
     if (text == QLatin1String("__landrop_nudge__")) {
-        const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
-        note(key, QString::fromUtf8(u8"%1 抖动了窗口").arg(who));
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"%1 抖动了窗口").arg(who);
+        appendMsg(key, m);
         if (m_settings.nudgeEnabled)
             shakeWindow();
         return;
     }
-    const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
-    note(key, QString::fromUtf8(u8"%1：%2").arg(who).arg(text));
+    m.type = ChatMsg::TextIn;
+    m.text = text;
+    appendMsg(key, m);
 }
 
 void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
 {
-    Q_UNUSED(path);
     Peer known;
     int port = 8848;
     if (m_disc->find(ip, 8848, &known))
         port = known.port;
-    note(ip + QLatin1Char(':') + QString::number(port),
-         QString::fromUtf8(u8"收到文件 %1（%2 字节）").arg(name).arg(size));
+    ChatMsg m;
+    m.type = ChatMsg::FileIn;
+    m.who = known.name.trimmed().isEmpty() ? ip : known.name.trimmed();
+    m.text = name;
+    m.path = path;
+    m.size = size;
+    m.sha256 = fileSha256Short(path);
+    m.time = nowClock();
+    appendMsg(ip + QLatin1Char(':') + QString::number(port), m);
 }
 
 void MainWindow::sendText()
@@ -1563,17 +1875,26 @@ void MainWindow::sendText()
     const QByteArray body = QJsonDocument(o).toJson(QJsonDocument::Compact);
     QNetworkRequest req(QUrl(QStringLiteral("http://%1:%2/api/inbox").arg(ip).arg(port)));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("application/json; charset=utf-8")));
+    QElapsedTimer *clock = new QElapsedTimer;
+    clock->start();
     QNetworkReply *rep = m_nam->post(req, body);
     const QString key = currentKey();
-    const QString mine = m_settings.deviceName;
     const QString sent = text;
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, mine, sent]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, sent, clock]() {
         rep->deleteLater();
+        const qint64 ms = clock->elapsed();
+        delete clock;
         if (rep->error() != QNetworkReply::NoError) {
             noteFail(key, rep);
             return;
         }
-        note(key, QString::fromUtf8(u8"%1：%2").arg(mine).arg(sent));
+        ChatMsg m;
+        m.type = ChatMsg::TextOut;
+        m.who = QString::fromUtf8(u8"我");
+        m.text = sent;
+        m.rttMs = ms;
+        m.time = nowClock();
+        appendMsg(key, m);
         m_input->clear();
     });
 }
@@ -1591,7 +1912,11 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     QFile *file = new QFile(path);
     if (!file->open(QIODevice::ReadOnly)) {
         delete file;
-        note(currentKey(), QString::fromUtf8(u8"发送失败：打不开 %1").arg(QFileInfo(path).fileName()));
+        ChatMsg m;
+        m.type = ChatMsg::Fail;
+        m.text = QString::fromUtf8(u8"发送失败：打不开 %1").arg(QFileInfo(path).fileName());
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
         if (fromQueue)
             pumpUploadQueue();
         else {
@@ -1601,6 +1926,8 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         return;
     }
     const QString filename = QFileInfo(path).fileName();
+    const qint64 fsize = file->size();
+    const QString sha = fileSha256Short(path);
     QHttpMultiPart *multi = new QHttpMultiPart(QHttpMultiPart::FormDataType);
     QHttpPart part;
     const QByteArray disp = "form-data; name=\"file\"; filename=\"" + filename.toUtf8()
@@ -1610,6 +1937,8 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     file->setParent(multi);
     multi->append(part);
     QNetworkRequest req(QUrl(QStringLiteral("http://%1:%2/api/upload").arg(ip).arg(port)));
+    QElapsedTimer *clock = new QElapsedTimer;
+    clock->start();
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
     const QString key = currentKey();
@@ -1621,8 +1950,10 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         const int pct = int(sent * 100 / total);
         setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
     });
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename, fromQueue]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename, fromQueue, path, fsize, sha, clock]() {
         rep->deleteLater();
+        const qint64 ms = clock->elapsed();
+        delete clock;
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             noteFail(key, rep);
@@ -1630,7 +1961,16 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             m_uploading = false;
             return;
         }
-        note(key, QString::fromUtf8(u8"已发送文件 %1").arg(filename));
+        ChatMsg m;
+        m.type = ChatMsg::FileOut;
+        m.who = QString::fromUtf8(u8"我");
+        m.text = filename;
+        m.path = path;
+        m.size = fsize;
+        m.sha256 = sha;
+        m.rttMs = ms;
+        m.time = nowClock();
+        appendMsg(key, m);
         if (fromQueue)
             pumpUploadQueue();
         else {
@@ -1680,13 +2020,23 @@ void MainWindow::sendFolder()
         return;
     const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
     if (files.isEmpty()) {
-        note(currentKey(), QString::fromUtf8(u8"文件夹为空，没有可发送的文件"));
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"文件夹为空，没有可发送的文件");
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
         return;
     }
     m_uploadQueue.clear();
     for (int i = 0; i < files.size(); ++i)
         m_uploadQueue.append(files.at(i).absoluteFilePath());
-    note(currentKey(), QString::fromUtf8(u8"开始发送文件夹（%1 个文件）").arg(m_uploadQueue.size()));
+    {
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"开始发送文件夹（%1 个文件）").arg(m_uploadQueue.size());
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+    }
     pumpUploadQueue();
 }
 
@@ -1714,7 +2064,11 @@ void MainWindow::nudgePeer()
             noteFail(key, rep);
             return;
         }
-        note(key, QString::fromUtf8(u8"已发送窗口抖动"));
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"已发送窗口抖动");
+        m.time = nowClock();
+        appendMsg(key, m);
         shakeWindow();
     });
 }

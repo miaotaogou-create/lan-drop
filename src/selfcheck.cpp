@@ -3,6 +3,7 @@
 #include "files.h"
 #include "qrcodegen.hpp"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <cstdio>
@@ -56,6 +57,12 @@ int runSelfCheck()
             "http://192.168.1.108:8848/share/", qrcodegen::QrCode::Ecc::MEDIUM);
         if (qr.getSize() < 21 || !qr.getModule(0, 0) || !qr.getModule(qr.getSize() - 1, 0))
             return fail("qr");
+    }
+    {
+        QCryptographicHash h(QCryptographicHash::Sha256);
+        h.addData("test");
+        if (h.result().toHex().left(8) != QByteArray("9f86d081"))
+            return fail("sha256");
     }
     std::printf("self-check ok\n");
     return 0;

@@ -15,6 +15,7 @@
         <file alias="check.svg">check.svg</file>
         <file alias="share-badge.svg">share-badge.svg</file>
         <file alias="power.svg">power.svg</file>
+        <file alias="shield-check.svg">shield-check.svg</file>
     </qresource>
     <qresource prefix="/avatars">
         <file>avatar_ubuntu.svg</file>

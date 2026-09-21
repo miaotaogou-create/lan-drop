@@ -7,6 +7,7 @@
 #include <QMainWindow>
 #include <QPoint>
 #include <QStringList>
+#include <QVector>
 
 class Discovery;
 class HttpServer;
@@ -18,8 +19,21 @@ class QNetworkReply;
 class QPlainTextEdit;
 class QPushButton;
 class QStackedWidget;
-class QTextEdit;
+class QTextBrowser;
+class QUrl;
 class QWidget;
+
+struct ChatMsg {
+    enum Type { TextOut = 0, TextIn, FileOut, FileIn, System, Fail };
+    int type = TextOut;
+    QString who;
+    QString text;
+    QString path;
+    qint64 size = 0;
+    qint64 rttMs = -1;
+    QString sha256;
+    QString time;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -50,12 +64,14 @@ private slots:
     void openShare();
     void showChatTab();
     void showFilesTab();
+    void onChatAnchor(const QUrl &url);
 
 private:
     void boot();
     void buildUi();
     void applyStyle();
-    void note(const QString &key, const QString &line);
+    void appendMsg(const QString &key, const ChatMsg &msg);
+    void refreshChatHtml();
     void updateChrome();
     void updateEmpty();
     void updateHostPill();
@@ -98,10 +114,11 @@ private:
     QLabel *m_peerMeta = 0;
     QPushButton *m_tabChat = 0;
     QPushButton *m_tabFiles = 0;
+    QWidget *m_connBannerHost = 0;
     QWidget *m_connBanner = 0;
     QLabel *m_connBannerText = 0;
     QStackedWidget *m_sessionStack = 0;
-    QTextEdit *m_chat = 0;
+    QTextBrowser *m_chat = 0;
     QPlainTextEdit *m_input = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
@@ -110,7 +127,7 @@ private:
     QWidget *m_composer = 0;
     QWidget *m_inputShell = 0;
 
-    QHash<QString, QStringList> m_log;
+    QHash<QString, QVector<ChatMsg> > m_log;
     QStringList m_uploadQueue;
     bool m_uploading = false;
     QPoint m_dragOrigin;
