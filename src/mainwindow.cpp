@@ -144,6 +144,21 @@ static QPixmap makeLaptopIcon(int logical = 16)
     return pm;
 }
 
+static QPixmap makeStatusDot(bool ok, int logical = 7)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(ok ? QColor(QStringLiteral("#22c55e")) : QColor(QStringLiteral("#f59e0b")));
+    p.drawEllipse(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0));
+    return pm;
+}
+
 static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
 {
     QPushButton *b = new QPushButton;
@@ -213,11 +228,19 @@ void MainWindow::buildUi()
     brandCol->setContentsMargins(0, 0, 0, 0);
     QLabel *brand = new QLabel(QString::fromUtf8(u8"局域快传"));
     brand->setObjectName(QStringLiteral("brand"));
+    QHBoxLayout *statusRow = new QHBoxLayout;
+    statusRow->setContentsMargins(0, 0, 0, 0);
+    statusRow->setSpacing(5);
+    m_statusDot = new QLabel;
+    m_statusDot->setFixedSize(7, 7);
     m_statusLabel = new QLabel;
     m_statusLabel->setObjectName(QStringLiteral("statusOnline"));
-    m_statusLabel->setTextFormat(Qt::RichText);
+    m_statusLabel->setTextFormat(Qt::PlainText);
+    statusRow->addWidget(m_statusDot, 0, Qt::AlignVCenter);
+    statusRow->addWidget(m_statusLabel, 0, Qt::AlignVCenter);
+    statusRow->addStretch(1);
     brandCol->addWidget(brand);
-    brandCol->addWidget(m_statusLabel);
+    brandCol->addLayout(statusRow);
 
     QHBoxLayout *brandRow = new QHBoxLayout;
     brandRow->setSpacing(10);
@@ -227,9 +250,10 @@ void MainWindow::buildUi()
 
     m_hostPill = new QWidget;
     m_hostPill->setObjectName(QStringLiteral("hostPill"));
+    m_hostPill->setFixedHeight(28);
     QHBoxLayout *pillLay = new QHBoxLayout(m_hostPill);
-    pillLay->setContentsMargins(10, 6, 12, 6);
-    pillLay->setSpacing(6);
+    pillLay->setContentsMargins(10, 0, 12, 0);
+    pillLay->setSpacing(5);
     QLabel *hostIcon = new QLabel;
     hostIcon->setFixedSize(16, 16);
     hostIcon->setPixmap(makeLaptopIcon(16));
@@ -239,10 +263,10 @@ void MainWindow::buildUi()
     m_hostName->setObjectName(QStringLiteral("hostName"));
     m_hostIp = new QLabel;
     m_hostIp->setObjectName(QStringLiteral("hostIp"));
-    pillLay->addWidget(hostIcon);
-    pillLay->addWidget(hostTag);
-    pillLay->addWidget(m_hostName);
-    pillLay->addWidget(m_hostIp);
+    pillLay->addWidget(hostIcon, 0, Qt::AlignVCenter);
+    pillLay->addWidget(hostTag, 0, Qt::AlignVCenter);
+    pillLay->addWidget(m_hostName, 0, Qt::AlignVCenter);
+    pillLay->addWidget(m_hostIp, 0, Qt::AlignVCenter);
 
     QPushButton *shareBtn = new QPushButton(QString::fromUtf8(u8"网页共享 (HTTP)"));
     shareBtn->setObjectName(QStringLiteral("shareBtn"));
@@ -260,15 +284,29 @@ void MainWindow::buildUi()
     connect(m_maxBtn, SIGNAL(clicked()), this, SLOT(toggleMax()));
     connect(closeBtn, SIGNAL(clicked()), this, SLOT(closeWin()));
 
-    titleLay->addLayout(brandRow);
-    titleLay->addStretch(1);
-    titleLay->addWidget(m_hostPill);
-    titleLay->addWidget(shareBtn);
-    titleLay->addWidget(setBtn);
-    titleLay->addSpacing(6);
-    titleLay->addWidget(minBtn);
-    titleLay->addWidget(m_maxBtn);
-    titleLay->addWidget(closeBtn);
+    // 左右等宽，胶囊落在窗口水平正中
+    QWidget *leftZone = new QWidget;
+    QHBoxLayout *leftLay = new QHBoxLayout(leftZone);
+    leftLay->setContentsMargins(0, 0, 0, 0);
+    leftLay->setSpacing(0);
+    leftLay->addLayout(brandRow);
+    leftLay->addStretch(1);
+
+    QWidget *rightZone = new QWidget;
+    QHBoxLayout *chromeLay = new QHBoxLayout(rightZone);
+    chromeLay->setContentsMargins(0, 0, 0, 0);
+    chromeLay->setSpacing(12);
+    chromeLay->addStretch(1);
+    chromeLay->addWidget(shareBtn);
+    chromeLay->addWidget(setBtn);
+    chromeLay->addSpacing(6);
+    chromeLay->addWidget(minBtn);
+    chromeLay->addWidget(m_maxBtn);
+    chromeLay->addWidget(closeBtn);
+
+    titleLay->addWidget(leftZone, 1);
+    titleLay->addWidget(m_hostPill, 0, Qt::AlignVCenter);
+    titleLay->addWidget(rightZone, 1);
 
     // —— 主体：左设备列表 + 右会话 ——
     QWidget *body = new QWidget;
@@ -385,7 +423,7 @@ void MainWindow::applyStyle()
         "#logo { background: transparent; border: none; }"
         "#brand { color: #0f172a; font-size: 16px; font-weight: 700; }"
         "#statusOnline { color: #64748b; font-size: 11px; }"
-        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
         "#hostIp { color: #94a3b8; font-size: 12px; font-family: Consolas, 'Courier New', monospace; }"
@@ -505,13 +543,10 @@ void MainWindow::updateHostPill()
 
 void MainWindow::setStatusOnline(const QString &text, bool ok)
 {
-    if (!m_statusLabel)
-        return;
-    const QString dot = ok ? QStringLiteral("#22c55e") : QStringLiteral("#f59e0b");
-    m_statusLabel->setText(
-        QStringLiteral("<span style=\"color:%1;font-size:10px;\">●</span>"
-                       "&nbsp;<span style=\"color:#64748b;\">%2</span>")
-            .arg(dot, text.toHtmlEscaped()));
+    if (m_statusDot)
+        m_statusDot->setPixmap(makeStatusDot(ok));
+    if (m_statusLabel)
+        m_statusLabel->setText(text);
 }
 
 void MainWindow::boot()

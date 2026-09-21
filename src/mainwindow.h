@@ -68,6 +68,7 @@ private:
     QWidget *m_hostPill = 0;
     QLabel *m_hostName = 0;
     QLabel *m_hostIp = 0;
+    QLabel *m_statusDot = 0;
     QLabel *m_statusLabel = 0;
     QLabel *m_peerCount = 0;
     QLabel *m_emptyHint = 0;
