@@ -33,6 +33,7 @@
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QSvgRenderer>
 #include <QTextEdit>
 #include <QTimer>
 #include <QUrl>
@@ -238,76 +239,30 @@ static QPixmap makePeerAvatar(const QString &name, const QString &osName, int lo
     return pm;
 }
 
-enum ToolIcon {
-    ToolPaperclip = 0,
-    ToolFolderPlus,
-    ToolZap,
-    ToolSendPlane
-};
-
-static QPixmap makeToolIcon(ToolIcon kind, const QColor &color, int logical = 16)
+static QPixmap renderSvgIcon(const QString &resPath, int logical = 16)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     const int px = logical * dpr;
     QPixmap pm(px, px);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
+    QSvgRenderer renderer(resPath);
+    if (!renderer.isValid())
+        return pm;
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(color, 1.6);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    switch (kind) {
-    case ToolPaperclip:
-        p.drawArc(QRectF(5.5, 2.5, 5.0, 5.0), 0, 180 * 16);
-        p.drawLine(QPointF(5.5, 5.0), QPointF(5.5, 11.5));
-        p.drawArc(QRectF(5.5, 9.0, 5.0, 5.0), 180 * 16, 180 * 16);
-        p.drawLine(QPointF(10.5, 11.5), QPointF(10.5, 6.5));
-        p.drawArc(QRectF(7.5, 4.5, 3.0, 3.0), 0, 180 * 16);
-        p.drawLine(QPointF(7.5, 6.0), QPointF(7.5, 10.0));
-        break;
-    case ToolFolderPlus:
-        p.drawRoundedRect(QRectF(2.0, 5.0, 12.0, 9.0), 1.2, 1.2);
-        p.drawLine(QPointF(2.0, 7.0), QPointF(6.5, 7.0));
-        p.drawLine(QPointF(2.5, 5.0), QPointF(5.5, 3.0));
-        p.drawLine(QPointF(5.5, 3.0), QPointF(8.0, 5.0));
-        p.drawLine(QPointF(8.5, 9.0), QPointF(12.5, 9.0));
-        p.drawLine(QPointF(10.5, 7.0), QPointF(10.5, 11.0));
-        break;
-    case ToolZap:
-        p.setBrush(color);
-        p.setPen(Qt::NoPen);
-        {
-            QPolygonF z;
-            z << QPointF(9.5, 2.0) << QPointF(5.0, 9.0) << QPointF(8.0, 9.0)
-              << QPointF(6.5, 14.0) << QPointF(11.5, 7.0) << QPointF(8.5, 7.0);
-            p.drawPolygon(z);
-        }
-        break;
-    case ToolSendPlane:
-        p.setBrush(color);
-        p.setPen(Qt::NoPen);
-        {
-            QPolygonF plane;
-            plane << QPointF(2.5, 8.0) << QPointF(13.5, 3.0) << QPointF(2.5, 13.0)
-                  << QPointF(5.5, 8.5);
-            p.drawPolygon(plane);
-        }
-        break;
-    }
+    renderer.render(&p, QRectF(0, 0, logical, logical));
     return pm;
 }
 
-static QPushButton *toolLinkBtn(ToolIcon icon, const QColor &iconColor, const QString &text, const QString &objectName)
+static QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName)
 {
     QPushButton *b = new QPushButton(text);
     b->setObjectName(objectName);
     b->setCursor(Qt::PointingHandCursor);
     b->setFlat(true);
     b->setFocusPolicy(Qt::NoFocus);
-    b->setIcon(QIcon(makeToolIcon(icon, iconColor, 16)));
+    b->setIcon(QIcon(renderSvgIcon(svgRes, 16)));
     b->setIconSize(QSize(16, 16));
     return b;
 }
@@ -555,11 +510,11 @@ void MainWindow::buildUi()
     QHBoxLayout *toolLay = new QHBoxLayout;
     toolLay->setContentsMargins(0, 0, 0, 0);
     toolLay->setSpacing(4);
-    QPushButton *fileBtn = toolLinkBtn(ToolPaperclip, QColor(QStringLiteral("#2563eb")),
+    QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
                                        QString::fromUtf8(u8"发送文件"), QStringLiteral("toolBtn"));
-    QPushButton *folderBtn = toolLinkBtn(ToolFolderPlus, QColor(QStringLiteral("#f97316")),
+    QPushButton *folderBtn = toolLinkBtn(QStringLiteral(":/icons/folder-plus.svg"),
                                          QString::fromUtf8(u8"发送文件夹"), QStringLiteral("toolBtn"));
-    QPushButton *nudgeBtn = toolLinkBtn(ToolZap, QColor(QStringLiteral("#f97316")),
+    QPushButton *nudgeBtn = toolLinkBtn(QStringLiteral(":/icons/zap.svg"),
                                         QString::fromUtf8(u8"抖动窗口"), QStringLiteral("toolBtn"));
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
@@ -593,8 +548,8 @@ void MainWindow::buildUi()
     m_sendBtn->setFixedSize(34, 34);
     m_sendBtn->setCursor(Qt::PointingHandCursor);
     m_sendBtn->setFocusPolicy(Qt::NoFocus);
-    m_sendBtn->setIcon(QIcon(makeToolIcon(ToolSendPlane, Qt::white, 16)));
-    m_sendBtn->setIconSize(QSize(16, 16));
+    m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
+    m_sendBtn->setIconSize(QSize(18, 18));
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 0, 0);
@@ -668,9 +623,9 @@ void MainWindow::applyStyle()
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 13px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
-        "#sendFab { background: #60a5fa; border: none; border-radius: 10px; padding: 0; }"
-        "#sendFab:hover { background: #3b82f6; }"
-        "#sendFab:pressed { background: #2563eb; }"
+        "#sendFab { background: #93c5fd; border: none; border-radius: 8px; padding: 0; }"
+        "#sendFab:hover { background: #60a5fa; }"
+        "#sendFab:pressed { background: #3b82f6; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
