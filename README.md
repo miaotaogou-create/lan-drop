@@ -1,43 +1,47 @@
 # 局域快传
 
-同一网段互传文字和文件。默认 HTTP 端口 **8848**，发现 UDP 端口 **8850**。
+同一网段互传文字和文件。默认传输端口 **8848**（TCP），发现端口 **8850**（UDP）。
 
-## 客户端（单文件）
+这是 Qt 桌面客户端：Windows 和 ARM 麒麟都是自己的窗口，不依赖浏览器，也不依赖 WebView2。界面和 Qt 库打在安装目录里，拷过去就能开。
 
-Windows 双击 `landrop.exe` 会打开**桌面窗口**（内嵌界面，不依赖旁边的 `web` 目录）。  
-若本机没有 WebView2，会自动改用系统浏览器。
+## 怎么用
 
-ARM 麒麟运行 `landrop-linux-arm64` 后，会自动打开浏览器进入界面（界面已打进二进制）。
+Windows：打开 `dist/windows-x64`，双击 `landrop.exe`。
+
+麒麟（aarch64）：把 `dist/linux-arm64` 整个目录拷过去，在目录里执行：
+
+```sh
+chmod +x landrop.sh landrop
+./landrop.sh
+```
+
+中文使用系统里已有的字体（Windows 微软雅黑，麒麟文泉驿 / 思源 / Noto）。X11、fontconfig 用系统自带的，不另外安装 Qt。
+
+## 编译
+
+Windows（本机 Qt 5.14.2 msvc2017_64 + VS2017）：
 
 ```powershell
-powershell -File scripts\build.ps1
+powershell -File scripts\build-windows.ps1
 ```
 
-生成：
+ARM 麒麟（WSL Ubuntu 20.04，已装 `/opt/Qt5.14.2-host`、`/opt/Qt5.14.2-arm64` 和 aarch64 交叉编译器）：
 
-- `landrop.exe` — Windows 单文件客户端
-- `landrop-linux-arm64` — ARM64 Linux 单文件
-
-开发调试（带控制台）：
-
-```text
-go test ./...
-go build -o landrop-console.exe ./cmd/landrop
-.\landrop-console.exe
+```sh
+sh scripts/build-linux-arm64.sh
 ```
 
-强制浏览器模式：`landrop.exe -browser`
+工具链的 glibc 是 2.31，和银河麒麟 V10 SP1 一致。
 
 ## 防火墙
 
-- TCP **8848**（界面、接口、传文件、文本）
-- UDP **8850**（局域网发现）
+- TCP **8848**：文字和文件
+- UDP **8850**：局域网发现
 
-只手动填写对方 IP 时，至少要放行 TCP 8848。
+只手动填对方 IP 时，至少放行 TCP 8848。
 
 ## 说明
 
-配置写在用户配置目录的 `lan-drop/settings.json`（写不了则用 `./data/settings.json`）。  
-下载目录默认 `./downloads`。
+配置在用户配置目录的 `lan-drop/settings.json`（写不了则用程序旁边的 `data/settings.json`）。下载目录默认是程序旁边的 `downloads`。
 
-接口说明见 `docs/design/mvp-architecture.md`。
+协议说明见 `docs/design/mvp-architecture.md`。
