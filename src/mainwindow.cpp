@@ -624,18 +624,31 @@ void MainWindow::buildUi()
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
     connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
-    QLabel *hint = new QLabel(QString::fromUtf8(
-        u8"按 <span style='border:1px solid #cbd5e1;border-radius:4px;padding:1px 6px;"
-        u8"background:#f8fafc;color:#64748b;font-size:11px;'>Enter</span> 发送, "
-        u8"<span style='border:1px solid #cbd5e1;border-radius:4px;padding:1px 6px;"
-        u8"background:#f8fafc;color:#64748b;font-size:11px;'>Shift+Enter</span> 换行"));
-    hint->setObjectName(QStringLiteral("inputHint"));
-    hint->setTextFormat(Qt::RichText);
+    // Qt 富文本不画 span 边框，键帽用独立标签才能看出描边
+    auto hintBit = [](const QString &text) {
+        QLabel *l = new QLabel(text);
+        l->setObjectName(QStringLiteral("inputHint"));
+        return l;
+    };
+    auto keycap = [](const QString &text) {
+        QLabel *k = new QLabel(text);
+        k->setObjectName(QStringLiteral("keycap"));
+        return k;
+    };
+    QWidget *hintRow = new QWidget;
+    QHBoxLayout *hintLay = new QHBoxLayout(hintRow);
+    hintLay->setContentsMargins(0, 0, 0, 0);
+    hintLay->setSpacing(4);
+    hintLay->addWidget(hintBit(QString::fromUtf8(u8"按")));
+    hintLay->addWidget(keycap(QStringLiteral("Enter")));
+    hintLay->addWidget(hintBit(QString::fromUtf8(u8"发送，")));
+    hintLay->addWidget(keycap(QStringLiteral("Shift+Enter")));
+    hintLay->addWidget(hintBit(QString::fromUtf8(u8"换行")));
     toolLay->addWidget(fileBtn);
     toolLay->addWidget(folderBtn);
     toolLay->addWidget(nudgeBtn);
     toolLay->addStretch(1);
-    toolLay->addWidget(hint);
+    toolLay->addWidget(hintRow);
 
     m_inputShell = new QWidget;
     m_inputShell->setObjectName(QStringLiteral("inputShell"));
@@ -754,7 +767,10 @@ void MainWindow::applyStyle()
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
         " padding: 4px 8px; border-radius: 6px; }"
         "#toolBtn:hover { background: #f1f5f9; color: #0f172a; }"
-        "#inputHint { color: #94a3b8; font-size: 12px; }"
+        "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
+        "#keycap { color: #334155; background: #f8fafc; border: 1px solid #64748b;"
+        " border-bottom: 2px solid #475569; border-radius: 4px; padding: 1px 6px;"
+        " font-size: 11px; font-weight: 600; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 13px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
