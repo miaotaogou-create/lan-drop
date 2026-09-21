@@ -4,6 +4,7 @@
 #include "httpserver.h"
 
 #include <QApplication>
+#include <QClipboard>
 #include <QDialog>
 #include <QDir>
 #include <QEvent>
@@ -268,10 +269,11 @@ void MainWindow::buildUi()
     pillLay->addWidget(m_hostName, 0, Qt::AlignVCenter);
     pillLay->addWidget(m_hostIp, 0, Qt::AlignVCenter);
 
-    QPushButton *shareBtn = new QPushButton(QString::fromUtf8(u8"网页共享 (HTTP)"));
-    shareBtn->setObjectName(QStringLiteral("shareBtn"));
-    shareBtn->setCursor(Qt::PointingHandCursor);
-    connect(shareBtn, SIGNAL(clicked()), this, SLOT(webShareSoon()));
+    m_shareBtn = new QPushButton;
+    m_shareBtn->setObjectName(QStringLiteral("shareBtn"));
+    m_shareBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_shareBtn, SIGNAL(clicked()), this, SLOT(openShare()));
+    refreshShareBtn();
 
     QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
     setBtn->setCursor(Qt::PointingHandCursor);
@@ -297,7 +299,7 @@ void MainWindow::buildUi()
     chromeLay->setContentsMargins(0, 0, 0, 0);
     chromeLay->setSpacing(12);
     chromeLay->addStretch(1);
-    chromeLay->addWidget(shareBtn);
+    chromeLay->addWidget(m_shareBtn);
     chromeLay->addWidget(setBtn);
     chromeLay->addSpacing(6);
     chromeLay->addWidget(minBtn);
@@ -528,10 +530,90 @@ void MainWindow::closeWin()
     close();
 }
 
-void MainWindow::webShareSoon()
+void MainWindow::refreshShareBtn()
 {
-    QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                             QString::fromUtf8(u8"网页共享会在后续版本提供。现在可以用左侧设备列表互传文字和文件。"));
+    if (!m_shareBtn)
+        return;
+    if (m_http && !m_http->shareDir().isEmpty())
+        m_shareBtn->setText(QString::fromUtf8(u8"共享中…"));
+    else
+        m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
+}
+
+void MainWindow::openShare()
+{
+    QDialog dlg(this);
+    dlg.setWindowTitle(QString::fromUtf8(u8"网页共享"));
+    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
+    dlg.setMinimumWidth(420);
+
+    QLabel *hint = new QLabel(QString::fromUtf8(
+        u8"选一个本机目录，同网段用浏览器打开下面的地址即可下载文件（只列顶层文件）。"));
+    hint->setWordWrap(true);
+
+    QLineEdit *dirEdit = new QLineEdit(m_http ? m_http->shareDir() : QString());
+    dirEdit->setPlaceholderText(QString::fromUtf8(u8"尚未选择共享目录"));
+    dirEdit->setReadOnly(true);
+    QPushButton *pick = new QPushButton(QString::fromUtf8(u8"选择目录"));
+    connect(pick, &QPushButton::clicked, &dlg, [dirEdit, &dlg]() {
+        const QString picked = QFileDialog::getExistingDirectory(
+            &dlg, QString::fromUtf8(u8"选择要共享的目录"), dirEdit->text());
+        if (!picked.isEmpty())
+            dirEdit->setText(picked);
+    });
+
+    const QString url = QStringLiteral("http://%1:%2/share/")
+                            .arg(localIpText())
+                            .arg(m_settings.port);
+    QLineEdit *urlEdit = new QLineEdit(url);
+    urlEdit->setReadOnly(true);
+
+    QPushButton *copy = new QPushButton(QString::fromUtf8(u8"复制链接"));
+    connect(copy, &QPushButton::clicked, &dlg, [urlEdit]() {
+        QApplication::clipboard()->setText(urlEdit->text());
+    });
+
+    QPushButton *start = new QPushButton(QString::fromUtf8(u8"开启共享"));
+    QPushButton *stop = new QPushButton(QString::fromUtf8(u8"停止共享"));
+    QPushButton *close = new QPushButton(QString::fromUtf8(u8"关闭"));
+    connect(start, &QPushButton::clicked, &dlg, [this, dirEdit, &dlg]() {
+        const QString dir = dirEdit->text().trimmed();
+        if (dir.isEmpty() || !QDir(dir).exists()) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"请先选择有效目录"));
+            return;
+        }
+        m_http->setShareDir(dir);
+        refreshShareBtn();
+        QMessageBox::information(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"已开启网页共享。"));
+    });
+    connect(stop, &QPushButton::clicked, &dlg, [this]() {
+        m_http->setShareDir(QString());
+        refreshShareBtn();
+    });
+    connect(close, SIGNAL(clicked()), &dlg, SLOT(accept()));
+
+    QHBoxLayout *dirRow = new QHBoxLayout;
+    dirRow->addWidget(dirEdit, 1);
+    dirRow->addWidget(pick);
+    QHBoxLayout *urlRow = new QHBoxLayout;
+    urlRow->addWidget(urlEdit, 1);
+    urlRow->addWidget(copy);
+    QHBoxLayout *btns = new QHBoxLayout;
+    btns->addStretch();
+    btns->addWidget(start);
+    btns->addWidget(stop);
+    btns->addWidget(close);
+
+    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+    lay->addWidget(hint);
+    lay->addLayout(dirRow);
+    lay->addWidget(new QLabel(QString::fromUtf8(u8"访问地址")));
+    lay->addLayout(urlRow);
+    lay->addLayout(btns);
+    dlg.exec();
+    refreshShareBtn();
 }
 
 void MainWindow::updateHostPill()
@@ -558,9 +640,16 @@ void MainWindow::boot()
     m_disc->setIdentity(m_id, m_settings.deviceName, m_settings.port);
     m_http->setInfo(m_id, m_settings.deviceName, m_settings.port);
     m_http->setDownloadDir(m_settings.downloadDir);
+    const QByteArray envShare = qgetenv("LANDROP_SHARE_DIR");
+    if (!envShare.isEmpty()) {
+        const QString dir = QString::fromLocal8Bit(envShare);
+        if (QDir(dir).exists())
+            m_http->setShareDir(dir);
+    }
     const bool httpOk = m_http->listen(m_settings.port);
     const bool discOk = m_disc->start(m_settings.discoverPort);
     updateHostPill();
+    refreshShareBtn();
     if (!httpOk) {
         setStatusOnline(QString::fromUtf8(u8"传输端口占用，请在设置里改端口"), false);
         QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),

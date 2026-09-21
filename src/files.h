@@ -13,6 +13,9 @@ QString createUniqueFile(const QString &dir, const QString &filename, QFile *out
 
 bool isVirtualIfaceName(const QString &name);
 
+// 在 root 下解析仅含文件名的 name；拒绝穿越。不存在或非普通文件返回空。
+QString resolveSharedFile(const QString &root, const QString &name);
+
 // 由 IPv4 与掩码算广播地址。掩码无效时返回空。
 QString broadcastAddress(const QString &ipv4, const QString &mask);
 

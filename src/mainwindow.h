@@ -44,7 +44,7 @@ private slots:
     void minimizeWin();
     void toggleMax();
     void closeWin();
-    void webShareSoon();
+    void openShare();
 
 private:
     void boot();
@@ -57,6 +57,7 @@ private:
     void setStatusOnline(const QString &text, bool ok);
     void setProgress(const QString &text);
     void noteFail(const QString &key, QNetworkReply *rep);
+    void refreshShareBtn();
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;
@@ -81,6 +82,7 @@ private:
     QTextEdit *m_chat = 0;
     QLineEdit *m_input = 0;
     QLabel *m_progress = 0;
+    QPushButton *m_shareBtn = 0;
     QPushButton *m_maxBtn = 0;
     QWidget *m_composer = 0;
 

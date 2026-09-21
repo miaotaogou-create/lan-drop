@@ -61,6 +61,26 @@ bool isVirtualIfaceName(const QString &name)
     return false;
 }
 
+QString resolveSharedFile(const QString &root, const QString &name)
+{
+    const QString safe = safeFileName(name);
+    if (safe.isEmpty() || root.trimmed().isEmpty())
+        return QString();
+    const QFileInfo rootInfo(root);
+    if (!rootInfo.isDir())
+        return QString();
+    const QString rootCanon = rootInfo.canonicalFilePath();
+    if (rootCanon.isEmpty())
+        return QString();
+    const QFileInfo fi(QDir(rootCanon).filePath(safe));
+    if (!fi.exists() || !fi.isFile())
+        return QString();
+    // 只允许共享目录顶层文件，父目录必须等于 root
+    if (QFileInfo(fi.absolutePath()).canonicalFilePath() != rootCanon)
+        return QString();
+    return fi.canonicalFilePath();
+}
+
 QString broadcastAddress(const QString &ipv4, const QString &mask)
 {
     QHostAddress ip(ipv4);

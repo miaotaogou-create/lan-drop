@@ -2,6 +2,7 @@
 
 #include "files.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -116,6 +117,11 @@ void HttpServer::setDownloadDir(const QString &dir)
     m_downloadDir = dir;
 }
 
+void HttpServer::setShareDir(const QString &dir)
+{
+    m_shareDir = dir.trimmed();
+}
+
 HttpServer::Conn *HttpServer::connOf(QObject *o)
 {
     QTcpSocket *sock = qobject_cast<QTcpSocket *>(o);
@@ -182,6 +188,114 @@ void HttpServer::finish(Conn *c, int code, const QByteArray &json)
     msg += json;
     c->sock->write(msg);
     c->sock->disconnectFromHost();
+}
+
+void HttpServer::finishHtml(Conn *c, int code, const QByteArray &html)
+{
+    if (!c || c->replied || !c->sock)
+        return;
+    c->replied = true;
+    QByteArray reason = code == 200 ? "OK" : (code == 404 ? "Not Found" : "Error");
+    QByteArray msg = "HTTP/1.1 " + QByteArray::number(code) + " " + reason + "\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Content-Length: " + QByteArray::number(html.size()) + "\r\n"
+        "Connection: close\r\n\r\n";
+    msg += html;
+    c->sock->write(msg);
+    c->sock->disconnectFromHost();
+}
+
+void HttpServer::finishFile(Conn *c, const QString &absPath)
+{
+    if (!c || c->replied || !c->sock)
+        return;
+    QFile f(absPath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        fail(c, 500, QString::fromUtf8(u8"打不开文件"));
+        return;
+    }
+    const QString name = QFileInfo(absPath).fileName();
+    const QByteArray utfName = QUrl::toPercentEncoding(name);
+    const QByteArray asciiName = name.toLatin1();
+    QByteArray disp = "attachment; filename=\"";
+    disp += asciiName.isEmpty() ? QByteArray("file") : asciiName;
+    disp += "\"; filename*=UTF-8''";
+    disp += utfName;
+    c->replied = true;
+    QByteArray head = "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "Content-Disposition: " + disp + "\r\n"
+        "Content-Length: " + QByteArray::number(f.size()) + "\r\n"
+        "Connection: close\r\n\r\n";
+    c->sock->write(head);
+    // 流式读盘，不把整文件塞进内存
+    while (!f.atEnd()) {
+        const QByteArray chunk = f.read(64 * 1024);
+        if (chunk.isEmpty())
+            break;
+        if (c->sock->write(chunk) != chunk.size())
+            break;
+        c->sock->flush();
+    }
+    c->sock->disconnectFromHost();
+}
+
+bool HttpServer::tryShare(Conn *c)
+{
+    if (c->method != QLatin1String("GET"))
+        return false;
+    if (c->path != QLatin1String("/share") && c->path != QLatin1String("/share/")
+        && !c->path.startsWith(QLatin1String("/share/")))
+        return false;
+
+    if (m_shareDir.isEmpty() || !QDir(m_shareDir).exists()) {
+        finishHtml(c, 404, QString::fromUtf8(
+            u8"<!doctype html><meta charset=utf-8><title>局域快传</title><p>网页共享未开启。</p>").toUtf8());
+        return true;
+    }
+
+    if (c->path == QLatin1String("/share") || c->path == QLatin1String("/share/")) {
+        const QFileInfoList files = QDir(m_shareDir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+        QString html;
+        html += QString::fromUtf8(u8"<!doctype html><meta charset=utf-8><title>");
+        html += m_name.toHtmlEscaped();
+        html += QString::fromUtf8(u8" - 网页共享</title>");
+        html += QString::fromUtf8(u8"<style>body{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#0f172a}"
+                                 "a{color:#2563eb;text-decoration:none}li{margin:8px 0;color:#475569}</style>");
+        html += QString::fromUtf8(u8"<h1>");
+        html += m_name.toHtmlEscaped();
+        html += QString::fromUtf8(u8"</h1><p>共享目录文件（共 ");
+        html += QString::number(files.size());
+        html += QString::fromUtf8(u8" 个）</p><ul>");
+        for (int i = 0; i < files.size(); ++i) {
+            const QString fname = files.at(i).fileName();
+            const QByteArray enc = QUrl::toPercentEncoding(fname);
+            const QString href = QStringLiteral("/share/") + QString::fromUtf8(enc);
+            html += QString::fromUtf8(u8"<li><a href=\"");
+            html += href.toHtmlEscaped();
+            html += QString::fromUtf8(u8"\">");
+            html += fname.toHtmlEscaped();
+            html += QString::fromUtf8(u8"</a> <span>（");
+            html += QString::number(files.at(i).size());
+            html += QString::fromUtf8(u8" 字节）</span></li>");
+        }
+        if (files.isEmpty())
+            html += QString::fromUtf8(u8"<li>目录为空</li>");
+        html += QString::fromUtf8(u8"</ul>");
+        finishHtml(c, 200, html.toUtf8());
+        return true;
+    }
+
+    const QString raw = c->path.mid(QStringLiteral("/share/").size());
+    const QString name = QString::fromUtf8(QByteArray::fromPercentEncoding(raw.toUtf8()));
+    const QString abs = resolveSharedFile(m_shareDir, name);
+    if (abs.isEmpty()) {
+        finishHtml(c, 404, QString::fromUtf8(
+            u8"<!doctype html><meta charset=utf-8><title>局域快传</title><p>没有这个文件。</p>").toUtf8());
+        return true;
+    }
+    finishFile(c, abs);
+    return true;
 }
 
 void HttpServer::fail(Conn *c, int code, const QString &msg)
@@ -274,6 +388,9 @@ void HttpServer::takeBytes(Conn *c)
         finish(c, 200, QJsonDocument(o).toJson(QJsonDocument::Compact));
         return;
     }
+
+    if (tryShare(c))
+        return;
 
     if (!c->multipart) {
         if (c->jsonBody.size() + c->buf.size() > c->contentLength && c->contentLength >= 0)

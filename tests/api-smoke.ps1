@@ -20,6 +20,11 @@ function Resolve-Saved([string]$path) {
 
 $proc = $null
 try {
+    $shareDir = Join-Path $tmp "share-pub"
+    New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
+    $shareFile = Join-Path $shareDir "hello-share.txt"
+    [System.IO.File]::WriteAllText($shareFile, "share-ok", [System.Text.UTF8Encoding]::new($false))
+    $env:LANDROP_SHARE_DIR = $shareDir
     $proc = Start-Process -FilePath $exe -WorkingDirectory $tmp -PassThru
     $info = $null
     $deadline = (Get-Date).AddSeconds(8)
@@ -34,6 +39,15 @@ try {
     if (-not $info) { throw "8 秒内没有 /api/info" }
     if (-not $info.name -or -not $info.port) { throw "/api/info 缺少 name 或 port" }
     Write-Host ("info name={0} port={1}" -f $info.name, $info.port)
+
+    $sharePage = Invoke-WebRequest -Uri "http://127.0.0.1:8848/share/" -UseBasicParsing -TimeoutSec 3
+    if ($sharePage.StatusCode -ne 200) { throw "共享列表状态码 $($sharePage.StatusCode)" }
+    if ($sharePage.Content -notmatch "hello-share\.txt") { throw "共享列表缺少 hello-share.txt" }
+    $dl = Join-Path $tmp "got-share.txt"
+    curl.exe -sS -o $dl "http://127.0.0.1:8848/share/hello-share.txt" | Out-Null
+    $gotShare = [System.IO.File]::ReadAllText($dl, [System.Text.UTF8Encoding]::new($false))
+    if ($gotShare -ne "share-ok") { throw "共享下载内容不对: $gotShare" }
+    Write-Host "share list+download ok"
 
     $inboxBody = '{"fromId":"smoke","fromName":"测试机","fromPort":8848,"text":"中文命令 echo 你好"}'
     $inbox = Invoke-WebRequest -Uri "http://127.0.0.1:8848/api/inbox" -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($inboxBody)) -ContentType "application/json; charset=utf-8" -UseBasicParsing
@@ -94,6 +108,7 @@ try {
     if ($deltaMb -gt 80) { throw "发送/接收后工作集大约涨了 $deltaMb MB，不像流式" }
     Write-Host "smoke ok"
 } finally {
+    Remove-Item Env:LANDROP_SHARE_DIR -ErrorAction SilentlyContinue
     if ($proc -and -not $proc.HasExited) {
         Stop-Process -Id $proc.Id -Force
         Start-Sleep -Milliseconds 500
