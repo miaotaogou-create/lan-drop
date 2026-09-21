@@ -36,6 +36,7 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
+#include <QStyleFactory>
 #include <QSvgRenderer>
 #include <QTextEdit>
 #include <QTimer>
@@ -1489,6 +1490,16 @@ void MainWindow::addPeer()
         "#addPeerField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
         " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
         "#addPeerField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#addPeerCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 7px 32px 7px 10px; color: #0f172a; min-height: 20px; }"
+        "#addPeerCombo:hover { border-color: #cbd5e1; }"
+        "#addPeerCombo:on { background: #ffffff; border-color: #3b82f6; }"
+        "#addPeerCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
+        " width: 28px; border: none; background: transparent; }"
+        "#addPeerCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
+        "#addPeerCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
+        " outline: 0; padding: 4px; selection-background-color: #eff6ff;"
+        " selection-color: #1e3a8a; color: #0f172a; }"
         "#addPeerProbe { background: transparent; border: none; color: #2563eb; font-size: 12px;"
         " font-weight: 600; text-align: left; padding: 0; }"
         "#addPeerProbe:hover { color: #1d4ed8; }"
@@ -1590,7 +1601,12 @@ void MainWindow::addPeer()
     QVBoxLayout *osCol = new QVBoxLayout;
     osCol->setSpacing(4);
     QComboBox *osBox = new QComboBox;
-    osBox->setObjectName(QStringLiteral("addPeerField"));
+    osBox->setObjectName(QStringLiteral("addPeerCombo"));
+    osBox->setEditable(false);
+    osBox->setFocusPolicy(Qt::StrongFocus);
+    // 避免 Windows 原生下拉条盖掉样式表
+    if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
+        osBox->setStyle(fusion);
     osBox->addItem(QStringLiteral("Windows PC"), QStringLiteral("windows"));
     osBox->addItem(QString::fromUtf8(u8"Linux (Ubuntu / 麒麟)"), QStringLiteral("linux"));
     osBox->addItem(QString::fromUtf8(u8"ARM64 Linux (工控/树莓派)"), QStringLiteral("arm-linux"));

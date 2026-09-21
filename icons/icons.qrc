@@ -9,6 +9,7 @@
         <file alias="badge-cpu.svg">badge-cpu.svg</file>
         <file alias="badge-server.svg">badge-server.svg</file>
         <file alias="badge-phone.svg">badge-phone.svg</file>
+        <file alias="chevron-down.svg">chevron-down.svg</file>
     </qresource>
     <qresource prefix="/avatars">
         <file>avatar_ubuntu.svg</file>
