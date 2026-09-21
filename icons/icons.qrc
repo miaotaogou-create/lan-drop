@@ -12,6 +12,7 @@
         <file alias="chevron-down.svg">chevron-down.svg</file>
         <file alias="globe.svg">globe.svg</file>
         <file alias="settings-white.svg">settings-white.svg</file>
+        <file alias="check.svg">check.svg</file>
     </qresource>
     <qresource prefix="/avatars">
         <file>avatar_ubuntu.svg</file>

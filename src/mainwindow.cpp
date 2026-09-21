@@ -1777,7 +1777,7 @@ void MainWindow::editSettings()
         "#settingsCheck::indicator { width: 16px; height: 16px; border-radius: 4px;"
         " border: 1px solid #cbd5e1; background: #ffffff; }"
         "#settingsCheck::indicator:checked { background: #2563eb; border-color: #2563eb;"
-        " image: none; }"
+        " image: url(:/icons/check.svg); }"
         "#settingsFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
         " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
         "#settingsSave { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
