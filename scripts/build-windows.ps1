@@ -30,7 +30,7 @@ $trDir = Join-Path $dist "translations"
 New-Item -ItemType Directory -Force -Path $trDir | Out-Null
 if (Test-Path $trSrc) { Copy-Item $trSrc $trDir -Force }
 
-& (Join-Path $dist "landrop.exe") --self-check
-if ($LASTEXITCODE -ne 0) { throw "self-check 失败" }
+$check = Start-Process -FilePath (Join-Path $dist "landrop.exe") -ArgumentList "--self-check" -Wait -PassThru -NoNewWindow
+if ($check.ExitCode -ne 0) { throw "self-check 失败: $($check.ExitCode)" }
 
 Write-Host "Windows 安装目录: $dist"
