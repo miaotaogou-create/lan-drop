@@ -1,4 +1,4 @@
-#include "httpserver.h"
+﻿#include "httpserver.h"
 
 #include "files.h"
 
@@ -208,7 +208,7 @@ void HttpServer::takeBytes(Conn *c)
         const int cut = c->buf.indexOf("\r\n\r\n");
         if (cut < 0) {
             if (c->buf.size() > 65536)
-                fail(c, 400, QStringLiteral("请求头过大"));
+                fail(c, 400, QString::fromUtf8(u8"请求头过大"));
             return;
         }
         const QByteArray head = c->buf.left(cut);
@@ -217,7 +217,7 @@ void HttpServer::takeBytes(Conn *c)
         const QByteArray req = lineEnd >= 0 ? head.left(lineEnd) : head;
         const QList<QByteArray> parts = req.split(' ');
         if (parts.size() < 2) {
-            fail(c, 400, QStringLiteral("请求行无效"));
+            fail(c, 400, QString::fromUtf8(u8"请求行无效"));
             return;
         }
         c->method = QString::fromLatin1(parts.at(0));
@@ -228,14 +228,14 @@ void HttpServer::takeBytes(Conn *c)
         const QString len = headerValue(head, "content-length");
         c->contentLength = len.isEmpty() ? 0 : len.toLongLong();
         if (c->contentLength < 0 || c->contentLength > (qint64(8) << 30)) {
-            fail(c, 400, QStringLiteral("长度无效"));
+            fail(c, 400, QString::fromUtf8(u8"长度无效"));
             return;
         }
         const QString ctype = headerValue(head, "content-type");
         if (ctype.contains(QLatin1String("multipart/form-data"), Qt::CaseInsensitive)) {
             const int b = ctype.indexOf(QLatin1String("boundary="), 0, Qt::CaseInsensitive);
             if (b < 0) {
-                fail(c, 400, QStringLiteral("缺少 boundary"));
+                fail(c, 400, QString::fromUtf8(u8"缺少 boundary"));
                 return;
             }
             QString bound = ctype.mid(b + 9).trimmed();
@@ -287,7 +287,7 @@ void HttpServer::takeBytes(Conn *c)
             const QJsonObject o = QJsonDocument::fromJson(c->jsonBody).object();
             const QString text = o.value(QStringLiteral("text")).toString();
             if (text.trimmed().isEmpty()) {
-                fail(c, 400, QStringLiteral("文本不能为空"));
+                fail(c, 400, QString::fromUtf8(u8"文本不能为空"));
                 return;
             }
             QString fromId = o.value(QStringLiteral("fromId")).toString();
@@ -300,12 +300,12 @@ void HttpServer::takeBytes(Conn *c)
             finish(c, 200, QJsonDocument(ok).toJson(QJsonDocument::Compact));
             return;
         }
-        fail(c, 404, QStringLiteral("没有这个接口"));
+        fail(c, 404, QString::fromUtf8(u8"没有这个接口"));
         return;
     }
 
     if (c->method != QLatin1String("POST") || c->path != QLatin1String("/api/upload")) {
-        fail(c, 404, QStringLiteral("没有这个接口"));
+        fail(c, 404, QString::fromUtf8(u8"没有这个接口"));
         return;
     }
 
@@ -319,7 +319,7 @@ void HttpServer::takeBytes(Conn *c)
                 if (c->buf.size() > first.size() + 4096)
                     c->buf = c->buf.right(first.size() + 8);
                 if (c->seen + c->buf.size() > c->contentLength)
-                    fail(c, 400, QStringLiteral("找不到文件段"));
+                    fail(c, 400, QString::fromUtf8(u8"找不到文件段"));
                 return;
             }
             c->seen += at;
@@ -339,7 +339,7 @@ void HttpServer::takeBytes(Conn *c)
             const int cut = c->hold.indexOf("\r\n\r\n");
             if (cut < 0) {
                 if (c->hold.size() > 65536)
-                    fail(c, 400, QStringLiteral("段头过大"));
+                    fail(c, 400, QString::fromUtf8(u8"段头过大"));
                 return;
             }
             const QByteArray ph = c->hold.left(cut);
@@ -352,12 +352,12 @@ void HttpServer::takeBytes(Conn *c)
             c->phase = 2;
             if (c->isFile) {
                 if (c->fileName.isEmpty())
-                    c->fileName = QStringLiteral("未命名文件");
+                    c->fileName = QString::fromUtf8(u8"未命名文件");
                 c->file = new QFile;
                 if (createUniqueFile(m_downloadDir, c->fileName, c->file).isEmpty()) {
                     delete c->file;
                     c->file = 0;
-                    fail(c, 500, QStringLiteral("保存文件失败"));
+                    fail(c, 500, QString::fromUtf8(u8"保存文件失败"));
                     return;
                 }
             }
@@ -373,20 +373,20 @@ void HttpServer::takeBytes(Conn *c)
                 c->seen += chunk.size();
                 if (c->file) {
                     if (c->file->write(chunk) != chunk.size()) {
-                        fail(c, 500, QStringLiteral("写入失败"));
+                        fail(c, 500, QString::fromUtf8(u8"写入失败"));
                         return;
                     }
                     c->fileSize += chunk.size();
                 }
             }
             if (c->seen + c->buf.size() >= c->contentLength)
-                fail(c, 400, QStringLiteral("缺少文件"));
+                fail(c, 400, QString::fromUtf8(u8"缺少文件"));
             return;
         }
         const QByteArray chunk = c->buf.left(at);
         if (c->file) {
             if (c->file->write(chunk) != chunk.size()) {
-                fail(c, 500, QStringLiteral("写入失败"));
+                fail(c, 500, QString::fromUtf8(u8"写入失败"));
                 return;
             }
             c->file->flush();
@@ -415,7 +415,7 @@ void HttpServer::takeBytes(Conn *c)
         c->seen += nl + 1;
         c->buf.remove(0, nl + 1);
         if (last) {
-            fail(c, 400, QStringLiteral("缺少文件"));
+            fail(c, 400, QString::fromUtf8(u8"缺少文件"));
             return;
         }
         c->phase = 1;

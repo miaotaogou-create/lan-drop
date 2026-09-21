@@ -1,4 +1,4 @@
-#include "selfcheck.h"
+﻿#include "selfcheck.h"
 
 #include "files.h"
 
@@ -16,11 +16,11 @@ int runSelfCheck()
         return fail("path escape");
     if (safeFileName(QStringLiteral("..")) == QLatin1String(".."))
         return fail("dotdot");
-    if (safeFileName(QStringLiteral("说明.txt")) != QStringLiteral("说明.txt"))
+    if (safeFileName(QString::fromUtf8(u8"说明.txt")) != QString::fromUtf8(u8"说明.txt"))
         return fail("chinese name");
     if (!isVirtualIfaceName(QStringLiteral("vEthernet (WSL)")))
         return fail("virtual nic");
-    if (isVirtualIfaceName(QStringLiteral("以太网")))
+    if (isVirtualIfaceName(QString::fromUtf8(u8"以太网")))
         return fail("real nic");
     if (broadcastAddress(QStringLiteral("10.0.0.5"), QStringLiteral("255.255.255.0")) != QLatin1String("10.0.0.255"))
         return fail("broadcast");

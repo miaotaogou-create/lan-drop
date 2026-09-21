@@ -1,4 +1,4 @@
-#include "settings.h"
+﻿#include "settings.h"
 
 #include <QDir>
 #include <QFile>
@@ -36,7 +36,7 @@ Settings Settings::defaults()
     Settings s;
     s.deviceName = QHostInfo::localHostName();
     if (s.deviceName.trimmed().isEmpty())
-        s.deviceName = QStringLiteral("局域快传");
+        s.deviceName = QString::fromUtf8(u8"局域快传");
     s.port = 8848;
     s.discoverPort = 8850;
     s.downloadDir = QStringLiteral("./downloads");

@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "selfcheck.h"
 
 #include <QApplication>
@@ -16,11 +16,11 @@ static void useChineseFont(QApplication &app)
 {
     const QStringList prefer = QStringList()
         << QStringLiteral("Microsoft YaHei")
-        << QStringLiteral("微软雅黑")
+        << QString::fromUtf8(u8"微软雅黑")
         << QStringLiteral("Noto Sans CJK SC")
         << QStringLiteral("Source Han Sans SC")
         << QStringLiteral("WenQuanYi Micro Hei")
-        << QStringLiteral("文泉驿微米黑");
+        << QString::fromUtf8(u8"文泉驿微米黑");
     const QStringList fams = QFontDatabase().families();
     for (int i = 0; i < prefer.size(); ++i) {
         if (fams.contains(prefer.at(i))) {
