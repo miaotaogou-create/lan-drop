@@ -27,11 +27,13 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPlainTextEdit>
 #include <QtMath>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QStyle>
 #include <QSvgRenderer>
 #include <QTextEdit>
 #include <QTimer>
@@ -243,6 +245,72 @@ static QPixmap makeStatusDot(bool ok, int logical = 7)
     p.setPen(Qt::NoPen);
     p.setBrush(ok ? QColor(QStringLiteral("#22c55e")) : QColor(QStringLiteral("#f59e0b")));
     p.drawEllipse(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0));
+    return pm;
+}
+
+static QPixmap makeChatBubbleIcon(int logical = 14)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(QRectF(1.5, 1.5, logical - 3.5, logical - 5.5), 2.5, 2.5);
+    p.drawLine(QPointF(4.0, logical - 3.0), QPointF(6.5, logical - 5.5));
+    return pm;
+}
+
+static QPixmap makeFileDocIcon(int logical = 14)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const QRectF body(3.0, 1.5, logical - 6.0, logical - 3.0);
+    p.drawRoundedRect(body, 1.5, 1.5);
+    p.drawLine(QPointF(5.5, 5.0), QPointF(logical - 5.5, 5.0));
+    p.drawLine(QPointF(5.5, 8.0), QPointF(logical - 5.5, 8.0));
+    p.drawLine(QPointF(5.5, 11.0), QPointF(logical - 7.0, 11.0));
+    return pm;
+}
+
+static QPixmap makeCheckCircleIcon(int logical = 14)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#059669")));
+    p.drawEllipse(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0));
+    QPen pen(Qt::white, 1.6);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    QPainterPath path;
+    path.moveTo(3.5, logical * 0.52);
+    path.lineTo(5.8, logical * 0.70);
+    path.lineTo(logical - 3.2, logical * 0.32);
+    p.drawPath(path);
     return pm;
 }
 
@@ -459,6 +527,77 @@ void MainWindow::buildUi()
     QVBoxLayout *chatLay = new QVBoxLayout(chatPage);
     chatLay->setContentsMargins(0, 0, 0, 0);
     chatLay->setSpacing(0);
+
+    m_peerHeader = new QWidget;
+    m_peerHeader->setObjectName(QStringLiteral("peerHeader"));
+    m_peerHeader->setFixedHeight(64);
+    QHBoxLayout *peerHeadLay = new QHBoxLayout(m_peerHeader);
+    peerHeadLay->setContentsMargins(16, 8, 16, 8);
+    peerHeadLay->setSpacing(12);
+
+    m_peerAvatar = new QLabel;
+    m_peerAvatar->setObjectName(QStringLiteral("peerAvatar"));
+    m_peerAvatar->setFixedSize(44, 44);
+
+    QVBoxLayout *peerInfoCol = new QVBoxLayout;
+    peerInfoCol->setContentsMargins(0, 0, 0, 0);
+    peerInfoCol->setSpacing(3);
+    QHBoxLayout *peerTitleRow = new QHBoxLayout;
+    peerTitleRow->setContentsMargins(0, 0, 0, 0);
+    peerTitleRow->setSpacing(8);
+    m_peerName = new QLabel;
+    m_peerName->setObjectName(QStringLiteral("peerName"));
+    m_peerOnlineDot = new QLabel;
+    m_peerOnlineDot->setFixedSize(8, 8);
+    m_peerAddr = new QLabel;
+    m_peerAddr->setObjectName(QStringLiteral("peerAddr"));
+    peerTitleRow->addWidget(m_peerName, 0, Qt::AlignVCenter);
+    peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
+    peerTitleRow->addWidget(m_peerAddr, 0, Qt::AlignVCenter);
+    peerTitleRow->addStretch(1);
+    m_peerMeta = new QLabel;
+    m_peerMeta->setObjectName(QStringLiteral("peerMeta"));
+    peerInfoCol->addLayout(peerTitleRow);
+    peerInfoCol->addWidget(m_peerMeta);
+
+    m_tabChat = new QPushButton(QString::fromUtf8(u8"即时聊天"));
+    m_tabChat->setObjectName(QStringLiteral("sessionTab"));
+    m_tabChat->setCursor(Qt::PointingHandCursor);
+    m_tabChat->setFocusPolicy(Qt::NoFocus);
+    m_tabChat->setIcon(QIcon(makeChatBubbleIcon(14)));
+    m_tabChat->setIconSize(QSize(14, 14));
+    m_tabFiles = new QPushButton(QString::fromUtf8(u8"文件传输 (0)"));
+    m_tabFiles->setObjectName(QStringLiteral("sessionTab"));
+    m_tabFiles->setCursor(Qt::PointingHandCursor);
+    m_tabFiles->setFocusPolicy(Qt::NoFocus);
+    m_tabFiles->setIcon(QIcon(makeFileDocIcon(14)));
+    m_tabFiles->setIconSize(QSize(14, 14));
+    connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
+    connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
+
+    peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
+    peerHeadLay->addLayout(peerInfoCol, 1);
+    peerHeadLay->addWidget(m_tabChat, 0, Qt::AlignVCenter);
+    peerHeadLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
+
+    m_connBanner = new QWidget;
+    m_connBanner->setObjectName(QStringLiteral("connBanner"));
+    QHBoxLayout *bannerLay = new QHBoxLayout(m_connBanner);
+    bannerLay->setContentsMargins(16, 6, 16, 6);
+    bannerLay->setSpacing(8);
+    QLabel *bannerIcon = new QLabel;
+    bannerIcon->setFixedSize(14, 14);
+    bannerIcon->setPixmap(makeCheckCircleIcon(14));
+    m_connBannerText = new QLabel;
+    m_connBannerText->setObjectName(QStringLiteral("connBannerText"));
+    m_connBannerText->setWordWrap(true);
+    bannerLay->addWidget(bannerIcon, 0, Qt::AlignVCenter);
+    bannerLay->addWidget(m_connBannerText, 1, Qt::AlignVCenter);
+
+    QWidget *chatBody = new QWidget;
+    QVBoxLayout *chatBodyLay = new QVBoxLayout(chatBody);
+    chatBodyLay->setContentsMargins(0, 0, 0, 0);
+    chatBodyLay->setSpacing(0);
     m_chat = new QTextEdit;
     m_chat->setObjectName(QStringLiteral("chat"));
     m_chat->setReadOnly(true);
@@ -528,8 +667,23 @@ void MainWindow::buildUi()
     compCol->addLayout(toolLay);
     compCol->addWidget(m_inputShell);
 
-    chatLay->addWidget(m_chat, 1);
-    chatLay->addWidget(m_composer);
+    chatBodyLay->addWidget(m_chat, 1);
+    chatBodyLay->addWidget(m_composer);
+
+    QLabel *filesPlaceholder = new QLabel(QString::fromUtf8(
+        u8"文件传输列表将在后续版本实现。\n本轮只对齐「文件传输」页壳。"));
+    filesPlaceholder->setObjectName(QStringLiteral("filesPlaceholder"));
+    filesPlaceholder->setAlignment(Qt::AlignCenter);
+    filesPlaceholder->setWordWrap(true);
+
+    m_sessionStack = new QStackedWidget;
+    m_sessionStack->setObjectName(QStringLiteral("sessionStack"));
+    m_sessionStack->addWidget(chatBody);
+    m_sessionStack->addWidget(filesPlaceholder);
+
+    chatLay->addWidget(m_peerHeader);
+    chatLay->addWidget(m_connBanner);
+    chatLay->addWidget(m_sessionStack, 1);
 
     m_pages->addWidget(m_emptyHint);
     m_pages->addWidget(chatPage);
@@ -541,6 +695,7 @@ void MainWindow::buildUi()
     rootLay->addWidget(m_titleBar);
     rootLay->addWidget(body, 1);
     setCentralWidget(root);
+    setSessionTab(0);
 }
 
 void MainWindow::applyStyle()
@@ -579,6 +734,20 @@ void MainWindow::applyStyle()
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
         "#right { background: #ffffff; }"
         "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #ffffff; }"
+        "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
+        "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
+        " background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }"
+        "#peerMeta { color: #94a3b8; font-size: 11px; }"
+        "#sessionTab { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 10px;"
+        " color: #1d4ed8; padding: 6px 12px; font-size: 12px; font-weight: 600; }"
+        "#sessionTab:hover { background: #eff6ff; }"
+        "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
+        " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
+        "#sessionTabActive:hover { background: #dbeafe; }"
+        "#connBanner { background: #ecfdf5; border-bottom: 1px solid #a7f3d0; }"
+        "#connBannerText { color: #047857; font-size: 12px; }"
+        "#filesPlaceholder { color: #94a3b8; font-size: 13px; padding: 40px; background: #f8fafc; }"
         "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
@@ -863,6 +1032,8 @@ void MainWindow::updateEmpty()
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);
     updateInputPlaceholder();
+    if (hasPeer)
+        updatePeerSession();
 }
 
 void MainWindow::refreshPeers()
@@ -905,6 +1076,72 @@ void MainWindow::refreshPeers()
     updateHostPill();
 }
 
+void MainWindow::setSessionTab(int index)
+{
+    if (!m_sessionStack)
+        return;
+    const int i = (index == 1) ? 1 : 0;
+    m_sessionStack->setCurrentIndex(i);
+    if (m_tabChat) {
+        m_tabChat->setObjectName(i == 0 ? QStringLiteral("sessionTabActive")
+                                          : QStringLiteral("sessionTab"));
+        m_tabChat->style()->unpolish(m_tabChat);
+        m_tabChat->style()->polish(m_tabChat);
+        m_tabChat->update();
+    }
+    if (m_tabFiles) {
+        m_tabFiles->setObjectName(i == 1 ? QStringLiteral("sessionTabActive")
+                                           : QStringLiteral("sessionTab"));
+        m_tabFiles->style()->unpolish(m_tabFiles);
+        m_tabFiles->style()->polish(m_tabFiles);
+        m_tabFiles->update();
+    }
+}
+
+void MainWindow::showChatTab()
+{
+    setSessionTab(0);
+}
+
+void MainWindow::showFilesTab()
+{
+    setSessionTab(1);
+}
+
+void MainWindow::updatePeerSession()
+{
+    if (!m_peerHeader || !m_connBanner)
+        return;
+    QString ip;
+    int port = 0;
+    QString name;
+    if (!currentPeer(&ip, &port, &name))
+        return;
+
+    Peer peer;
+    const bool found = m_disc && m_disc->find(ip, port, &peer);
+    if (!found) {
+        peer.ip = ip;
+        peer.port = port;
+        peer.name = name;
+    }
+    const QString label = peer.label().isEmpty() ? name : peer.label();
+    const QString addr = QStringLiteral("%1:%2").arg(ip).arg(port);
+    const QString osTag = peer.osName.trimmed().isEmpty()
+        ? QString::fromUtf8(u8"未知系统")
+        : peer.osName.trimmed();
+
+    m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 44));
+    m_peerName->setText(label);
+    m_peerOnlineDot->setPixmap(makeStatusDot(found ? peer.online() : true, 8));
+    m_peerAddr->setText(addr);
+    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping —  ·  链路 —").arg(osTag));
+    m_connBannerText->setText(
+        QString::fromUtf8(u8"已建立局域网直连：%1 (%2)").arg(label).arg(addr));
+    if (m_tabFiles)
+        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (0)"));
+}
+
 void MainWindow::showChat()
 {
     const QString key = currentKey();
@@ -915,6 +1152,7 @@ void MainWindow::showChat()
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
     m_chat->setPlainText(m_log.value(key).join(QStringLiteral("\n")));
+    updatePeerSession();
     updateInputPlaceholder();
 }
 

@@ -48,6 +48,8 @@ private slots:
     void toggleMax();
     void closeWin();
     void openShare();
+    void showChatTab();
+    void showFilesTab();
 
 private:
     void boot();
@@ -57,6 +59,8 @@ private:
     void updateChrome();
     void updateEmpty();
     void updateHostPill();
+    void updatePeerSession();
+    void setSessionTab(int index);
     void setStatusOnline(const QString &text, bool ok);
     void setProgress(const QString &text);
     void noteFail(const QString &key, QNetworkReply *rep);
@@ -86,6 +90,17 @@ private:
     QLineEdit *m_search = 0;
     QListWidget *m_list = 0;
     QStackedWidget *m_pages = 0;
+    QWidget *m_peerHeader = 0;
+    QLabel *m_peerAvatar = 0;
+    QLabel *m_peerName = 0;
+    QLabel *m_peerOnlineDot = 0;
+    QLabel *m_peerAddr = 0;
+    QLabel *m_peerMeta = 0;
+    QPushButton *m_tabChat = 0;
+    QPushButton *m_tabFiles = 0;
+    QWidget *m_connBanner = 0;
+    QLabel *m_connBannerText = 0;
+    QStackedWidget *m_sessionStack = 0;
     QTextEdit *m_chat = 0;
     QPlainTextEdit *m_input = 0;
     QPushButton *m_sendBtn = 0;
