@@ -14,6 +14,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QNetworkAccessManager;
+class QNetworkReply;
 class QPushButton;
 class QStackedWidget;
 class QTextEdit;
@@ -54,6 +55,8 @@ private:
     void updateEmpty();
     void updateHostPill();
     void setStatusOnline(const QString &text, bool ok);
+    void setProgress(const QString &text);
+    void noteFail(const QString &key, QNetworkReply *rep);
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;
@@ -77,6 +80,7 @@ private:
     QStackedWidget *m_pages = 0;
     QTextEdit *m_chat = 0;
     QLineEdit *m_input = 0;
+    QLabel *m_progress = 0;
     QPushButton *m_maxBtn = 0;
     QWidget *m_composer = 0;
 

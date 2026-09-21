@@ -374,8 +374,14 @@ void MainWindow::buildUi()
 
     m_composer = new QWidget;
     m_composer->setObjectName(QStringLiteral("composer"));
-    QHBoxLayout *compLay = new QHBoxLayout(m_composer);
-    compLay->setContentsMargins(16, 12, 16, 12);
+    QVBoxLayout *compCol = new QVBoxLayout(m_composer);
+    compCol->setContentsMargins(16, 8, 16, 12);
+    compCol->setSpacing(6);
+    m_progress = new QLabel;
+    m_progress->setObjectName(QStringLiteral("progress"));
+    m_progress->hide();
+    QHBoxLayout *compLay = new QHBoxLayout;
+    compLay->setContentsMargins(0, 0, 0, 0);
     compLay->setSpacing(8);
     m_input = new QLineEdit;
     m_input->setObjectName(QStringLiteral("input"));
@@ -392,6 +398,8 @@ void MainWindow::buildUi()
     compLay->addWidget(m_input, 1);
     compLay->addWidget(fileBtn);
     compLay->addWidget(sendBtn);
+    compCol->addWidget(m_progress);
+    compCol->addLayout(compLay);
 
     chatLay->addWidget(m_chat, 1);
     chatLay->addWidget(m_composer);
@@ -446,6 +454,7 @@ void MainWindow::applyStyle()
         "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #ffffff; }"
         "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
+        "#progress { color: #1d4ed8; font-size: 12px; }"
         "#input { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;"
         " color: #0f172a; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
@@ -671,6 +680,31 @@ void MainWindow::showChat()
     m_chat->setPlainText(m_log.value(key).join(QStringLiteral("\n")));
 }
 
+void MainWindow::setProgress(const QString &text)
+{
+    if (!m_progress)
+        return;
+    if (text.isEmpty()) {
+        m_progress->clear();
+        m_progress->hide();
+        return;
+    }
+    m_progress->setText(text);
+    m_progress->show();
+}
+
+void MainWindow::noteFail(const QString &key, QNetworkReply *rep)
+{
+    const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    QString why = QString::fromUtf8(rep->readAll()).trimmed();
+    if (why.isEmpty())
+        why = rep->errorString();
+    if (code >= 400)
+        why = QString::number(code) + QLatin1Char(' ') + why;
+    note(key, QString::fromUtf8(u8"发送失败：%1").arg(why));
+    setProgress(QString());
+}
+
 void MainWindow::note(const QString &key, const QString &line)
 {
     QStringList lines = m_log.value(key);
@@ -725,8 +759,10 @@ void MainWindow::sendText()
     const QString sent = text;
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, mine, sent]() {
         rep->deleteLater();
-        if (rep->error() != QNetworkReply::NoError)
+        if (rep->error() != QNetworkReply::NoError) {
+            noteFail(key, rep);
             return;
+        }
         note(key, QString::fromUtf8(u8"%1：%2").arg(mine).arg(sent));
         m_input->clear();
     });
@@ -744,6 +780,7 @@ void MainWindow::sendFile()
     QFile *file = new QFile(path);
     if (!file->open(QIODevice::ReadOnly)) {
         delete file;
+        note(currentKey(), QString::fromUtf8(u8"发送失败：打不开文件"));
         return;
     }
     const QString filename = QFileInfo(path).fileName();
@@ -759,10 +796,21 @@ void MainWindow::sendFile()
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
     const QString key = currentKey();
+    setProgress(QString::fromUtf8(u8"正在发送 %1").arg(filename));
+    connect(rep, &QNetworkReply::uploadProgress, this, [this, filename](qint64 sent, qint64 total) {
+        if (total <= 0)
+            return;
+        const int pct = int(sent * 100 / total);
+        setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
+    });
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename]() {
         rep->deleteLater();
-        if (rep->error() != QNetworkReply::NoError || rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() >= 300)
+        const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (rep->error() != QNetworkReply::NoError || code >= 300) {
+            noteFail(key, rep);
             return;
+        }
+        setProgress(QString());
         note(key, QString::fromUtf8(u8"已发送文件 %1").arg(filename));
     });
 }
