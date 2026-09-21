@@ -5,6 +5,7 @@
 #include "httpserver.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
@@ -1247,7 +1248,8 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     if (text == QLatin1String("__landrop_nudge__")) {
         const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
         note(key, QString::fromUtf8(u8"%1 抖动了窗口").arg(who));
-        shakeWindow();
+        if (m_settings.nudgeEnabled)
+            shakeWindow();
         return;
     }
     const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
@@ -1413,6 +1415,8 @@ void MainWindow::sendFolder()
 
 void MainWindow::nudgePeer()
 {
+    if (!m_settings.nudgeEnabled)
+        return;
     QString ip;
     int port = 0;
     if (!currentPeer(&ip, &port, 0))
@@ -1748,54 +1752,218 @@ void MainWindow::probePeer()
 void MainWindow::editSettings()
 {
     QDialog dlg(this);
-    dlg.setWindowTitle(QString::fromUtf8(u8"设置"));
-    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    QLineEdit *name = new QLineEdit(m_settings.deviceName);
-    QLineEdit *port = new QLineEdit(QString::number(m_settings.port));
-    QLineEdit *dport = new QLineEdit(QString::number(m_settings.discoverPort));
-    QLineEdit *dir = new QLineEdit(m_settings.downloadDir);
-    QPushButton *browse = new QPushButton(QString::fromUtf8(u8"浏览"));
-    connect(browse, &QPushButton::clicked, &dlg, [dir, &dlg]() {
-        const QString picked = QFileDialog::getExistingDirectory(&dlg, QString::fromUtf8(u8"下载目录"), dir->text());
-        if (!picked.isEmpty())
-            dir->setText(picked);
+    dlg.setObjectName(QStringLiteral("settingsDlg"));
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setAttribute(Qt::WA_TranslucentBackground, true);
+    dlg.setModal(true);
+    dlg.setFixedWidth(460);
+    dlg.setStyleSheet(QStringLiteral(
+        "#settingsDlg { background: transparent; }"
+        "#settingsRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#settingsHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
+        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
+        "#settingsTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#settingsSub { color: #64748b; font-size: 11px; }"
+        "#settingsClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+        "#settingsClose:hover { background: #e2e8f0; }"
+        "#settingsLabel { color: #0f172a; font-size: 12px; font-weight: 700; }"
+        "#settingsHint { color: #94a3b8; font-size: 11px; }"
+        "#settingsField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
+        "#settingsField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
+        "#settingsSwitchRow { border-top: 1px solid #e2e8f0; }"
+        "#settingsCheck { spacing: 0; }"
+        "#settingsCheck::indicator { width: 16px; height: 16px; border-radius: 4px;"
+        " border: 1px solid #cbd5e1; background: #ffffff; }"
+        "#settingsCheck::indicator:checked { background: #2563eb; border-color: #2563eb;"
+        " image: none; }"
+        "#settingsFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
+        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
+        "#settingsSave { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
+        " padding: 8px 18px; font-weight: 600; }"
+        "#settingsSave:hover { background: #1d4ed8; }"));
+
+    QWidget *root = new QWidget(&dlg);
+    root->setObjectName(QStringLiteral("settingsRoot"));
+    QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
+    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->addWidget(root);
+    QVBoxLayout *rootLay = new QVBoxLayout(root);
+    rootLay->setContentsMargins(0, 0, 0, 0);
+    rootLay->setSpacing(0);
+
+    QWidget *head = new QWidget;
+    head->setObjectName(QStringLiteral("settingsHead"));
+    QHBoxLayout *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(20, 14, 12, 14);
+    headLay->setSpacing(10);
+
+    QLabel *gearBadge = new QLabel;
+    gearBadge->setFixedSize(36, 36);
+    {
+        const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+        QPixmap pm(36 * dpr, 36 * dpr);
+        pm.setDevicePixelRatio(dpr);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(QStringLiteral("#0f172a")));
+        p.drawRoundedRect(QRectF(0, 0, 36, 36), 8, 8);
+        QSvgRenderer r(QStringLiteral(":/icons/settings-white.svg"));
+        if (r.isValid())
+            r.render(&p, QRectF(8, 8, 20, 20));
+        gearBadge->setPixmap(pm);
+    }
+
+    QVBoxLayout *titleCol = new QVBoxLayout;
+    titleCol->setContentsMargins(0, 0, 0, 0);
+    titleCol->setSpacing(2);
+    QLabel *title = new QLabel(QString::fromUtf8(u8"局域快传设置"));
+    title->setObjectName(QStringLiteral("settingsTitle"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载存储与接收提示"));
+    sub->setObjectName(QStringLiteral("settingsSub"));
+    titleCol->addWidget(title);
+    titleCol->addWidget(sub);
+
+    QPushButton *closeBtn = new QPushButton;
+    closeBtn->setObjectName(QStringLiteral("settingsClose"));
+    closeBtn->setFixedSize(28, 28);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setFocusPolicy(Qt::NoFocus);
+    closeBtn->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#94a3b8"))));
+    closeBtn->setIconSize(QSize(14, 14));
+    connect(closeBtn, SIGNAL(clicked()), &dlg, SLOT(reject()));
+
+    headLay->addWidget(gearBadge, 0, Qt::AlignVCenter);
+    headLay->addLayout(titleCol, 1);
+    headLay->addWidget(closeBtn, 0, Qt::AlignTop);
+
+    QWidget *body = new QWidget;
+    QVBoxLayout *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(20, 16, 20, 8);
+    bodyLay->setSpacing(14);
+
+    auto fieldLabel = [](const QString &text) {
+        QLabel *l = new QLabel(text);
+        l->setObjectName(QStringLiteral("settingsLabel"));
+        return l;
+    };
+    auto fieldHint = [](const QString &text) {
+        QLabel *l = new QLabel(text);
+        l->setObjectName(QStringLiteral("settingsHint"));
+        l->setWordWrap(true);
+        return l;
+    };
+    auto fieldEdit = [](const QString &text) {
+        QLineEdit *e = new QLineEdit(text);
+        e->setObjectName(QStringLiteral("settingsField"));
+        return e;
+    };
+
+    QVBoxLayout *nameCol = new QVBoxLayout;
+    nameCol->setSpacing(4);
+    QLineEdit *name = fieldEdit(m_settings.deviceName);
+    nameCol->addWidget(fieldLabel(QString::fromUtf8(u8"本机设备名称")));
+    nameCol->addWidget(name);
+    nameCol->addWidget(fieldHint(QString::fromUtf8(u8"局域网内其他设备将显示此设备名称")));
+
+    QHBoxLayout *rowPort = new QHBoxLayout;
+    rowPort->setSpacing(12);
+    QVBoxLayout *portCol = new QVBoxLayout;
+    portCol->setSpacing(4);
+    QLineEdit *port = fieldEdit(QString::number(m_settings.port));
+    portCol->addWidget(fieldLabel(QString::fromUtf8(u8"本地 HTTP 监听端口")));
+    portCol->addWidget(port);
+    QVBoxLayout *thrCol = new QVBoxLayout;
+    thrCol->setSpacing(4);
+    QLineEdit *threads = fieldEdit(QString::number(m_settings.transferThreads));
+    thrCol->addWidget(fieldLabel(QString::fromUtf8(u8"并发传输线程数")));
+    thrCol->addWidget(threads);
+    rowPort->addLayout(portCol, 1);
+    rowPort->addLayout(thrCol, 1);
+
+    QVBoxLayout *dirCol = new QVBoxLayout;
+    dirCol->setSpacing(4);
+    QLineEdit *dir = fieldEdit(m_settings.downloadDir);
+    dirCol->addWidget(fieldLabel(QString::fromUtf8(u8"文件接收下载目录 (落盘路径)")));
+    dirCol->addWidget(dir);
+    dirCol->addWidget(fieldHint(QString::fromUtf8(u8"文件传输以 HTTP Stream 模式直接写盘，避免内存溢出")));
+
+    bodyLay->addLayout(nameCol);
+    bodyLay->addLayout(rowPort);
+    bodyLay->addLayout(dirCol);
+
+    auto switchRow = [](const QString &text, bool checked) {
+        QWidget *row = new QWidget;
+        row->setObjectName(QStringLiteral("settingsSwitchRow"));
+        QHBoxLayout *lay = new QHBoxLayout(row);
+        lay->setContentsMargins(0, 12, 0, 12);
+        lay->setSpacing(8);
+        QLabel *lab = new QLabel(text);
+        lab->setObjectName(QStringLiteral("settingsSwitchLabel"));
+        QCheckBox *box = new QCheckBox;
+        box->setObjectName(QStringLiteral("settingsCheck"));
+        box->setChecked(checked);
+        box->setCursor(Qt::PointingHandCursor);
+        lay->addWidget(lab, 1);
+        lay->addWidget(box, 0, Qt::AlignVCenter);
+        return qMakePair(row, box);
+    };
+    const QPair<QWidget *, QCheckBox *> nudgePair =
+        switchRow(QString::fromUtf8(u8"窗口轻颤与抖动提醒 (Nudge)"), m_settings.nudgeEnabled);
+    const QPair<QWidget *, QCheckBox *> soundPair =
+        switchRow(QString::fromUtf8(u8"新消息与传输完成通知声"), m_settings.soundNotification);
+    QCheckBox *nudgeBox = nudgePair.second;
+    QCheckBox *soundBox = soundPair.second;
+    bodyLay->addWidget(nudgePair.first);
+    bodyLay->addWidget(soundPair.first);
+
+    QWidget *foot = new QWidget;
+    foot->setObjectName(QStringLiteral("settingsFoot"));
+    QHBoxLayout *footLay = new QHBoxLayout(foot);
+    footLay->setContentsMargins(20, 12, 20, 16);
+    QPushButton *save = new QPushButton(QString::fromUtf8(u8"保存并关闭"));
+    save->setObjectName(QStringLiteral("settingsSave"));
+    save->setCursor(Qt::PointingHandCursor);
+    save->setDefault(true);
+    footLay->addStretch(1);
+    footLay->addWidget(save);
+
+    rootLay->addWidget(head);
+    rootLay->addWidget(body);
+    rootLay->addWidget(foot);
+
+    connect(save, &QPushButton::clicked, &dlg, [&]() {
+        bool okPort = false;
+        bool okThr = false;
+        const int p = port->text().trimmed().toInt(&okPort);
+        const int thr = threads->text().trimmed().toInt(&okThr);
+        if (name->text().trimmed().isEmpty() || !okPort || p < 1 || p > 65535) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"名称或端口无效"));
+            return;
+        }
+        if (!okThr || thr < 1 || thr > 32) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"并发线程数须在 1–32"));
+            return;
+        }
+        m_settings.deviceName = name->text().trimmed();
+        m_settings.port = p;
+        m_settings.transferThreads = thr;
+        m_settings.downloadDir = dir->text().trimmed();
+        m_settings.nudgeEnabled = nudgeBox->isChecked();
+        m_settings.soundNotification = soundBox->isChecked();
+        if (!m_settings.save()) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"保存设置失败"));
+            return;
+        }
+        boot();
+        dlg.accept();
     });
-    QHBoxLayout *dirRow = new QHBoxLayout;
-    dirRow->addWidget(dir, 1);
-    dirRow->addWidget(browse);
-    QFormLayout *form = new QFormLayout;
-    form->addRow(QString::fromUtf8(u8"本机名称"), name);
-    form->addRow(QString::fromUtf8(u8"传输端口"), port);
-    form->addRow(QString::fromUtf8(u8"发现端口"), dport);
-    form->addRow(QString::fromUtf8(u8"下载目录"), dirRow);
-    QPushButton *ok = new QPushButton(QString::fromUtf8(u8"保存"));
-    QPushButton *cancel = new QPushButton(QString::fromUtf8(u8"取消"));
-    QHBoxLayout *btns = new QHBoxLayout;
-    btns->addStretch();
-    btns->addWidget(ok);
-    btns->addWidget(cancel);
-    QVBoxLayout *lay = new QVBoxLayout(&dlg);
-    lay->addLayout(form);
-    lay->addWidget(new QLabel(QString::fromUtf8(u8"改端口会马上重新监听。若提示占用，换一个端口。")));
-    lay->addLayout(btns);
-    connect(ok, SIGNAL(clicked()), &dlg, SLOT(accept()));
-    connect(cancel, SIGNAL(clicked()), &dlg, SLOT(reject()));
-    if (dlg.exec() != QDialog::Accepted)
-        return;
-    bool ok1 = false, ok2 = false;
-    const int p = port->text().trimmed().toInt(&ok1);
-    const int dp = dport->text().trimmed().toInt(&ok2);
-    if (name->text().trimmed().isEmpty() || !ok1 || !ok2 || p < 1 || p > 65535 || dp < 1 || dp > 65535) {
-        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"), QString::fromUtf8(u8"名称或端口无效"));
-        return;
-    }
-    m_settings.deviceName = name->text().trimmed();
-    m_settings.port = p;
-    m_settings.discoverPort = dp;
-    m_settings.downloadDir = dir->text().trimmed();
-    if (!m_settings.save()) {
-        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"), QString::fromUtf8(u8"保存设置失败"));
-        return;
-    }
-    boot();
+
+    dlg.exec();
 }

@@ -40,6 +40,9 @@ Settings Settings::defaults()
     s.port = 8848;
     s.discoverPort = 8850;
     s.downloadDir = QStringLiteral("./downloads");
+    s.transferThreads = 8;
+    s.nudgeEnabled = true;
+    s.soundNotification = true;
     return s;
 }
 
@@ -48,6 +51,13 @@ static int clampPort(int p, int fallback)
     if (p < 1 || p > 65535)
         return fallback;
     return p;
+}
+
+static int clampThreads(int n, int fallback)
+{
+    if (n < 1 || n > 32)
+        return fallback;
+    return n;
 }
 
 Settings Settings::load()
@@ -65,6 +75,12 @@ Settings Settings::load()
     const QString dir = o.value(QStringLiteral("downloadDir")).toString().trimmed();
     if (!dir.isEmpty())
         s.downloadDir = dir;
+    if (o.contains(QStringLiteral("transferThreads")))
+        s.transferThreads = clampThreads(o.value(QStringLiteral("transferThreads")).toInt(), s.transferThreads);
+    if (o.contains(QStringLiteral("nudgeEnabled")))
+        s.nudgeEnabled = o.value(QStringLiteral("nudgeEnabled")).toBool();
+    if (o.contains(QStringLiteral("soundNotification")))
+        s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
     return s;
 }
 
@@ -77,6 +93,9 @@ bool Settings::save() const
     o.insert(QStringLiteral("port"), clampPort(port, 8848));
     o.insert(QStringLiteral("discoverPort"), clampPort(discoverPort, 8850));
     o.insert(QStringLiteral("downloadDir"), downloadDir.trimmed().isEmpty() ? QStringLiteral("./downloads") : downloadDir.trimmed());
+    o.insert(QStringLiteral("transferThreads"), clampThreads(transferThreads, 8));
+    o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
+    o.insert(QStringLiteral("soundNotification"), soundNotification);
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;

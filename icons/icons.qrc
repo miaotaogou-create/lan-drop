@@ -11,6 +11,7 @@
         <file alias="badge-phone.svg">badge-phone.svg</file>
         <file alias="chevron-down.svg">chevron-down.svg</file>
         <file alias="globe.svg">globe.svg</file>
+        <file alias="settings-white.svg">settings-white.svg</file>
     </qresource>
     <qresource prefix="/avatars">
         <file>avatar_ubuntu.svg</file>

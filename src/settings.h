@@ -3,12 +3,16 @@
 
 #include <QString>
 
-// 与原先配置文件字段一致：deviceName、port、discoverPort、downloadDir。
+// deviceName、port、discoverPort、downloadDir 为既有字段；
+// transferThreads / nudgeEnabled / soundNotification 为设置页扩展。
 struct Settings {
     QString deviceName;
     int port = 8848;
     int discoverPort = 8850;
     QString downloadDir = QStringLiteral("./downloads");
+    int transferThreads = 8; // ponytail: 仅入库；上传仍是单队列，以后再接线程池
+    bool nudgeEnabled = true;
+    bool soundNotification = true; // ponytail: 仅入库；本轮不播系统提示音
 
     static QString filePath();
     static Settings defaults();
