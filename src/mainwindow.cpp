@@ -3,11 +3,13 @@
 #include "discovery.h"
 #include "files.h"
 #include "httpserver.h"
+#include "qrcodegen.hpp"
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
 #include <QElapsedTimer>
@@ -19,6 +21,7 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -34,6 +37,7 @@
 #include <QPlainTextEdit>
 #include <QtMath>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
@@ -897,78 +901,360 @@ void MainWindow::refreshShareBtn()
         m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
 }
 
+static QPixmap makeShareBadge(int logical = 36)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logical * dpr, logical * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#2563eb")));
+    p.drawRoundedRect(QRectF(0, 0, logical, logical), 8, 8);
+    QPen pen(Qt::white, 1.6);
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+    const QPointF a(11, 18);
+    const QPointF b(18, 12);
+    const QPointF c(25, 18);
+    p.drawLine(a, b);
+    p.drawLine(b, c);
+    p.setBrush(Qt::white);
+    p.drawEllipse(a, 2.4, 2.4);
+    p.drawEllipse(b, 2.4, 2.4);
+    p.drawEllipse(c, 2.4, 2.4);
+    return pm;
+}
+
+static QPixmap makeQrPixmap(const QString &text, int logical)
+{
+    const qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(
+        text.toUtf8().constData(), qrcodegen::QrCode::Ecc::MEDIUM);
+    const int n = qr.getSize();
+    QImage raw(n, n, QImage::Format_RGB32);
+    raw.fill(Qt::white);
+    for (int y = 0; y < n; ++y) {
+        for (int x = 0; x < n; ++x) {
+            if (qr.getModule(x, y))
+                raw.setPixel(x, y, qRgb(15, 23, 42));
+        }
+    }
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int quiet = logical / 12;
+    QPixmap pm(logical * dpr, logical * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::white);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, false);
+    p.drawImage(QRect(quiet, quiet, logical - quiet * 2, logical - quiet * 2), raw);
+    return pm;
+}
+
+static QString humanBytes(qint64 n)
+{
+    if (n < 1024)
+        return QString::number(n) + QStringLiteral(" B");
+    if (n < 1024 * 1024)
+        return QString::number(n / 1024.0, 'f', 1) + QStringLiteral(" KB");
+    return QString::number(n / 1024.0 / 1024.0, 'f', 1) + QStringLiteral(" MB");
+}
+
 void MainWindow::openShare()
 {
     QDialog dlg(this);
-    dlg.setWindowTitle(QString::fromUtf8(u8"网页共享"));
-    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    dlg.setMinimumWidth(420);
+    dlg.setObjectName(QStringLiteral("shareDlg"));
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setAttribute(Qt::WA_TranslucentBackground, true);
+    dlg.setModal(true);
+    dlg.setFixedWidth(760);
+    dlg.setStyleSheet(QStringLiteral(
+        "#shareDlg { background: transparent; }"
+        "#shareRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#shareHead { background: #ffffff; border-bottom: 1px solid #e2e8f0;"
+        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
+        "#shareTitle { color: #0f172a; font-size: 16px; font-weight: 700; }"
+        "#shareSub { color: #64748b; font-size: 12px; }"
+        "#shareClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+        "#shareClose:hover { background: #e2e8f0; }"
+        "#shareStatus { border-radius: 11px; padding: 2px 10px; font-size: 12px; font-weight: 600; }"
+        "#shareStatus[on=\"true\"] { color: #16a34a; background: #f0fdf4; border: 1px solid #86efac; }"
+        "#shareStatus[on=\"false\"] { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; }"
+        "#shareUrlCard { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; }"
+        "#shareQrCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#shareUrlLab { color: #2563eb; font-size: 12px; font-weight: 600; }"
+        "#shareUrl { color: #2563eb; font-size: 22px; font-weight: 700; }"
+        "#shareMeta { color: #94a3b8; font-size: 12px; }"
+        "#shareGhost { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #334155; padding: 6px 12px; font-weight: 600; }"
+        "#shareGhost:hover { background: #f8fafc; }"
+        "#sharePrimary { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
+        " padding: 6px 14px; font-weight: 600; }"
+        "#sharePrimary:hover { background: #1d4ed8; }"
+        "#shareSecTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
+        "#shareCount { color: #64748b; background: #f1f5f9; border-radius: 10px; padding: 1px 8px; font-size: 12px; }"
+        "#shareHint { color: #94a3b8; font-size: 12px; }"
+        "#shareFile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
+        "#shareFileName { color: #0f172a; font-size: 13px; font-weight: 600; }"
+        "#shareDrop { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #94a3b8; }"
+        "#shareDrop:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }"
+        "#shareFoot { border-top: 1px solid #e2e8f0; background: #ffffff;"
+        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
+        "#sharePause { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #334155; padding: 8px 14px; font-weight: 600; }"
+        "#sharePause:hover { background: #f8fafc; }"
+        "#shareCloseWin { background: #0f172a; border: none; border-radius: 8px; color: #ffffff;"
+        " padding: 8px 16px; font-weight: 600; }"
+        "#shareCloseWin:hover { background: #1e293b; }"));
 
-    QLabel *hint = new QLabel(QString::fromUtf8(
-        u8"选一个本机目录，同网段用浏览器打开下面的地址即可下载文件（只列顶层文件）。"));
-    hint->setWordWrap(true);
+    const QString ip = localIpText();
+    const QString url = QStringLiteral("http://%1:%2/share/").arg(ip).arg(m_settings.port);
+    QString lastDir = m_http ? m_http->shareDir() : QString();
 
-    QLineEdit *dirEdit = new QLineEdit(m_http ? m_http->shareDir() : QString());
-    dirEdit->setPlaceholderText(QString::fromUtf8(u8"尚未选择共享目录"));
-    dirEdit->setReadOnly(true);
-    QPushButton *pick = new QPushButton(QString::fromUtf8(u8"选择目录"));
-    connect(pick, &QPushButton::clicked, &dlg, [dirEdit, &dlg]() {
+    QWidget *root = new QWidget(&dlg);
+    root->setObjectName(QStringLiteral("shareRoot"));
+    QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
+    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->addWidget(root);
+    QVBoxLayout *rootLay = new QVBoxLayout(root);
+    rootLay->setContentsMargins(0, 0, 0, 0);
+    rootLay->setSpacing(0);
+
+    QWidget *head = new QWidget;
+    head->setObjectName(QStringLiteral("shareHead"));
+    QHBoxLayout *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(20, 16, 12, 16);
+    headLay->setSpacing(12);
+    QLabel *badge = new QLabel;
+    badge->setPixmap(makeShareBadge());
+    badge->setFixedSize(36, 36);
+    QVBoxLayout *titleCol = new QVBoxLayout;
+    titleCol->setSpacing(2);
+    QHBoxLayout *titleRow = new QHBoxLayout;
+    titleRow->setSpacing(10);
+    QLabel *title = new QLabel(QString::fromUtf8(u8"本机 HTTP 网页共享服务"));
+    title->setObjectName(QStringLiteral("shareTitle"));
+    QLabel *status = new QLabel;
+    status->setObjectName(QStringLiteral("shareStatus"));
+    titleRow->addWidget(title, 0, Qt::AlignVCenter);
+    titleRow->addWidget(status, 0, Qt::AlignVCenter);
+    titleRow->addStretch(1);
+    QLabel *sub = new QLabel(QString::fromUtf8(
+        u8"局域网内任意手机、平板或电脑，打开浏览器或扫码即可下载本机共享的内容"));
+    sub->setObjectName(QStringLiteral("shareSub"));
+    sub->setWordWrap(true);
+    titleCol->addLayout(titleRow);
+    titleCol->addWidget(sub);
+    QPushButton *xBtn = new QPushButton;
+    xBtn->setObjectName(QStringLiteral("shareClose"));
+    xBtn->setFixedSize(28, 28);
+    xBtn->setCursor(Qt::PointingHandCursor);
+    xBtn->setFocusPolicy(Qt::NoFocus);
+    xBtn->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#94a3b8"))));
+    xBtn->setIconSize(QSize(14, 14));
+    connect(xBtn, SIGNAL(clicked()), &dlg, SLOT(reject()));
+    headLay->addWidget(badge, 0, Qt::AlignTop);
+    headLay->addLayout(titleCol, 1);
+    headLay->addWidget(xBtn, 0, Qt::AlignTop);
+
+    QWidget *body = new QWidget;
+    QVBoxLayout *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(20, 16, 20, 12);
+    bodyLay->setSpacing(16);
+
+    QHBoxLayout *cards = new QHBoxLayout;
+    cards->setSpacing(12);
+    QFrame *urlCard = new QFrame;
+    urlCard->setObjectName(QStringLiteral("shareUrlCard"));
+    QVBoxLayout *urlLay = new QVBoxLayout(urlCard);
+    urlLay->setContentsMargins(16, 14, 16, 14);
+    urlLay->setSpacing(8);
+    QLabel *urlLab = new QLabel(QString::fromUtf8(u8"局域网访问地址（浏览器直接输入）："));
+    urlLab->setObjectName(QStringLiteral("shareUrlLab"));
+    QLabel *urlText = new QLabel(url);
+    urlText->setObjectName(QStringLiteral("shareUrl"));
+    urlText->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QLabel *meta = new QLabel(QString::fromUtf8(u8"绑定网卡: %1 · 端口: %2 (同一局域网下均可访问)")
+                                  .arg(ip)
+                                  .arg(m_settings.port));
+    meta->setObjectName(QStringLiteral("shareMeta"));
+    meta->setWordWrap(true);
+    QHBoxLayout *urlBtns = new QHBoxLayout;
+    urlBtns->setSpacing(8);
+    QPushButton *copyBtn = new QPushButton(QString::fromUtf8(u8"复制网址"));
+    copyBtn->setObjectName(QStringLiteral("shareGhost"));
+    copyBtn->setCursor(Qt::PointingHandCursor);
+    QPushButton *openBtn = new QPushButton(QString::fromUtf8(u8"本机浏览器自测"));
+    openBtn->setObjectName(QStringLiteral("sharePrimary"));
+    openBtn->setCursor(Qt::PointingHandCursor);
+    urlBtns->addWidget(copyBtn);
+    urlBtns->addWidget(openBtn);
+    urlBtns->addStretch(1);
+    urlLay->addWidget(urlLab);
+    urlLay->addWidget(urlText);
+    urlLay->addWidget(meta);
+    urlLay->addStretch(1);
+    urlLay->addLayout(urlBtns);
+
+    QFrame *qrCard = new QFrame;
+    qrCard->setObjectName(QStringLiteral("shareQrCard"));
+    QVBoxLayout *qrLay = new QVBoxLayout(qrCard);
+    qrLay->setContentsMargins(12, 12, 12, 12);
+    qrLay->setSpacing(6);
+    QLabel *qr = new QLabel;
+    qr->setPixmap(makeQrPixmap(url, 168));
+    qr->setFixedSize(168, 168);
+    qr->setAlignment(Qt::AlignCenter);
+    QLabel *qrCap = new QLabel(QString::fromUtf8(u8"手机 / 平板扫码"));
+    qrCap->setObjectName(QStringLiteral("shareUrlLab"));
+    qrCap->setAlignment(Qt::AlignCenter);
+    QLabel *qrSub = new QLabel(QString::fromUtf8(u8"无需安装 App，相机扫码即可下载"));
+    qrSub->setObjectName(QStringLiteral("shareMeta"));
+    qrSub->setAlignment(Qt::AlignCenter);
+    qrLay->addStretch(1);
+    qrLay->addWidget(qr, 0, Qt::AlignHCenter);
+    qrLay->addWidget(qrCap);
+    qrLay->addWidget(qrSub);
+    qrLay->addStretch(1);
+    cards->addWidget(urlCard, 3);
+    cards->addWidget(qrCard, 2);
+
+    QHBoxLayout *listHead = new QHBoxLayout;
+    QLabel *listTitle = new QLabel(QString::fromUtf8(u8"当前共享的文件列表"));
+    listTitle->setObjectName(QStringLiteral("shareSecTitle"));
+    QLabel *count = new QLabel;
+    count->setObjectName(QStringLiteral("shareCount"));
+    QLabel *dragHint = new QLabel(QString::fromUtf8(u8"支持拖动文件到此处"));
+    dragHint->setObjectName(QStringLiteral("shareHint"));
+    QPushButton *addBtn = new QPushButton(QString::fromUtf8(u8"+ 添加文件到共享"));
+    addBtn->setObjectName(QStringLiteral("sharePrimary"));
+    addBtn->setCursor(Qt::PointingHandCursor);
+    listHead->addWidget(listTitle);
+    listHead->addWidget(count);
+    listHead->addWidget(dragHint);
+    listHead->addStretch(1);
+    listHead->addWidget(addBtn);
+
+    QWidget *listHost = new QWidget;
+    QVBoxLayout *listLay = new QVBoxLayout(listHost);
+    listLay->setContentsMargins(0, 0, 0, 0);
+    listLay->setSpacing(6);
+    QScrollArea *scroll = new QScrollArea;
+    scroll->setWidget(listHost);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setFixedHeight(132);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    QPushButton *dropBtn = new QPushButton(QString::fromUtf8(u8"可直接将文件拖动到此区域添加，或点击此处选择文件"));
+    dropBtn->setObjectName(QStringLiteral("shareDrop"));
+    dropBtn->setCursor(Qt::PointingHandCursor);
+    dropBtn->setFixedHeight(56);
+    bodyLay->addLayout(cards);
+    bodyLay->addLayout(listHead);
+    bodyLay->addWidget(scroll);
+    bodyLay->addWidget(dropBtn);
+
+    QWidget *foot = new QWidget;
+    foot->setObjectName(QStringLiteral("shareFoot"));
+    QHBoxLayout *footLay = new QHBoxLayout(foot);
+    footLay->setContentsMargins(20, 12, 20, 16);
+    QPushButton *pauseBtn = new QPushButton;
+    pauseBtn->setObjectName(QStringLiteral("sharePause"));
+    pauseBtn->setCursor(Qt::PointingHandCursor);
+    QLabel *footHint = new QLabel(QString::fromUtf8(u8"仅局域网有效，随开随关"));
+    footHint->setObjectName(QStringLiteral("shareHint"));
+    QPushButton *closeWin = new QPushButton(QString::fromUtf8(u8"关闭窗口"));
+    closeWin->setObjectName(QStringLiteral("shareCloseWin"));
+    closeWin->setCursor(Qt::PointingHandCursor);
+    footLay->addWidget(pauseBtn);
+    footLay->addSpacing(12);
+    footLay->addWidget(footHint);
+    footLay->addStretch(1);
+    footLay->addWidget(closeWin);
+    connect(closeWin, SIGNAL(clicked()), &dlg, SLOT(accept()));
+
+    rootLay->addWidget(head);
+    rootLay->addWidget(body, 1);
+    rootLay->addWidget(foot);
+
+    auto paintStatus = [&]() {
+        const bool on = m_http && !m_http->shareDir().isEmpty();
+        status->setText(on ? QString::fromUtf8(u8"● HTTP 服务运行中")
+                           : QString::fromUtf8(u8"● HTTP 服务已暂停"));
+        status->setProperty("on", on);
+        status->style()->unpolish(status);
+        status->style()->polish(status);
+        pauseBtn->setText(on ? QString::fromUtf8(u8"暂停 HTTP 服务")
+                             : QString::fromUtf8(u8"开启 HTTP 服务"));
+    };
+    auto reloadFiles = [&]() {
+        while (QLayoutItem *it = listLay->takeAt(0)) {
+            delete it->widget();
+            delete it;
+        }
+        const QString dir = m_http ? m_http->shareDir() : QString();
+        QStringList names;
+        if (!dir.isEmpty() && QDir(dir).exists()) {
+            const QFileInfoList infos = QDir(dir).entryInfoList(
+                QDir::Files | QDir::Readable, QDir::Name);
+            for (int i = 0; i < infos.size(); ++i) {
+                QWidget *row = new QWidget;
+                row->setObjectName(QStringLiteral("shareFile"));
+                QHBoxLayout *rowLay = new QHBoxLayout(row);
+                rowLay->setContentsMargins(10, 8, 10, 8);
+                QLabel *name = new QLabel(infos.at(i).fileName());
+                name->setObjectName(QStringLiteral("shareFileName"));
+                QLabel *sz = new QLabel(humanBytes(infos.at(i).size()));
+                sz->setObjectName(QStringLiteral("shareMeta"));
+                rowLay->addWidget(name, 1);
+                rowLay->addWidget(sz);
+                listLay->addWidget(row);
+                names << infos.at(i).fileName();
+            }
+        }
+        listLay->addStretch(1);
+        count->setText(QString::fromUtf8(u8"%1 个").arg(names.size()));
+        paintStatus();
+    };
+    auto pickDir = [&]() {
+        const QString start = !lastDir.isEmpty() ? lastDir : QDir::homePath();
         const QString picked = QFileDialog::getExistingDirectory(
-            &dlg, QString::fromUtf8(u8"选择要共享的目录"), dirEdit->text());
-        if (!picked.isEmpty())
-            dirEdit->setText(picked);
+            &dlg, QString::fromUtf8(u8"选择要共享的目录"), start);
+        if (picked.isEmpty() || !QDir(picked).exists())
+            return;
+        lastDir = picked;
+        m_http->setShareDir(picked);
+        refreshShareBtn();
+        reloadFiles();
+    };
+    connect(copyBtn, &QPushButton::clicked, &dlg, [url]() {
+        QApplication::clipboard()->setText(url);
     });
-
-    const QString url = QStringLiteral("http://%1:%2/share/")
-                            .arg(localIpText())
-                            .arg(m_settings.port);
-    QLineEdit *urlEdit = new QLineEdit(url);
-    urlEdit->setReadOnly(true);
-
-    QPushButton *copy = new QPushButton(QString::fromUtf8(u8"复制链接"));
-    connect(copy, &QPushButton::clicked, &dlg, [urlEdit]() {
-        QApplication::clipboard()->setText(urlEdit->text());
+    connect(openBtn, &QPushButton::clicked, &dlg, [url]() {
+        QDesktopServices::openUrl(QUrl(url));
     });
-
-    QPushButton *start = new QPushButton(QString::fromUtf8(u8"开启共享"));
-    QPushButton *stop = new QPushButton(QString::fromUtf8(u8"停止共享"));
-    QPushButton *close = new QPushButton(QString::fromUtf8(u8"关闭"));
-    connect(start, &QPushButton::clicked, &dlg, [this, dirEdit, &dlg]() {
-        const QString dir = dirEdit->text().trimmed();
-        if (dir.isEmpty() || !QDir(dir).exists()) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"请先选择有效目录"));
+    connect(addBtn, &QPushButton::clicked, &dlg, pickDir);
+    connect(dropBtn, &QPushButton::clicked, &dlg, pickDir);
+    connect(pauseBtn, &QPushButton::clicked, &dlg, [&]() {
+        if (!m_http)
+            return;
+        if (!m_http->shareDir().isEmpty()) {
+            lastDir = m_http->shareDir();
+            m_http->setShareDir(QString());
+            refreshShareBtn();
+            reloadFiles();
             return;
         }
-        m_http->setShareDir(dir);
-        refreshShareBtn();
-        QMessageBox::information(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"已开启网页共享。"));
+        if (!lastDir.isEmpty() && QDir(lastDir).exists()) {
+            m_http->setShareDir(lastDir);
+            refreshShareBtn();
+            reloadFiles();
+            return;
+        }
+        pickDir();
     });
-    connect(stop, &QPushButton::clicked, &dlg, [this]() {
-        m_http->setShareDir(QString());
-        refreshShareBtn();
-    });
-    connect(close, SIGNAL(clicked()), &dlg, SLOT(accept()));
-
-    QHBoxLayout *dirRow = new QHBoxLayout;
-    dirRow->addWidget(dirEdit, 1);
-    dirRow->addWidget(pick);
-    QHBoxLayout *urlRow = new QHBoxLayout;
-    urlRow->addWidget(urlEdit, 1);
-    urlRow->addWidget(copy);
-    QHBoxLayout *btns = new QHBoxLayout;
-    btns->addStretch();
-    btns->addWidget(start);
-    btns->addWidget(stop);
-    btns->addWidget(close);
-
-    QVBoxLayout *lay = new QVBoxLayout(&dlg);
-    lay->addWidget(hint);
-    lay->addLayout(dirRow);
-    lay->addWidget(new QLabel(QString::fromUtf8(u8"访问地址")));
-    lay->addLayout(urlRow);
-    lay->addLayout(btns);
+    reloadFiles();
     dlg.exec();
     refreshShareBtn();
 }

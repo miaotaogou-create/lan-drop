@@ -9,6 +9,7 @@ SOURCES += \
     src/discovery.cpp \
     src/httpserver.cpp \
     src/files.cpp \
+    src/qrcodegen.cpp \
     src/mainwindow.cpp \
     src/selfcheck.cpp
 
@@ -17,6 +18,7 @@ HEADERS += \
     src/discovery.h \
     src/httpserver.h \
     src/files.h \
+    src/qrcodegen.hpp \
     src/mainwindow.h \
     src/selfcheck.h
 

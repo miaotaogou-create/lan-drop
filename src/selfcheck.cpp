@@ -1,6 +1,7 @@
 ﻿#include "selfcheck.h"
 
 #include "files.h"
+#include "qrcodegen.hpp"
 
 #include <QDir>
 #include <QFile>
@@ -50,6 +51,12 @@ int runSelfCheck()
         return fail("kind phone");
     if (deviceKindFromOs(QStringLiteral("iPadOS")) != 2)
         return fail("kind tablet");
+    {
+        const qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(
+            "http://192.168.1.108:8848/share/", qrcodegen::QrCode::Ecc::MEDIUM);
+        if (qr.getSize() < 21 || !qr.getModule(0, 0) || !qr.getModule(qr.getSize() - 1, 0))
+            return fail("qr");
+    }
     std::printf("self-check ok\n");
     return 0;
 }
