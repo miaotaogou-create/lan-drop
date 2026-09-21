@@ -376,7 +376,7 @@ void HttpServer::takeBytes(Conn *c)
 #ifdef Q_OS_WIN
         o.insert(QStringLiteral("os"), QStringLiteral("windows"));
 #else
-        o.insert(QStringLiteral("os"), QStringLiteral("linux"));
+        o.insert(QStringLiteral("os"), localOsTag());
 #endif
         QJsonArray ips;
         // localIpv4 在 discovery.cpp，这里直接再扫会重复。调用方通过名字已经够用，IP 列表给探测看。

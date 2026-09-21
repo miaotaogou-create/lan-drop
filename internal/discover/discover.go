@@ -153,13 +153,20 @@ func (s *Service) broadcastLoop(conn *net.UDPConn, port int) {
 	}
 }
 
+func OSTag() string {
+	if runtime.GOOS == "linux" && (runtime.GOARCH == "arm64" || runtime.GOARCH == "arm") {
+		return "arm-linux"
+	}
+	return runtime.GOOS
+}
+
 func (s *Service) sendAnnouncement(conn *net.UDPConn, port int) {
 	name, httpPort := s.local()
 	body, err := json.Marshal(Announcement{
 		ID:   s.id,
 		Name: name,
 		Port: httpPort,
-		OS:   runtime.GOOS,
+		OS:   OSTag(),
 	})
 	if err != nil {
 		return

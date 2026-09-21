@@ -1,5 +1,6 @@
-import { Globe, Laptop, Radio, Settings } from 'lucide-react';
+import { Globe, Laptop, Radio } from 'lucide-react';
 import type { PeerNode } from '../types';
+import { SettingsGear } from './DeviceAvatar';
 
 interface HeaderProps {
   currentNode: PeerNode;
@@ -50,10 +51,10 @@ export function Header({
           </button>
           <button
             onClick={onOpenSettingsModal}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition"
+            className="p-1.5 rounded-md border-none bg-transparent hover:bg-[#F1F5F9] transition"
             title="传输与节点设置"
           >
-            <Settings className="w-4 h-4" />
+            <SettingsGear className="w-5 h-5" />
           </button>
         </div>
       </div>

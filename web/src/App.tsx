@@ -11,7 +11,7 @@ import {
   sendFile,
   sendText,
 } from './api';
-import { ChatArea } from './components/ChatArea';
+import { DeviceAvatar } from './components/DeviceAvatar';
 import { DirectDialModal } from './components/DirectDialModal';
 import { FileTransferMatrix } from './components/FileTransferMatrix';
 import { Header } from './components/Header';
@@ -223,12 +223,12 @@ export default function App() {
             <>
               <div className="border-b border-slate-200 px-4 sm:px-6 py-2.5 bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white"
-                    style={{ backgroundColor: selectedPeer.avatarColor }}
-                  >
-                    {selectedPeer.name.slice(0, 1)}
-                  </div>
+                  <DeviceAvatar
+                    name={selectedPeer.name}
+                    color={selectedPeer.avatarColor}
+                    os={selectedPeer.os}
+                    size={40}
+                  />
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-sm font-bold text-slate-900">{selectedPeer.name}</h2>

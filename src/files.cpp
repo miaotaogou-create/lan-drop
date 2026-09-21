@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHostAddress>
+#include <QSysInfo>
 
 QString safeFileName(const QString &raw)
 {
@@ -112,4 +113,16 @@ int deviceKindFromOs(const QString &osName)
         || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("phone")))
         return 1;
     return 0;
+}
+
+QString localOsTag()
+{
+#ifdef Q_OS_WIN
+    return QStringLiteral("windows");
+#else
+    const QString arch = QSysInfo::currentCpuArchitecture().toLower();
+    if (arch.contains(QLatin1String("arm")) || arch.contains(QLatin1String("aarch")))
+        return QStringLiteral("arm-linux");
+    return QStringLiteral("linux");
+#endif
 }

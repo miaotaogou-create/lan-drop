@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { ChatMessage, PeerNode } from '../types';
+import { DeviceAvatar } from './DeviceAvatar';
 
 interface ChatAreaProps {
   currentPeer: PeerNode;
@@ -118,12 +119,12 @@ export function ChatArea({
           }
           return (
             <div key={msg.id} className={`flex gap-3 max-w-3xl ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs shrink-0"
-                style={{ backgroundColor: isMe ? localNode.avatarColor : currentPeer.avatarColor }}
-              >
-                {(isMe ? localNode.name : currentPeer.name).slice(0, 1)}
-              </div>
+              <DeviceAvatar
+                name={isMe ? localNode.name : currentPeer.name}
+                color={isMe ? localNode.avatarColor : currentPeer.avatarColor}
+                os={isMe ? localNode.os : currentPeer.os}
+                size={32}
+              />
               <div className={isMe ? 'text-right' : 'text-left'}>
                 <div className="flex items-center gap-2 text-[11px] text-slate-400">
                   <span className="font-medium text-slate-600">{isMe ? '我' : currentPeer.name}</span>

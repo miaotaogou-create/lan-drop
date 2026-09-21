@@ -135,9 +135,20 @@ enum DeviceKind {
     DevTablet
 };
 
-static DeviceKind deviceKindOf(const QString &osName)
+static QString badgeSvgForOs(const QString &osName)
 {
-    return DeviceKind(deviceKindFromOs(osName));
+    const QString o = osName.toLower();
+    if (o.contains(QLatin1String("android")) || o.contains(QLatin1String("ios"))
+        || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("ipad"))
+        || o.contains(QLatin1String("phone")))
+        return QStringLiteral(":/icons/badge-phone.svg");
+    if (o.contains(QLatin1String("arm")) || o.contains(QLatin1String("aarch"))
+        || o.contains(QLatin1String("raspberry")))
+        return QStringLiteral(":/icons/badge-cpu.svg");
+    if (o.contains(QLatin1String("linux")) || o.contains(QLatin1String("ubuntu"))
+        || o.contains(QLatin1String("kylin")))
+        return QStringLiteral(":/icons/badge-terminal.svg");
+    return QStringLiteral(":/icons/badge-server.svg");
 }
 
 static QColor peerAvatarColor(const QString &key)
@@ -212,29 +223,34 @@ static QPixmap makePeerAvatar(const QString &name, const QString &osName, int lo
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
     const QColor bg = peerAvatarColor(name.isEmpty() ? osName : name);
+    const qreal radius = logical * 0.28;
     p.setPen(Qt::NoPen);
     p.setBrush(bg);
-    p.drawRoundedRect(QRectF(0, 0, logical, logical), 10, 10);
+    p.drawRoundedRect(QRectF(0, 0, logical, logical), radius, radius);
 
     QString ch = name.trimmed();
     if (ch.isEmpty())
         ch = QStringLiteral("?");
     else
-        ch = ch.left(1).toUpper();
+        ch = ch.left(1);
     p.setPen(Qt::white);
     QFont f = qApp->font();
-    f.setPixelSize(qMax(12, logical * 2 / 5));
+    f.setPixelSize(qMax(12, int(logical * 0.44)));
     f.setBold(true);
+    f.setFamily(QStringLiteral("Microsoft YaHei"));
     p.setFont(f);
     p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
 
-    // 右下角白底圆 + 设备类型线标
-    const qreal badge = logical * 0.40;
-    const QRectF badgeBox(logical - badge - 1, logical - badge - 1, badge, badge);
-    p.setPen(Qt::NoPen);
+    const qreal badge = logical * 0.45;
+    const QRectF badgeBox(logical - badge, logical - badge, badge, badge);
     p.setBrush(Qt::white);
+    p.setPen(QPen(QColor(0, 0, 0, 20), 1));
     p.drawEllipse(badgeBox);
-    paintDeviceGlyph(p, deviceKindOf(osName), badgeBox.adjusted(2.5, 2.5, -2.5, -2.5), bg);
+
+    QSvgRenderer badgeRenderer(badgeSvgForOs(osName));
+    const qreal pad = badge * 0.18;
+    if (badgeRenderer.isValid())
+        badgeRenderer.render(&p, badgeBox.adjusted(pad, pad, -pad, -pad));
     return pm;
 }
 
@@ -397,6 +413,8 @@ void MainWindow::buildUi()
     refreshShareBtn();
 
     QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
+    setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 20)));
+    setBtn->setIconSize(QSize(20, 20));
     setBtn->setCursor(Qt::PointingHandCursor);
     connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
 

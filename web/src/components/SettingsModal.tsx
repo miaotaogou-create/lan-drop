@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { SettingsGear } from './DeviceAvatar';
 import type { AppSettings } from '../types';
 
 interface SettingsModalProps {
@@ -29,7 +30,7 @@ export function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsMod
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-slate-800 text-white">
-              <SettingsIcon className="w-4 h-4" />
+              <SettingsGear className="w-4 h-4" stroke="#ffffff" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">局域快传设置</h3>

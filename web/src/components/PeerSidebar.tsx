@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Cpu, HardDrive, Laptop, Plus, Radio, Search, Smartphone, Terminal, Zap } from 'lucide-react';
-import type { DeviceOS, PeerNode } from '../types';
+import { Plus, Radio, Search, Zap } from 'lucide-react';
+import type { PeerNode } from '../types';
+import { DeviceAvatar } from './DeviceAvatar';
 
 interface PeerSidebarProps {
   peers: PeerNode[];
@@ -9,22 +10,7 @@ interface PeerSidebarProps {
   onOpenDirectDialModal: () => void;
 }
 
-function osIcon(os: DeviceOS) {
-  switch (os) {
-    case 'macos':
-      return <Laptop className="w-4 h-4 text-slate-700" />;
-    case 'windows':
-      return <HardDrive className="w-4 h-4 text-blue-600" />;
-    case 'linux':
-      return <Terminal className="w-4 h-4 text-amber-600" />;
-    case 'arm-linux':
-      return <Cpu className="w-4 h-4 text-emerald-600" />;
-    default:
-      return <Smartphone className="w-4 h-4 text-purple-600" />;
-  }
-}
-
-function osBadge(os: DeviceOS) {
+function osBadge(os: PeerNode['os']) {
   switch (os) {
     case 'macos':
       return <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">macOS</span>;
@@ -114,15 +100,7 @@ export function PeerSidebar({ peers, selectedPeerId, onSelectPeer, onOpenDirectD
                     : 'bg-white/70 hover:bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs'
                 }`}
               >
-                <div className="relative shrink-0">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs"
-                    style={{ backgroundColor: peer.avatarColor }}
-                  >
-                    {peer.name.slice(0, 1)}
-                  </div>
-                  <span className="absolute -bottom-1 -right-1 p-0.5 bg-white rounded-full shadow-xs">{osIcon(peer.os)}</span>
-                </div>
+                <DeviceAvatar name={peer.name} color={peer.avatarColor} os={peer.os} size={44} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-semibold text-xs text-slate-900 truncate">{peer.name}</span>

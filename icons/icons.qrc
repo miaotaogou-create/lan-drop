@@ -4,5 +4,10 @@
         <file alias="folder-plus.svg">folder-plus.svg</file>
         <file alias="zap.svg">zap.svg</file>
         <file alias="send.svg">send.svg</file>
+        <file alias="settings.svg">settings.svg</file>
+        <file alias="badge-terminal.svg">badge-terminal.svg</file>
+        <file alias="badge-cpu.svg">badge-cpu.svg</file>
+        <file alias="badge-server.svg">badge-server.svg</file>
+        <file alias="badge-phone.svg">badge-phone.svg</file>
     </qresource>
 </RCC>

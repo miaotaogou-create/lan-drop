@@ -213,7 +213,7 @@ void Discovery::announce()
 #ifdef Q_OS_WIN
     o.insert(QStringLiteral("os"), QStringLiteral("windows"));
 #else
-    o.insert(QStringLiteral("os"), QStringLiteral("linux"));
+    o.insert(QStringLiteral("os"), localOsTag());
 #endif
     const QByteArray body = QJsonDocument(o).toJson(QJsonDocument::Compact);
     QStringList targets;

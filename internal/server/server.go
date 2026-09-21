@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,7 +136,7 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 		ID:   s.id,
 		Name: s.settings.Get().DeviceName,
 		Port: s.listenPort,
-		OS:   runtime.GOOS,
+		OS:   discover.OSTag(),
 		IPs:  discover.LocalIPv4s(),
 	})
 }
