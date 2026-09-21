@@ -44,6 +44,12 @@ int runSelfCheck()
         return fail("broadcast");
     if (!broadcastAddress(QStringLiteral("10.0.0.1"), QStringLiteral("255.255.255.255")).isEmpty())
         return fail("host route");
+    if (deviceKindFromOs(QStringLiteral("windows")) != 0)
+        return fail("kind laptop");
+    if (deviceKindFromOs(QStringLiteral("android")) != 1)
+        return fail("kind phone");
+    if (deviceKindFromOs(QStringLiteral("iPadOS")) != 2)
+        return fail("kind tablet");
     std::printf("self-check ok\n");
     return 0;
 }

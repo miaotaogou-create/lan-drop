@@ -19,4 +19,7 @@ QString resolveSharedFile(const QString &root, const QString &name);
 // 由 IPv4 与掩码算广播地址。掩码无效时返回空。
 QString broadcastAddress(const QString &ipv4, const QString &mask);
 
+// 0 笔记本，1 手机，2 平板（按对端 os 字段启发式）
+int deviceKindFromOs(const QString &osName);
+
 #endif

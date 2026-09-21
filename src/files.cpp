@@ -102,3 +102,14 @@ QString broadcastAddress(const QString &ipv4, const QString &mask)
     const quint32 b = a | ~k;
     return QHostAddress(b).toString();
 }
+
+int deviceKindFromOs(const QString &osName)
+{
+    const QString o = osName.toLower();
+    if (o.contains(QLatin1String("ipad")) || o.contains(QLatin1String("tablet")))
+        return 2;
+    if (o.contains(QLatin1String("android")) || o.contains(QLatin1String("ios"))
+        || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("phone")))
+        return 1;
+    return 0;
+}

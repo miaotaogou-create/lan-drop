@@ -1,6 +1,7 @@
 ﻿#include "mainwindow.h"
 
 #include "discovery.h"
+#include "files.h"
 #include "httpserver.h"
 
 #include <QApplication>
@@ -107,20 +108,79 @@ static QPixmap makeRadioLogo(int logical = 36)
     p.drawRoundedRect(QRectF(0, 0, logical, logical), 10, 10);
 
     p.setBrush(Qt::white);
-    p.drawEllipse(QPointF(logical / 2.0, logical / 2.0), 2.2, 2.2);
+    p.drawEllipse(QPointF(logical / 2.0, logical / 2.0), 2.4, 2.4);
 
+    // Qt 弧：0°在时钟 3 点，逆时针。左右弧不得跨过 12/6 点，否则会像 Wi‑Fi 上下波纹。
     QPen pen(Qt::white, 2.0);
     pen.setCapStyle(Qt::RoundCap);
     p.setPen(pen);
     p.setBrush(Qt::NoBrush);
     const QPointF c(logical / 2.0, logical / 2.0);
     for (int i = 0; i < 2; ++i) {
-        const qreal r = 6.0 + i * 4.5;
-        // 左右各两道弧，像广播符号
-        p.drawArc(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), 40 * 16, 100 * 16);
-        p.drawArc(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), 220 * 16, 100 * 16);
+        const qreal r = 6.5 + i * 4.5;
+        const QRectF box(c.x() - r, c.y() - r, r * 2, r * 2);
+        p.drawArc(box, -50 * 16, 100 * 16);  // 右侧
+        p.drawArc(box, 130 * 16, 100 * 16);  // 左侧
     }
     return pm;
+}
+
+enum DeviceKind {
+    DevLaptop = 0,
+    DevPhone,
+    DevTablet
+};
+
+static DeviceKind deviceKindOf(const QString &osName)
+{
+    return DeviceKind(deviceKindFromOs(osName));
+}
+
+static QColor peerAvatarColor(const QString &key)
+{
+    static const QColor palette[] = {
+        QColor(QStringLiteral("#f97316")),
+        QColor(QStringLiteral("#10b981")),
+        QColor(QStringLiteral("#2563eb")),
+        QColor(QStringLiteral("#ec4899")),
+        QColor(QStringLiteral("#8b5cf6")),
+        QColor(QStringLiteral("#06b6d4"))
+    };
+    uint h = 0;
+    for (int i = 0; i < key.size(); ++i)
+        h = h * 33 + uint(key.at(i).unicode());
+    return palette[h % 6];
+}
+
+static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
+{
+    QPen pen(color, 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal x = box.x();
+    const qreal y = box.y();
+    const qreal w = box.width();
+    const qreal h = box.height();
+    switch (kind) {
+    case DevPhone:
+        p.drawRoundedRect(QRectF(x + w * 0.28, y + h * 0.08, w * 0.44, h * 0.84), 1.5, 1.5);
+        p.drawLine(QPointF(x + w * 0.40, y + h * 0.78), QPointF(x + w * 0.60, y + h * 0.78));
+        break;
+    case DevTablet:
+        p.drawRoundedRect(QRectF(x + w * 0.12, y + h * 0.18, w * 0.76, h * 0.64), 1.8, 1.8);
+        p.drawLine(QPointF(x + w * 0.42, y + h * 0.72), QPointF(x + w * 0.58, y + h * 0.72));
+        break;
+    case DevLaptop:
+    default:
+        p.drawRoundedRect(QRectF(x + w * 0.14, y + h * 0.18, w * 0.72, h * 0.48), 1.2, 1.2);
+        p.drawLine(QPointF(x + w * 0.06, y + h * 0.72), QPointF(x + w * 0.94, y + h * 0.72));
+        p.drawLine(QPointF(x + w * 0.22, y + h * 0.72), QPointF(x + w * 0.30, y + h * 0.86));
+        p.drawLine(QPointF(x + w * 0.78, y + h * 0.72), QPointF(x + w * 0.70, y + h * 0.86));
+        p.drawLine(QPointF(x + w * 0.30, y + h * 0.86), QPointF(x + w * 0.70, y + h * 0.86));
+        break;
+    }
 }
 
 static QPixmap makeLaptopIcon(int logical = 16)
@@ -132,16 +192,45 @@ static QPixmap makeLaptopIcon(int logical = 16)
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(QColor(QStringLiteral("#2563eb")), 1.5);
-    pen.setJoinStyle(Qt::RoundJoin);
-    pen.setCapStyle(Qt::RoundCap);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    p.drawRoundedRect(QRectF(2.5, 3.0, 11.0, 7.5), 1.2, 1.2);
-    p.drawLine(QPointF(1.5, 12.5), QPointF(14.5, 12.5));
-    p.drawLine(QPointF(4.0, 12.5), QPointF(5.0, 14.0));
-    p.drawLine(QPointF(12.0, 12.5), QPointF(11.0, 14.0));
-    p.drawLine(QPointF(5.0, 14.0), QPointF(11.0, 14.0));
+    paintDeviceGlyph(p, DevLaptop, QRectF(0, 0, logical, logical), QColor(QStringLiteral("#2563eb")));
+    return pm;
+}
+
+static QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 40)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const QColor bg = peerAvatarColor(name.isEmpty() ? osName : name);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bg);
+    p.drawRoundedRect(QRectF(0, 0, logical, logical), 10, 10);
+
+    QString ch = name.trimmed();
+    if (ch.isEmpty())
+        ch = QStringLiteral("?");
+    else
+        ch = ch.left(1).toUpper();
+    p.setPen(Qt::white);
+    QFont f = qApp->font();
+    f.setPixelSize(qMax(12, logical * 2 / 5));
+    f.setBold(true);
+    p.setFont(f);
+    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
+
+    // 右下角白底圆 + 设备类型线标
+    const qreal badge = logical * 0.40;
+    const QRectF badgeBox(logical - badge - 1, logical - badge - 1, badge, badge);
+    p.setPen(Qt::NoPen);
+    p.setBrush(Qt::white);
+    p.drawEllipse(badgeBox);
+    paintDeviceGlyph(p, deviceKindOf(osName), badgeBox.adjusted(2.5, 2.5, -2.5, -2.5), bg);
     return pm;
 }
 
@@ -347,6 +436,8 @@ void MainWindow::buildUi()
     m_list->setObjectName(QStringLiteral("peerList"));
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_list->setIconSize(QSize(40, 40));
+    m_list->setSpacing(2);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
 
     sideLay->addLayout(sideHead);
@@ -449,7 +540,7 @@ void MainWindow::applyStyle()
         " color: #0f172a; selection-background-color: #bfdbfe; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerList::item { background: transparent; border: 1px solid transparent; border-radius: 10px;"
-        " padding: 10px 8px; margin: 2px 0; color: #0f172a; }"
+        " padding: 8px 8px; margin: 2px 0; color: #0f172a; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
         "#right { background: #ffffff; }"
@@ -735,8 +826,14 @@ void MainWindow::refreshPeers()
         const Peer &p = list.at(i);
         const QString flag = p.online() ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线");
         const QString manual = p.manual ? QString::fromUtf8(u8" · 手动") : QString();
+        const QString osTag = p.osName.trimmed().isEmpty()
+            ? QString()
+            : (QStringLiteral("  ·  ") + p.osName);
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1\n%2:%3  %4%5").arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual));
+            QStringLiteral("%1\n%2:%3  %4%5%6")
+                .arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual).arg(osTag));
+        it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 40)));
+        it->setSizeHint(QSize(0, 56));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
