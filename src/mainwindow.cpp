@@ -92,6 +92,58 @@ static QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
     return QIcon(pm);
 }
 
+static QPixmap makeRadioLogo(int logical = 36)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#2563eb")));
+    p.drawRoundedRect(QRectF(0, 0, logical, logical), 10, 10);
+
+    p.setBrush(Qt::white);
+    p.drawEllipse(QPointF(logical / 2.0, logical / 2.0), 2.2, 2.2);
+
+    QPen pen(Qt::white, 2.0);
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const QPointF c(logical / 2.0, logical / 2.0);
+    for (int i = 0; i < 2; ++i) {
+        const qreal r = 6.0 + i * 4.5;
+        // 左右各两道弧，像广播符号
+        p.drawArc(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), 40 * 16, 100 * 16);
+        p.drawArc(QRectF(c.x() - r, c.y() - r, r * 2, r * 2), 220 * 16, 100 * 16);
+    }
+    return pm;
+}
+
+static QPixmap makeLaptopIcon(int logical = 16)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(QColor(QStringLiteral("#2563eb")), 1.5);
+    pen.setJoinStyle(Qt::RoundJoin);
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(QRectF(2.5, 3.0, 11.0, 7.5), 1.2, 1.2);
+    p.drawLine(QPointF(1.5, 12.5), QPointF(14.5, 12.5));
+    p.drawLine(QPointF(4.0, 12.5), QPointF(5.0, 14.0));
+    p.drawLine(QPointF(12.0, 12.5), QPointF(11.0, 14.0));
+    p.drawLine(QPointF(5.0, 14.0), QPointF(11.0, 14.0));
+    return pm;
+}
+
 static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
 {
     QPushButton *b = new QPushButton;
@@ -154,16 +206,16 @@ void MainWindow::buildUi()
     QLabel *logo = new QLabel;
     logo->setObjectName(QStringLiteral("logo"));
     logo->setFixedSize(36, 36);
-    logo->setAlignment(Qt::AlignCenter);
-    logo->setText(QStringLiteral("LD"));
+    logo->setPixmap(makeRadioLogo(36));
 
     QVBoxLayout *brandCol = new QVBoxLayout;
     brandCol->setSpacing(2);
     brandCol->setContentsMargins(0, 0, 0, 0);
     QLabel *brand = new QLabel(QString::fromUtf8(u8"局域快传"));
     brand->setObjectName(QStringLiteral("brand"));
-    m_statusLabel = new QLabel(QString::fromUtf8(u8"在线 · 正在发现局域网设备"));
+    m_statusLabel = new QLabel;
     m_statusLabel->setObjectName(QStringLiteral("statusOnline"));
+    m_statusLabel->setTextFormat(Qt::RichText);
     brandCol->addWidget(brand);
     brandCol->addWidget(m_statusLabel);
 
@@ -173,9 +225,24 @@ void MainWindow::buildUi()
     brandRow->addWidget(logo);
     brandRow->addLayout(brandCol);
 
-    m_hostPill = new QLabel;
+    m_hostPill = new QWidget;
     m_hostPill->setObjectName(QStringLiteral("hostPill"));
-    m_hostPill->setAlignment(Qt::AlignCenter);
+    QHBoxLayout *pillLay = new QHBoxLayout(m_hostPill);
+    pillLay->setContentsMargins(10, 6, 12, 6);
+    pillLay->setSpacing(6);
+    QLabel *hostIcon = new QLabel;
+    hostIcon->setFixedSize(16, 16);
+    hostIcon->setPixmap(makeLaptopIcon(16));
+    QLabel *hostTag = new QLabel(QString::fromUtf8(u8"本机:"));
+    hostTag->setObjectName(QStringLiteral("hostTag"));
+    m_hostName = new QLabel;
+    m_hostName->setObjectName(QStringLiteral("hostName"));
+    m_hostIp = new QLabel;
+    m_hostIp->setObjectName(QStringLiteral("hostIp"));
+    pillLay->addWidget(hostIcon);
+    pillLay->addWidget(hostTag);
+    pillLay->addWidget(m_hostName);
+    pillLay->addWidget(m_hostIp);
 
     QPushButton *shareBtn = new QPushButton(QString::fromUtf8(u8"网页共享 (HTTP)"));
     shareBtn->setObjectName(QStringLiteral("shareBtn"));
@@ -196,7 +263,6 @@ void MainWindow::buildUi()
     titleLay->addLayout(brandRow);
     titleLay->addStretch(1);
     titleLay->addWidget(m_hostPill);
-    titleLay->addStretch(1);
     titleLay->addWidget(shareBtn);
     titleLay->addWidget(setBtn);
     titleLay->addSpacing(6);
@@ -316,11 +382,13 @@ void MainWindow::applyStyle()
     setStyleSheet(QStringLiteral(
         "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
         "#titleBar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
-        "#logo { background: #2563eb; color: white; border-radius: 10px; font-size: 16px; font-weight: 700; }"
+        "#logo { background: transparent; border: none; }"
         "#brand { color: #0f172a; font-size: 16px; font-weight: 700; }"
         "#statusOnline { color: #64748b; font-size: 11px; }"
-        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 14px;"
-        " color: #475569; font-size: 12px; }"
+        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#hostTag { color: #64748b; font-size: 12px; }"
+        "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
+        "#hostIp { color: #94a3b8; font-size: 12px; font-family: Consolas, 'Courier New', monospace; }"
         "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 6px 12px; font-size: 12px; font-weight: 600; }"
         "#shareBtn:hover { background: #dbeafe; }"
@@ -427,6 +495,25 @@ void MainWindow::webShareSoon()
                              QString::fromUtf8(u8"网页共享会在后续版本提供。现在可以用左侧设备列表互传文字和文件。"));
 }
 
+void MainWindow::updateHostPill()
+{
+    if (!m_hostName || !m_hostIp)
+        return;
+    m_hostName->setText(m_settings.deviceName);
+    m_hostIp->setText(QLatin1Char('(') + localIpText() + QLatin1Char(')'));
+}
+
+void MainWindow::setStatusOnline(const QString &text, bool ok)
+{
+    if (!m_statusLabel)
+        return;
+    const QString dot = ok ? QStringLiteral("#22c55e") : QStringLiteral("#f59e0b");
+    m_statusLabel->setText(
+        QStringLiteral("<span style=\"color:%1;font-size:10px;\">●</span>"
+                       "&nbsp;<span style=\"color:#64748b;\">%2</span>")
+            .arg(dot, text.toHtmlEscaped()));
+}
+
 void MainWindow::boot()
 {
     m_settings = Settings::load();
@@ -437,15 +524,15 @@ void MainWindow::boot()
     m_http->setDownloadDir(m_settings.downloadDir);
     const bool httpOk = m_http->listen(m_settings.port);
     const bool discOk = m_disc->start(m_settings.discoverPort);
-    m_hostPill->setText(QString::fromUtf8(u8"本机: %1（%2）").arg(m_settings.deviceName).arg(localIpText()));
+    updateHostPill();
     if (!httpOk) {
-        m_statusLabel->setText(QString::fromUtf8(u8"传输端口占用，请在设置里改端口"));
+        setStatusOnline(QString::fromUtf8(u8"传输端口占用，请在设置里改端口"), false);
         QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),
                              QString::fromUtf8(u8"端口 %1 被占用，其他电脑连不上这台机器。请在设置里改端口后重启。").arg(m_settings.port));
     } else if (!discOk) {
-        m_statusLabel->setText(QString::fromUtf8(u8"在线 · 发现端口占用，仍可手动加 IP"));
+        setStatusOnline(QString::fromUtf8(u8"在线 · 发现端口占用，仍可手动加 IP"), false);
     } else {
-        m_statusLabel->setText(QString::fromUtf8(u8"在线 · 正在发现局域网设备"));
+        setStatusOnline(QString::fromUtf8(u8"在线 · 局域网自动发现中"), true);
     }
     refreshPeers();
     showChat();
@@ -542,8 +629,7 @@ void MainWindow::refreshPeers()
         showChat();
     else
         updateEmpty();
-    if (m_hostPill)
-        m_hostPill->setText(QString::fromUtf8(u8"本机: %1（%2）").arg(m_settings.deviceName).arg(localIpText()));
+    updateHostPill();
 }
 
 void MainWindow::showChat()

@@ -52,6 +52,8 @@ private:
     void note(const QString &key, const QString &line);
     void updateChrome();
     void updateEmpty();
+    void updateHostPill();
+    void setStatusOnline(const QString &text, bool ok);
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;
@@ -63,7 +65,9 @@ private:
     QNetworkAccessManager *m_nam = 0;
 
     QWidget *m_titleBar = 0;
-    QLabel *m_hostPill = 0;
+    QWidget *m_hostPill = 0;
+    QLabel *m_hostName = 0;
+    QLabel *m_hostIp = 0;
     QLabel *m_statusLabel = 0;
     QLabel *m_peerCount = 0;
     QLabel *m_emptyHint = 0;
