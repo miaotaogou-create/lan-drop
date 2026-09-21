@@ -888,6 +888,8 @@ void MainWindow::refreshShareBtn()
 {
     if (!m_shareBtn)
         return;
+    m_shareBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/globe.svg"), 16)));
+    m_shareBtn->setIconSize(QSize(16, 16));
     if (m_http && !m_http->shareDir().isEmpty())
         m_shareBtn->setText(QString::fromUtf8(u8"共享中…"));
     else
