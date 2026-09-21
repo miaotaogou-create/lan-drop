@@ -3,81 +3,53 @@
 #include "discovery.h"
 #include "httpserver.h"
 
+#include <QApplication>
 #include <QDialog>
 #include <QDir>
+#include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
-#include <QInputDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPushButton>
-#include <QSplitter>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QTextEdit>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
+static QPushButton *chromeBtn(const QString &text, const QString &objectName)
+{
+    QPushButton *b = new QPushButton(text);
+    b->setObjectName(objectName);
+    b->setFixedSize(46, 32);
+    b->setFocusPolicy(Qt::NoFocus);
+    b->setFlat(true);
+    b->setCursor(Qt::ArrowCursor);
+    return b;
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(QStringLiteral("局域快传"));
-    resize(1080, 680);
-
-    m_list = new QListWidget;
-    m_chat = new QTextEdit;
-    m_chat->setReadOnly(true);
-    m_input = new QLineEdit;
-    m_input->setPlaceholderText(QStringLiteral("输入文字或命令，回车发送"));
-
-    QPushButton *addBtn = new QPushButton(QStringLiteral("添加节点"));
-    QPushButton *probeBtn = new QPushButton(QStringLiteral("探测"));
-    QPushButton *setBtn = new QPushButton(QStringLiteral("设置"));
-    QPushButton *fileBtn = new QPushButton(QStringLiteral("发送文件"));
-    QPushButton *sendBtn = new QPushButton(QStringLiteral("发送"));
-
-    QWidget *left = new QWidget;
-    QVBoxLayout *leftLay = new QVBoxLayout(left);
-    leftLay->addWidget(new QLabel(QStringLiteral("局域网设备")));
-    leftLay->addWidget(m_list, 1);
-    QHBoxLayout *leftBtns = new QHBoxLayout;
-    leftBtns->addWidget(addBtn);
-    leftBtns->addWidget(probeBtn);
-    leftBtns->addWidget(setBtn);
-    leftLay->addLayout(leftBtns);
-
-    QWidget *right = new QWidget;
-    QVBoxLayout *rightLay = new QVBoxLayout(right);
-    rightLay->addWidget(m_chat, 1);
-    QHBoxLayout *row = new QHBoxLayout;
-    row->addWidget(m_input, 1);
-    row->addWidget(fileBtn);
-    row->addWidget(sendBtn);
-    rightLay->addLayout(row);
-
-    QSplitter *split = new QSplitter;
-    split->addWidget(left);
-    split->addWidget(right);
-    split->setStretchFactor(1, 1);
-    left->setMinimumWidth(260);
-    setCentralWidget(split);
-
-    connect(addBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
-    connect(probeBtn, SIGNAL(clicked()), this, SLOT(probePeer()));
-    connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
-    connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
-    connect(sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
-    connect(m_input, SIGNAL(returnPressed()), this, SLOT(sendText()));
-    connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    resize(1180, 720);
+    setMinimumSize(900, 560);
+    statusBar()->hide();
 
     m_disc = new Discovery(this);
     m_http = new HttpServer(this);
@@ -88,10 +60,310 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_http, SIGNAL(fileArrived(QString,QString,QString,qint64)),
             this, SLOT(onFile(QString,QString,QString,qint64)));
 
+    buildUi();
+    applyStyle();
+
     QTimer *tick = new QTimer(this);
     connect(tick, SIGNAL(timeout()), this, SLOT(refreshPeers()));
     tick->start(1000);
     boot();
+}
+
+void MainWindow::buildUi()
+{
+    QWidget *root = new QWidget;
+    root->setObjectName(QStringLiteral("root"));
+    QVBoxLayout *rootLay = new QVBoxLayout(root);
+    rootLay->setContentsMargins(0, 0, 0, 0);
+    rootLay->setSpacing(0);
+
+    // —— 自绘顶栏：品牌 + 本机信息 + 操作 + 窗口按钮 ——
+    m_titleBar = new QWidget;
+    m_titleBar->setObjectName(QStringLiteral("titleBar"));
+    m_titleBar->setFixedHeight(64);
+    m_titleBar->installEventFilter(this);
+    QHBoxLayout *titleLay = new QHBoxLayout(m_titleBar);
+    titleLay->setContentsMargins(16, 0, 8, 0);
+    titleLay->setSpacing(12);
+
+    QLabel *logo = new QLabel;
+    logo->setObjectName(QStringLiteral("logo"));
+    logo->setFixedSize(36, 36);
+    logo->setAlignment(Qt::AlignCenter);
+    logo->setText(QStringLiteral("◉"));
+
+    QVBoxLayout *brandCol = new QVBoxLayout;
+    brandCol->setSpacing(2);
+    brandCol->setContentsMargins(0, 0, 0, 0);
+    QLabel *brand = new QLabel(QStringLiteral("局域快传"));
+    brand->setObjectName(QStringLiteral("brand"));
+    m_statusLabel = new QLabel(QStringLiteral("●  在线 · 正在发现局域网设备"));
+    m_statusLabel->setObjectName(QStringLiteral("statusOnline"));
+    brandCol->addWidget(brand);
+    brandCol->addWidget(m_statusLabel);
+
+    QHBoxLayout *brandRow = new QHBoxLayout;
+    brandRow->setSpacing(10);
+    brandRow->setContentsMargins(0, 0, 0, 0);
+    brandRow->addWidget(logo);
+    brandRow->addLayout(brandCol);
+
+    m_hostPill = new QLabel;
+    m_hostPill->setObjectName(QStringLiteral("hostPill"));
+    m_hostPill->setAlignment(Qt::AlignCenter);
+
+    QPushButton *shareBtn = new QPushButton(QStringLiteral("网页共享 (HTTP)"));
+    shareBtn->setObjectName(QStringLiteral("shareBtn"));
+    shareBtn->setCursor(Qt::PointingHandCursor);
+    connect(shareBtn, SIGNAL(clicked()), this, SLOT(webShareSoon()));
+
+    QPushButton *setBtn = new QPushButton(QStringLiteral("⚙"));
+    setBtn->setObjectName(QStringLiteral("iconBtn"));
+    setBtn->setFixedSize(34, 34);
+    setBtn->setToolTip(QStringLiteral("设置"));
+    setBtn->setCursor(Qt::PointingHandCursor);
+    connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
+
+    QPushButton *minBtn = chromeBtn(QStringLiteral("─"), QStringLiteral("minBtn"));
+    m_maxBtn = chromeBtn(QStringLiteral("□"), QStringLiteral("maxBtn"));
+    QPushButton *closeBtn = chromeBtn(QStringLiteral("×"), QStringLiteral("closeBtn"));
+    connect(minBtn, SIGNAL(clicked()), this, SLOT(minimizeWin()));
+    connect(m_maxBtn, SIGNAL(clicked()), this, SLOT(toggleMax()));
+    connect(closeBtn, SIGNAL(clicked()), this, SLOT(closeWin()));
+
+    titleLay->addLayout(brandRow);
+    titleLay->addStretch(1);
+    titleLay->addWidget(m_hostPill);
+    titleLay->addStretch(1);
+    titleLay->addWidget(shareBtn);
+    titleLay->addWidget(setBtn);
+    titleLay->addSpacing(6);
+    titleLay->addWidget(minBtn);
+    titleLay->addWidget(m_maxBtn);
+    titleLay->addWidget(closeBtn);
+
+    // —— 主体：左设备列表 + 右会话 ——
+    QWidget *body = new QWidget;
+    body->setObjectName(QStringLiteral("body"));
+    QHBoxLayout *bodyLay = new QHBoxLayout(body);
+    bodyLay->setContentsMargins(0, 0, 0, 0);
+    bodyLay->setSpacing(0);
+
+    QWidget *side = new QWidget;
+    side->setObjectName(QStringLiteral("side"));
+    side->setFixedWidth(300);
+    QVBoxLayout *sideLay = new QVBoxLayout(side);
+    sideLay->setContentsMargins(16, 14, 16, 14);
+    sideLay->setSpacing(10);
+
+    QHBoxLayout *sideHead = new QHBoxLayout;
+    QLabel *sideTitle = new QLabel(QStringLiteral("附近在线设备"));
+    sideTitle->setObjectName(QStringLiteral("sideTitle"));
+    m_peerCount = new QLabel(QStringLiteral("0"));
+    m_peerCount->setObjectName(QStringLiteral("peerCount"));
+    QPushButton *addBtn = new QPushButton(QStringLiteral("+ 加 IP"));
+    addBtn->setObjectName(QStringLiteral("addBtn"));
+    addBtn->setCursor(Qt::PointingHandCursor);
+    connect(addBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
+    sideHead->addWidget(sideTitle);
+    sideHead->addWidget(m_peerCount);
+    sideHead->addStretch(1);
+    sideHead->addWidget(addBtn);
+
+    m_search = new QLineEdit;
+    m_search->setObjectName(QStringLiteral("search"));
+    m_search->setPlaceholderText(QStringLiteral("搜索设备名称或 IP..."));
+    connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
+
+    m_list = new QListWidget;
+    m_list->setObjectName(QStringLiteral("peerList"));
+    m_list->setFrameShape(QFrame::NoFrame);
+    m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
+
+    QLabel *manual = new QLabel(QStringLiteral("<a href='add' style='color:#2563eb;text-decoration:none;'>+ 手动输入 IP 连接</a>"));
+    manual->setObjectName(QStringLiteral("manualLink"));
+    manual->setTextFormat(Qt::RichText);
+    manual->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    connect(manual, SIGNAL(linkActivated(QString)), this, SLOT(addPeer()));
+
+    sideLay->addLayout(sideHead);
+    sideLay->addWidget(m_search);
+    sideLay->addWidget(m_list, 1);
+    sideLay->addWidget(manual, 0, Qt::AlignHCenter);
+
+    QWidget *right = new QWidget;
+    right->setObjectName(QStringLiteral("right"));
+    QVBoxLayout *rightLay = new QVBoxLayout(right);
+    rightLay->setContentsMargins(0, 0, 0, 0);
+    rightLay->setSpacing(0);
+
+    m_pages = new QStackedWidget;
+    m_emptyHint = new QLabel(QStringLiteral("还没有对端。同一网段等待发现，或点左侧「加 IP」。"));
+    m_emptyHint->setObjectName(QStringLiteral("emptyHint"));
+    m_emptyHint->setAlignment(Qt::AlignCenter);
+    m_emptyHint->setWordWrap(true);
+
+    QWidget *chatPage = new QWidget;
+    QVBoxLayout *chatLay = new QVBoxLayout(chatPage);
+    chatLay->setContentsMargins(0, 0, 0, 0);
+    chatLay->setSpacing(0);
+    m_chat = new QTextEdit;
+    m_chat->setObjectName(QStringLiteral("chat"));
+    m_chat->setReadOnly(true);
+    m_chat->setFrameShape(QFrame::NoFrame);
+
+    m_composer = new QWidget;
+    m_composer->setObjectName(QStringLiteral("composer"));
+    QHBoxLayout *compLay = new QHBoxLayout(m_composer);
+    compLay->setContentsMargins(16, 12, 16, 12);
+    compLay->setSpacing(8);
+    m_input = new QLineEdit;
+    m_input->setObjectName(QStringLiteral("input"));
+    m_input->setPlaceholderText(QStringLiteral("输入文字或命令，回车发送"));
+    QPushButton *fileBtn = new QPushButton(QStringLiteral("发送文件"));
+    fileBtn->setObjectName(QStringLiteral("secondaryBtn"));
+    fileBtn->setCursor(Qt::PointingHandCursor);
+    QPushButton *sendBtn = new QPushButton(QStringLiteral("发送"));
+    sendBtn->setObjectName(QStringLiteral("primaryBtn"));
+    sendBtn->setCursor(Qt::PointingHandCursor);
+    connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
+    connect(sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
+    connect(m_input, SIGNAL(returnPressed()), this, SLOT(sendText()));
+    compLay->addWidget(m_input, 1);
+    compLay->addWidget(fileBtn);
+    compLay->addWidget(sendBtn);
+
+    chatLay->addWidget(m_chat, 1);
+    chatLay->addWidget(m_composer);
+
+    m_pages->addWidget(m_emptyHint);
+    m_pages->addWidget(chatPage);
+    rightLay->addWidget(m_pages, 1);
+
+    bodyLay->addWidget(side);
+    bodyLay->addWidget(right, 1);
+
+    rootLay->addWidget(m_titleBar);
+    rootLay->addWidget(body, 1);
+    setCentralWidget(root);
+}
+
+void MainWindow::applyStyle()
+{
+    setStyleSheet(QStringLiteral(
+        "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
+        "#titleBar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
+        "#logo { background: #2563eb; color: white; border-radius: 10px; font-size: 16px; font-weight: 700; }"
+        "#brand { color: #0f172a; font-size: 16px; font-weight: 700; }"
+        "#statusOnline { color: #64748b; font-size: 11px; }"
+        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 14px;"
+        " color: #475569; font-size: 12px; }"
+        "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
+        " padding: 6px 12px; font-size: 12px; font-weight: 600; }"
+        "#shareBtn:hover { background: #dbeafe; }"
+        "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px;"
+        " color: #64748b; font-size: 16px; }"
+        "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; color: #0f172a; }"
+        "#minBtn, #maxBtn, #closeBtn { background: transparent; border: none; color: #475569;"
+        " font-size: 14px; border-radius: 6px; }"
+        "#minBtn:hover, #maxBtn:hover { background: #f1f5f9; }"
+        "#closeBtn:hover { background: #ef4444; color: white; }"
+        "#side { background: #ffffff; border-right: 1px solid #e2e8f0; }"
+        "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
+        "#peerCount { background: #ecfdf5; color: #047857; border-radius: 8px; padding: 1px 7px;"
+        " font-size: 11px; font-weight: 700; }"
+        "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
+        " padding: 4px 10px; font-size: 12px; font-weight: 600; }"
+        "#addBtn:hover { background: #dbeafe; }"
+        "#search { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;"
+        " color: #0f172a; selection-background-color: #bfdbfe; }"
+        "#peerList { background: transparent; outline: none; }"
+        "#peerList::item { background: transparent; border: 1px solid transparent; border-radius: 10px;"
+        " padding: 10px 8px; margin: 2px 0; color: #0f172a; }"
+        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
+        "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
+        "#manualLink { font-size: 12px; padding: 6px; }"
+        "#right { background: #ffffff; }"
+        "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #ffffff; }"
+        "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
+        "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
+        "#input { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;"
+        " color: #0f172a; }"
+        "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
+        " padding: 8px 16px; font-weight: 600; }"
+        "#primaryBtn:hover { background: #1d4ed8; }"
+        "#secondaryBtn { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; color: #334155;"
+        " padding: 8px 12px; }"
+        "#secondaryBtn:hover { background: #f8fafc; }"
+    ));
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_titleBar) {
+        if (event->type() == QEvent::MouseButtonDblClick) {
+            toggleMax();
+            return true;
+        }
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton && !isMaximized()) {
+                m_dragging = true;
+                m_dragOrigin = me->globalPos() - frameGeometry().topLeft();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::MouseMove && m_dragging) {
+            QMouseEvent *me = static_cast<QMouseEvent *>(event);
+            move(me->globalPos() - m_dragOrigin);
+            return true;
+        }
+        if (event->type() == QEvent::MouseButtonRelease) {
+            m_dragging = false;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::WindowStateChange)
+        updateChrome();
+}
+
+void MainWindow::updateChrome()
+{
+    if (!m_maxBtn)
+        return;
+    m_maxBtn->setText(isMaximized() ? QStringLiteral("❐") : QStringLiteral("□"));
+    m_maxBtn->setToolTip(isMaximized() ? QStringLiteral("还原") : QStringLiteral("最大化"));
+}
+
+void MainWindow::minimizeWin()
+{
+    showMinimized();
+}
+
+void MainWindow::toggleMax()
+{
+    if (isMaximized())
+        showNormal();
+    else
+        showMaximized();
+    updateChrome();
+}
+
+void MainWindow::closeWin()
+{
+    close();
+}
+
+void MainWindow::webShareSoon()
+{
+    QMessageBox::information(this, QStringLiteral("局域快传"),
+                             QStringLiteral("网页共享会在后续版本提供。现在可以用左侧设备列表互传文字和文件。"));
 }
 
 void MainWindow::boot()
@@ -104,35 +376,40 @@ void MainWindow::boot()
     m_http->setDownloadDir(m_settings.downloadDir);
     const bool httpOk = m_http->listen(m_settings.port);
     const bool discOk = m_disc->start(m_settings.discoverPort);
-    setWindowTitle(QStringLiteral("局域快传 - %1").arg(m_settings.deviceName));
-    QString st = QStringLiteral("本机 %1    传输 %2    发现 %3    下载 %4")
-                     .arg(m_settings.deviceName)
-                     .arg(m_settings.port)
-                     .arg(m_settings.discoverPort)
-                     .arg(m_settings.downloadDir);
-    if (!httpOk)
-        st += QStringLiteral("    传输端口占用");
-    if (!discOk)
-        st += QStringLiteral("    发现端口占用，仍可手动加 IP");
-    statusBar()->showMessage(st);
-    if (!httpOk)
+    m_hostPill->setText(QStringLiteral("本机: %1（%2）").arg(m_settings.deviceName).arg(localIpText()));
+    if (!httpOk) {
+        m_statusLabel->setText(QStringLiteral("●  传输端口占用，请在设置里改端口"));
         QMessageBox::warning(this, QStringLiteral("局域快传"),
                              QStringLiteral("端口 %1 被占用，其他电脑连不上这台机器。请在设置里改端口后重启。").arg(m_settings.port));
+    } else if (!discOk) {
+        m_statusLabel->setText(QStringLiteral("●  在线 · 发现端口占用，仍可手动加 IP"));
+    } else {
+        m_statusLabel->setText(QStringLiteral("●  在线 · 正在发现局域网设备"));
+    }
     refreshPeers();
     showChat();
+    updateChrome();
+}
+
+QString MainWindow::localIpText() const
+{
+    const QStringList ips = localIpv4();
+    if (ips.isEmpty())
+        return QStringLiteral("—");
+    return ips.first();
 }
 
 bool MainWindow::currentPeer(QString *ip, int *port, QString *name) const
 {
     QListWidgetItem *it = m_list->currentItem();
-    if (!it)
+    if (!it || it->isHidden())
         return false;
     if (ip)
         *ip = it->data(Qt::UserRole).toString();
     if (port)
         *port = it->data(Qt::UserRole + 1).toInt();
     if (name)
-        *name = it->text();
+        *name = it->data(Qt::UserRole + 2).toString();
     return !it->data(Qt::UserRole).toString().isEmpty();
 }
 
@@ -145,9 +422,38 @@ QString MainWindow::currentKey() const
     return ip + QLatin1Char(':') + QString::number(port);
 }
 
+void MainWindow::filterPeers(const QString &text)
+{
+    const QString q = text.trimmed().toLower();
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem *it = m_list->item(i);
+        if (q.isEmpty()) {
+            it->setHidden(false);
+            continue;
+        }
+        const QString hay = (it->text() + QLatin1Char(' ') + it->data(Qt::UserRole).toString()).toLower();
+        it->setHidden(!hay.contains(q));
+    }
+    updateEmpty();
+}
+
+void MainWindow::updateEmpty()
+{
+    int visible = 0;
+    for (int i = 0; i < m_list->count(); ++i) {
+        if (!m_list->item(i)->isHidden())
+            ++visible;
+    }
+    m_peerCount->setText(QString::number(visible));
+    const bool hasPeer = currentPeer(0, 0, 0);
+    m_pages->setCurrentIndex(hasPeer ? 1 : 0);
+    m_composer->setEnabled(hasPeer);
+}
+
 void MainWindow::refreshPeers()
 {
     const QString keep = currentKey();
+    const QString filter = m_search ? m_search->text() : QString();
     m_list->blockSignals(true);
     m_list->clear();
     const QList<Peer> list = m_disc->peers();
@@ -155,11 +461,12 @@ void MainWindow::refreshPeers()
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
         const QString flag = p.online() ? QStringLiteral("在线") : QStringLiteral("离线");
-        const QString manual = p.manual ? QStringLiteral("  手动") : QString();
+        const QString manual = p.manual ? QStringLiteral(" · 手动") : QString();
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1    %2:%3    %4%5").arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual));
+            QStringLiteral("%1\n%2:%3  %4%5").arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
+        it->setData(Qt::UserRole + 2, p.label());
         m_list->addItem(it);
         if (p.key() == keep)
             row = m_list->count() - 1;
@@ -169,13 +476,25 @@ void MainWindow::refreshPeers()
     else if (m_list->count() > 0 && keep.isEmpty())
         m_list->setCurrentRow(0);
     m_list->blockSignals(false);
+    filterPeers(filter);
     if (row < 0 && !keep.isEmpty())
         showChat();
+    else
+        updateEmpty();
+    if (m_hostPill)
+        m_hostPill->setText(QStringLiteral("本机: %1（%2）").arg(m_settings.deviceName).arg(localIpText()));
 }
 
 void MainWindow::showChat()
 {
-    m_chat->setPlainText(m_log.value(currentKey()).join(QStringLiteral("\n")));
+    const QString key = currentKey();
+    if (key.isEmpty()) {
+        updateEmpty();
+        return;
+    }
+    m_pages->setCurrentIndex(1);
+    m_composer->setEnabled(true);
+    m_chat->setPlainText(m_log.value(key).join(QStringLiteral("\n")));
 }
 
 void MainWindow::note(const QString &key, const QString &line)
@@ -191,6 +510,7 @@ void MainWindow::note(const QString &key, const QString &line)
 
 void MainWindow::onText(const QString &ip, const QString &fromId, const QString &fromName, int fromPort, const QString &text)
 {
+    Q_UNUSED(fromId);
     const int port = fromPort > 0 ? fromPort : 8848;
     m_disc->touch(ip, port, fromId, fromName, QString());
     const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
@@ -206,7 +526,6 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
         port = known.port;
     note(ip + QLatin1Char(':') + QString::number(port),
          QStringLiteral("收到文件 %1（%2 字节）").arg(name).arg(size));
-    statusBar()->showMessage(QStringLiteral("已保存 %1").arg(name), 5000);
 }
 
 void MainWindow::sendText()
@@ -216,10 +535,8 @@ void MainWindow::sendText()
         return;
     QString ip;
     int port = 0;
-    if (!currentPeer(&ip, &port, 0)) {
-        statusBar()->showMessage(QStringLiteral("先选一台设备"));
+    if (!currentPeer(&ip, &port, 0))
         return;
-    }
     QJsonObject o;
     o.insert(QStringLiteral("fromId"), m_id);
     o.insert(QStringLiteral("fromName"), m_settings.deviceName);
@@ -234,10 +551,8 @@ void MainWindow::sendText()
     const QString sent = text;
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, mine, sent]() {
         rep->deleteLater();
-        if (rep->error() != QNetworkReply::NoError) {
-            statusBar()->showMessage(QStringLiteral("发送失败，对端无响应"));
+        if (rep->error() != QNetworkReply::NoError)
             return;
-        }
         note(key, QStringLiteral("%1：%2").arg(mine).arg(sent));
         m_input->clear();
     });
@@ -247,17 +562,14 @@ void MainWindow::sendFile()
 {
     QString ip;
     int port = 0;
-    if (!currentPeer(&ip, &port, 0)) {
-        statusBar()->showMessage(QStringLiteral("先选一台设备"));
+    if (!currentPeer(&ip, &port, 0))
         return;
-    }
     const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("选择要发送的文件"));
     if (path.isEmpty())
         return;
     QFile *file = new QFile(path);
     if (!file->open(QIODevice::ReadOnly)) {
         delete file;
-        statusBar()->showMessage(QStringLiteral("打不开文件"));
         return;
     }
     const QString filename = QFileInfo(path).fileName();
@@ -272,20 +584,12 @@ void MainWindow::sendFile()
     QNetworkRequest req(QUrl(QStringLiteral("http://%1:%2/api/upload").arg(ip).arg(port)));
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
-    statusBar()->showMessage(QStringLiteral("正在发送 %1").arg(filename));
-    connect(rep, &QNetworkReply::uploadProgress, this, [this, filename](qint64 sent, qint64 total) {
-        if (total > 0)
-            statusBar()->showMessage(QStringLiteral("正在发送 %1  %2%").arg(filename).arg(sent * 100 / total));
-    });
     const QString key = currentKey();
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename]() {
         rep->deleteLater();
-        if (rep->error() != QNetworkReply::NoError || rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() >= 300) {
-            statusBar()->showMessage(QStringLiteral("发送失败，对端未保存"));
+        if (rep->error() != QNetworkReply::NoError || rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() >= 300)
             return;
-        }
         note(key, QStringLiteral("已发送文件 %1").arg(filename));
-        statusBar()->showMessage(QStringLiteral("已发送 %1").arg(filename), 5000);
     });
 }
 
@@ -293,6 +597,7 @@ void MainWindow::addPeer()
 {
     QDialog dlg(this);
     dlg.setWindowTitle(QStringLiteral("添加节点"));
+    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
     QLineEdit *ip = new QLineEdit;
     ip->setPlaceholderText(QStringLiteral("192.168.1.10"));
     QLineEdit *port = new QLineEdit(QStringLiteral("8848"));
@@ -330,15 +635,14 @@ void MainWindow::probePeer()
 {
     QString ip;
     int port = 0;
-    if (!currentPeer(&ip, &port, 0)) {
-        statusBar()->showMessage(QStringLiteral("先选一台设备"));
+    if (!currentPeer(&ip, &port, 0))
         return;
-    }
     QNetworkReply *rep = m_nam->get(QNetworkRequest(QUrl(QStringLiteral("http://%1:%2/api/info").arg(ip).arg(port))));
     connect(rep, &QNetworkReply::finished, this, [this, rep, ip, port]() {
         rep->deleteLater();
         if (rep->error() != QNetworkReply::NoError) {
-            statusBar()->showMessage(QStringLiteral("连不上 %1:%2").arg(ip).arg(port));
+            QMessageBox::warning(this, QStringLiteral("局域快传"),
+                                 QStringLiteral("连不上 %1:%2").arg(ip).arg(port));
             return;
         }
         const QJsonObject o = QJsonDocument::fromJson(rep->readAll()).object();
@@ -346,7 +650,7 @@ void MainWindow::probePeer()
                       o.value(QStringLiteral("id")).toString(),
                       o.value(QStringLiteral("name")).toString(),
                       o.value(QStringLiteral("os")).toString());
-        statusBar()->showMessage(QStringLiteral("已连通 %1").arg(o.value(QStringLiteral("name")).toString()), 4000);
+        refreshPeers();
     });
 }
 
@@ -354,6 +658,7 @@ void MainWindow::editSettings()
 {
     QDialog dlg(this);
     dlg.setWindowTitle(QStringLiteral("设置"));
+    dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
     QLineEdit *name = new QLineEdit(m_settings.deviceName);
     QLineEdit *port = new QLineEdit(QString::number(m_settings.port));
     QLineEdit *dport = new QLineEdit(QString::number(m_settings.discoverPort));
