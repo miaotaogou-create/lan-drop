@@ -901,29 +901,18 @@ void MainWindow::refreshShareBtn()
         m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
 }
 
-static QPixmap makeShareBadge(int logical = 36)
+static QPixmap loadSvgPixmap(const QString &path, int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     QPixmap pm(logical * dpr, logical * dpr);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#2563eb")));
-    p.drawRoundedRect(QRectF(0, 0, logical, logical), 8, 8);
-    QPen pen(Qt::white, 1.6);
-    pen.setCapStyle(Qt::RoundCap);
-    p.setPen(pen);
-    const QPointF a(11, 18);
-    const QPointF b(18, 12);
-    const QPointF c(25, 18);
-    p.drawLine(a, b);
-    p.drawLine(b, c);
-    p.setBrush(Qt::white);
-    p.drawEllipse(a, 2.4, 2.4);
-    p.drawEllipse(b, 2.4, 2.4);
-    p.drawEllipse(c, 2.4, 2.4);
+    QSvgRenderer r(path);
+    if (r.isValid()) {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        r.render(&p, QRectF(0, 0, logical, logical));
+    }
     return pm;
 }
 
@@ -1026,7 +1015,7 @@ void MainWindow::openShare()
     headLay->setContentsMargins(20, 16, 12, 16);
     headLay->setSpacing(12);
     QLabel *badge = new QLabel;
-    badge->setPixmap(makeShareBadge());
+    badge->setPixmap(loadSvgPixmap(QStringLiteral(":/icons/share-badge.svg"), 36));
     badge->setFixedSize(36, 36);
     QVBoxLayout *titleCol = new QVBoxLayout;
     titleCol->setSpacing(2);
@@ -1162,6 +1151,8 @@ void MainWindow::openShare()
     QPushButton *pauseBtn = new QPushButton;
     pauseBtn->setObjectName(QStringLiteral("sharePause"));
     pauseBtn->setCursor(Qt::PointingHandCursor);
+    pauseBtn->setIcon(QIcon(loadSvgPixmap(QStringLiteral(":/icons/power.svg"), 16)));
+    pauseBtn->setIconSize(QSize(16, 16));
     QLabel *footHint = new QLabel(QString::fromUtf8(u8"仅局域网有效，随开随关"));
     footHint->setObjectName(QStringLiteral("shareHint"));
     QPushButton *closeWin = new QPushButton(QString::fromUtf8(u8"关闭窗口"));
