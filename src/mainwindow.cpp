@@ -1473,6 +1473,7 @@ void MainWindow::addPeer()
     QDialog dlg(this);
     dlg.setObjectName(QStringLiteral("addPeerDlg"));
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
     dlg.setFixedWidth(460);
     dlg.setStyleSheet(QStringLiteral(
@@ -1531,11 +1532,13 @@ void MainWindow::addPeer()
     titleCol->addWidget(title);
     titleCol->addWidget(sub);
 
-    QPushButton *closeBtn = new QPushButton(QStringLiteral("×"));
+    QPushButton *closeBtn = new QPushButton;
     closeBtn->setObjectName(QStringLiteral("addPeerClose"));
     closeBtn->setFixedSize(28, 28);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setFocusPolicy(Qt::NoFocus);
+    closeBtn->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#94a3b8"))));
+    closeBtn->setIconSize(QSize(14, 14));
     connect(closeBtn, SIGNAL(clicked()), &dlg, SLOT(reject()));
 
     headLay->addWidget(globeBg, 0, Qt::AlignVCenter);
