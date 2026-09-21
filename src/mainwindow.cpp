@@ -22,6 +22,8 @@
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QPainter>
+#include <QtMath>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -30,14 +32,77 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
-static QPushButton *chromeBtn(const QString &text, const QString &objectName)
+enum ChromeIcon {
+    IconSettings = 0,
+    IconMinimize,
+    IconMaximize,
+    IconRestore,
+    IconClose
+};
+
+static QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
 {
-    QPushButton *b = new QPushButton(text);
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int logical = 16;
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(color, 1.6);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const QRectF r(2.5, 2.5, 11.0, 11.0);
+    switch (kind) {
+    case IconMinimize:
+        p.drawLine(QPointF(3.5, 8.0), QPointF(12.5, 8.0));
+        break;
+    case IconMaximize:
+        p.drawRect(QRectF(3.5, 3.5, 9.0, 9.0));
+        break;
+    case IconRestore:
+        p.drawRect(QRectF(5.0, 3.0, 7.5, 7.5));
+        p.fillRect(QRectF(3.0, 5.5, 7.5, 7.5), Qt::white);
+        p.drawRect(QRectF(3.0, 5.5, 7.5, 7.5));
+        break;
+    case IconClose:
+        p.drawLine(QPointF(4.0, 4.0), QPointF(12.0, 12.0));
+        p.drawLine(QPointF(12.0, 4.0), QPointF(4.0, 12.0));
+        break;
+    case IconSettings: {
+        p.setBrush(color);
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(QPointF(8.0, 8.0), 2.2, 2.2);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPointF(8.0, 8.0), 4.6, 4.6);
+        for (int i = 0; i < 6; ++i) {
+            const qreal a = i * 3.14159265 / 3.0;
+            const qreal c = qCos(a);
+            const qreal s = qSin(a);
+            p.drawLine(QPointF(8.0 + c * 5.2, 8.0 + s * 5.2),
+                       QPointF(8.0 + c * 7.0, 8.0 + s * 7.0));
+        }
+        break;
+    }
+    }
+    return QIcon(pm);
+}
+
+static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
+{
+    QPushButton *b = new QPushButton;
     b->setObjectName(objectName);
-    b->setFixedSize(46, 32);
+    b->setFixedSize(40, 32);
     b->setFocusPolicy(Qt::NoFocus);
     b->setFlat(true);
     b->setCursor(Qt::ArrowCursor);
+    b->setToolTip(tip);
+    b->setIcon(makeChromeIcon(kind, QColor(QStringLiteral("#475569"))));
+    b->setIconSize(QSize(16, 16));
     return b;
 }
 
@@ -117,19 +182,13 @@ void MainWindow::buildUi()
     shareBtn->setCursor(Qt::PointingHandCursor);
     connect(shareBtn, SIGNAL(clicked()), this, SLOT(webShareSoon()));
 
-    QPushButton *setBtn = new QPushButton(QString::fromUtf8(u8"设置"));
-    setBtn->setObjectName(QStringLiteral("iconBtn"));
-    setBtn->setFixedHeight(34);
-    setBtn->setMinimumWidth(44);
-    setBtn->setToolTip(QString::fromUtf8(u8"设置"));
+    QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
     setBtn->setCursor(Qt::PointingHandCursor);
     connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
 
-    QPushButton *minBtn = chromeBtn(QStringLiteral("-"), QStringLiteral("minBtn"));
-    minBtn->setToolTip(QString::fromUtf8(u8"最小化"));
-    m_maxBtn = chromeBtn(QStringLiteral("[]"), QStringLiteral("maxBtn"));
-    QPushButton *closeBtn = chromeBtn(QStringLiteral("X"), QStringLiteral("closeBtn"));
-    closeBtn->setToolTip(QString::fromUtf8(u8"关闭"));
+    QPushButton *minBtn = chromeBtn(IconMinimize, QStringLiteral("minBtn"), QString::fromUtf8(u8"最小化"));
+    m_maxBtn = chromeBtn(IconMaximize, QStringLiteral("maxBtn"), QString::fromUtf8(u8"最大化"));
+    QPushButton *closeBtn = chromeBtn(IconClose, QStringLiteral("closeBtn"), QString::fromUtf8(u8"关闭"));
     connect(minBtn, SIGNAL(clicked()), this, SLOT(minimizeWin()));
     connect(m_maxBtn, SIGNAL(clicked()), this, SLOT(toggleMax()));
     connect(closeBtn, SIGNAL(clicked()), this, SLOT(closeWin()));
@@ -265,13 +324,11 @@ void MainWindow::applyStyle()
         "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 6px 12px; font-size: 12px; font-weight: 600; }"
         "#shareBtn:hover { background: #dbeafe; }"
-        "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px;"
-        " color: #64748b; font-size: 16px; }"
-        "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; color: #0f172a; }"
-        "#minBtn, #maxBtn, #closeBtn { background: transparent; border: none; color: #475569;"
-        " font-size: 14px; border-radius: 6px; }"
+        "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0; }"
+        "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
+        "#minBtn, #maxBtn, #closeBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
         "#minBtn:hover, #maxBtn:hover { background: #f1f5f9; }"
-        "#closeBtn:hover { background: #ef4444; color: white; }"
+        "#closeBtn:hover { background: #ef4444; }"
         "#side { background: #ffffff; border-right: 1px solid #e2e8f0; }"
         "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
         "#peerCount { background: #ecfdf5; color: #047857; border-radius: 8px; padding: 1px 7px;"
@@ -340,8 +397,9 @@ void MainWindow::updateChrome()
 {
     if (!m_maxBtn)
         return;
-    m_maxBtn->setText(isMaximized() ? QStringLiteral("[=]") : QStringLiteral("[]"));
-    m_maxBtn->setToolTip(isMaximized() ? QString::fromUtf8(u8"还原") : QString::fromUtf8(u8"最大化"));
+    const bool maxed = isMaximized();
+    m_maxBtn->setIcon(makeChromeIcon(maxed ? IconRestore : IconMaximize, QColor(QStringLiteral("#475569"))));
+    m_maxBtn->setToolTip(maxed ? QString::fromUtf8(u8"还原") : QString::fromUtf8(u8"最大化"));
 }
 
 void MainWindow::minimizeWin()
