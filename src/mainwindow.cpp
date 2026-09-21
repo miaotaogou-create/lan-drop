@@ -9,6 +9,7 @@
 #include <QDialog>
 #include <QDir>
 #include <QEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -17,6 +18,7 @@
 #include <QHttpMultiPart>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -25,6 +27,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPainter>
+#include <QPlainTextEdit>
+#include <QPolygonF>
 #include <QtMath>
 #include <QPushButton>
 #include <QStackedWidget>
@@ -232,6 +236,80 @@ static QPixmap makePeerAvatar(const QString &name, const QString &osName, int lo
     p.drawEllipse(badgeBox);
     paintDeviceGlyph(p, deviceKindOf(osName), badgeBox.adjusted(2.5, 2.5, -2.5, -2.5), bg);
     return pm;
+}
+
+enum ToolIcon {
+    ToolPaperclip = 0,
+    ToolFolderPlus,
+    ToolZap,
+    ToolSendPlane
+};
+
+static QPixmap makeToolIcon(ToolIcon kind, const QColor &color, int logical = 16)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(color, 1.6);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    switch (kind) {
+    case ToolPaperclip:
+        p.drawArc(QRectF(5.5, 2.5, 5.0, 5.0), 0, 180 * 16);
+        p.drawLine(QPointF(5.5, 5.0), QPointF(5.5, 11.5));
+        p.drawArc(QRectF(5.5, 9.0, 5.0, 5.0), 180 * 16, 180 * 16);
+        p.drawLine(QPointF(10.5, 11.5), QPointF(10.5, 6.5));
+        p.drawArc(QRectF(7.5, 4.5, 3.0, 3.0), 0, 180 * 16);
+        p.drawLine(QPointF(7.5, 6.0), QPointF(7.5, 10.0));
+        break;
+    case ToolFolderPlus:
+        p.drawRoundedRect(QRectF(2.0, 5.0, 12.0, 9.0), 1.2, 1.2);
+        p.drawLine(QPointF(2.0, 7.0), QPointF(6.5, 7.0));
+        p.drawLine(QPointF(2.5, 5.0), QPointF(5.5, 3.0));
+        p.drawLine(QPointF(5.5, 3.0), QPointF(8.0, 5.0));
+        p.drawLine(QPointF(8.5, 9.0), QPointF(12.5, 9.0));
+        p.drawLine(QPointF(10.5, 7.0), QPointF(10.5, 11.0));
+        break;
+    case ToolZap:
+        p.setBrush(color);
+        p.setPen(Qt::NoPen);
+        {
+            QPolygonF z;
+            z << QPointF(9.5, 2.0) << QPointF(5.0, 9.0) << QPointF(8.0, 9.0)
+              << QPointF(6.5, 14.0) << QPointF(11.5, 7.0) << QPointF(8.5, 7.0);
+            p.drawPolygon(z);
+        }
+        break;
+    case ToolSendPlane:
+        p.setBrush(color);
+        p.setPen(Qt::NoPen);
+        {
+            QPolygonF plane;
+            plane << QPointF(2.5, 8.0) << QPointF(13.5, 3.0) << QPointF(2.5, 13.0)
+                  << QPointF(5.5, 8.5);
+            p.drawPolygon(plane);
+        }
+        break;
+    }
+    return pm;
+}
+
+static QPushButton *toolLinkBtn(ToolIcon icon, const QColor &iconColor, const QString &text, const QString &objectName)
+{
+    QPushButton *b = new QPushButton(text);
+    b->setObjectName(objectName);
+    b->setCursor(Qt::PointingHandCursor);
+    b->setFlat(true);
+    b->setFocusPolicy(Qt::NoFocus);
+    b->setIcon(QIcon(makeToolIcon(icon, iconColor, 16)));
+    b->setIconSize(QSize(16, 16));
+    return b;
 }
 
 static QPixmap makeStatusDot(bool ok, int logical = 7)
@@ -468,31 +546,66 @@ void MainWindow::buildUi()
     m_composer = new QWidget;
     m_composer->setObjectName(QStringLiteral("composer"));
     QVBoxLayout *compCol = new QVBoxLayout(m_composer);
-    compCol->setContentsMargins(16, 8, 16, 12);
-    compCol->setSpacing(6);
+    compCol->setContentsMargins(16, 10, 16, 14);
+    compCol->setSpacing(8);
     m_progress = new QLabel;
     m_progress->setObjectName(QStringLiteral("progress"));
     m_progress->hide();
-    QHBoxLayout *compLay = new QHBoxLayout;
-    compLay->setContentsMargins(0, 0, 0, 0);
-    compLay->setSpacing(8);
-    m_input = new QLineEdit;
-    m_input->setObjectName(QStringLiteral("input"));
-    m_input->setPlaceholderText(QString::fromUtf8(u8"输入文字或命令，回车发送"));
-    QPushButton *fileBtn = new QPushButton(QString::fromUtf8(u8"发送文件"));
-    fileBtn->setObjectName(QStringLiteral("secondaryBtn"));
-    fileBtn->setCursor(Qt::PointingHandCursor);
-    QPushButton *sendBtn = new QPushButton(QString::fromUtf8(u8"发送"));
-    sendBtn->setObjectName(QStringLiteral("primaryBtn"));
-    sendBtn->setCursor(Qt::PointingHandCursor);
+
+    QHBoxLayout *toolLay = new QHBoxLayout;
+    toolLay->setContentsMargins(0, 0, 0, 0);
+    toolLay->setSpacing(4);
+    QPushButton *fileBtn = toolLinkBtn(ToolPaperclip, QColor(QStringLiteral("#2563eb")),
+                                       QString::fromUtf8(u8"发送文件"), QStringLiteral("toolBtn"));
+    QPushButton *folderBtn = toolLinkBtn(ToolFolderPlus, QColor(QStringLiteral("#f97316")),
+                                         QString::fromUtf8(u8"发送文件夹"), QStringLiteral("toolBtn"));
+    QPushButton *nudgeBtn = toolLinkBtn(ToolZap, QColor(QStringLiteral("#f97316")),
+                                        QString::fromUtf8(u8"抖动窗口"), QStringLiteral("toolBtn"));
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
-    connect(sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
-    connect(m_input, SIGNAL(returnPressed()), this, SLOT(sendText()));
-    compLay->addWidget(m_input, 1);
-    compLay->addWidget(fileBtn);
-    compLay->addWidget(sendBtn);
+    connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
+    connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
+    QLabel *hint = new QLabel(QString::fromUtf8(
+        u8"按 <span style='border:1px solid #cbd5e1;border-radius:4px;padding:1px 6px;"
+        u8"background:#f8fafc;color:#64748b;font-size:11px;'>Enter</span> 发送, "
+        u8"<span style='border:1px solid #cbd5e1;border-radius:4px;padding:1px 6px;"
+        u8"background:#f8fafc;color:#64748b;font-size:11px;'>Shift+Enter</span> 换行"));
+    hint->setObjectName(QStringLiteral("inputHint"));
+    hint->setTextFormat(Qt::RichText);
+    toolLay->addWidget(fileBtn);
+    toolLay->addWidget(folderBtn);
+    toolLay->addWidget(nudgeBtn);
+    toolLay->addStretch(1);
+    toolLay->addWidget(hint);
+
+    m_inputShell = new QWidget;
+    m_inputShell->setObjectName(QStringLiteral("inputShell"));
+    QVBoxLayout *shellLay = new QVBoxLayout(m_inputShell);
+    shellLay->setContentsMargins(12, 10, 10, 10);
+    shellLay->setSpacing(4);
+    m_input = new QPlainTextEdit;
+    m_input->setObjectName(QStringLiteral("input"));
+    m_input->setFrameShape(QFrame::NoFrame);
+    m_input->setFixedHeight(72);
+    m_input->setTabChangesFocus(true);
+    m_input->installEventFilter(this);
+    m_sendBtn = new QPushButton;
+    m_sendBtn->setObjectName(QStringLiteral("sendFab"));
+    m_sendBtn->setFixedSize(34, 34);
+    m_sendBtn->setCursor(Qt::PointingHandCursor);
+    m_sendBtn->setFocusPolicy(Qt::NoFocus);
+    m_sendBtn->setIcon(QIcon(makeToolIcon(ToolSendPlane, Qt::white, 16)));
+    m_sendBtn->setIconSize(QSize(16, 16));
+    connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
+    QHBoxLayout *sendRow = new QHBoxLayout;
+    sendRow->setContentsMargins(0, 0, 0, 0);
+    sendRow->addStretch(1);
+    sendRow->addWidget(m_sendBtn);
+    shellLay->addWidget(m_input, 1);
+    shellLay->addLayout(sendRow);
+
     compCol->addWidget(m_progress);
-    compCol->addLayout(compLay);
+    compCol->addLayout(toolLay);
+    compCol->addWidget(m_inputShell);
 
     chatLay->addWidget(m_chat, 1);
     chatLay->addWidget(m_composer);
@@ -548,8 +661,16 @@ void MainWindow::applyStyle()
         "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
-        "#input { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;"
-        " color: #0f172a; }"
+        "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
+        " padding: 4px 8px; border-radius: 6px; }"
+        "#toolBtn:hover { background: #f1f5f9; color: #0f172a; }"
+        "#inputHint { color: #94a3b8; font-size: 12px; }"
+        "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#input { background: transparent; border: none; color: #0f172a; font-size: 13px;"
+        " padding: 0; selection-background-color: #bfdbfe; }"
+        "#sendFab { background: #60a5fa; border: none; border-radius: 10px; padding: 0; }"
+        "#sendFab:hover { background: #3b82f6; }"
+        "#sendFab:pressed { background: #2563eb; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
@@ -561,6 +682,14 @@ void MainWindow::applyStyle()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched == m_input && event->type() == QEvent::KeyPress) {
+        QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+        if ((ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
+            && !(ke->modifiers() & Qt::ShiftModifier)) {
+            sendText();
+            return true;
+        }
+    }
     if (watched == m_titleBar) {
         if (event->type() == QEvent::MouseButtonDblClick) {
             toggleMax();
@@ -812,6 +941,7 @@ void MainWindow::updateEmpty()
     const bool hasPeer = currentPeer(0, 0, 0);
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);
+    updateInputPlaceholder();
 }
 
 void MainWindow::refreshPeers()
@@ -864,6 +994,7 @@ void MainWindow::showChat()
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
     m_chat->setPlainText(m_log.value(key).join(QStringLiteral("\n")));
+    updateInputPlaceholder();
 }
 
 void MainWindow::setProgress(const QString &text)
@@ -907,8 +1038,15 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     Q_UNUSED(fromId);
     const int port = fromPort > 0 ? fromPort : 8848;
     m_disc->touch(ip, port, fromId, fromName, QString());
+    const QString key = ip + QLatin1Char(':') + QString::number(port);
+    if (text == QLatin1String("__landrop_nudge__")) {
+        const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
+        note(key, QString::fromUtf8(u8"%1 抖动了窗口").arg(who));
+        shakeWindow();
+        return;
+    }
     const QString who = fromName.trimmed().isEmpty() ? ip : fromName.trimmed();
-    note(ip + QLatin1Char(':') + QString::number(port), QString::fromUtf8(u8"%1：%2").arg(who).arg(text));
+    note(key, QString::fromUtf8(u8"%1：%2").arg(who).arg(text));
 }
 
 void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
@@ -924,7 +1062,9 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
 
 void MainWindow::sendText()
 {
-    const QString text = m_input->text();
+    if (!m_input)
+        return;
+    const QString text = m_input->toPlainText();
     if (text.trimmed().isEmpty())
         return;
     QString ip;
@@ -954,19 +1094,26 @@ void MainWindow::sendText()
     });
 }
 
-void MainWindow::sendFile()
+void MainWindow::startUpload(const QString &path, bool fromQueue)
 {
     QString ip;
     int port = 0;
-    if (!currentPeer(&ip, &port, 0))
+    if (!currentPeer(&ip, &port, 0)) {
+        m_uploading = false;
+        m_uploadQueue.clear();
+        setProgress(QString());
         return;
-    const QString path = QFileDialog::getOpenFileName(this, QString::fromUtf8(u8"选择要发送的文件"));
-    if (path.isEmpty())
-        return;
+    }
     QFile *file = new QFile(path);
     if (!file->open(QIODevice::ReadOnly)) {
         delete file;
-        note(currentKey(), QString::fromUtf8(u8"发送失败：打不开文件"));
+        note(currentKey(), QString::fromUtf8(u8"发送失败：打不开 %1").arg(QFileInfo(path).fileName()));
+        if (fromQueue)
+            pumpUploadQueue();
+        else {
+            m_uploading = false;
+            setProgress(QString());
+        }
         return;
     }
     const QString filename = QFileInfo(path).fileName();
@@ -982,6 +1129,7 @@ void MainWindow::sendFile()
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
     const QString key = currentKey();
+    m_uploading = true;
     setProgress(QString::fromUtf8(u8"正在发送 %1").arg(filename));
     connect(rep, &QNetworkReply::uploadProgress, this, [this, filename](qint64 sent, qint64 total) {
         if (total <= 0)
@@ -989,16 +1137,133 @@ void MainWindow::sendFile()
         const int pct = int(sent * 100 / total);
         setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
     });
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename, fromQueue]() {
         rep->deleteLater();
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             noteFail(key, rep);
+            m_uploadQueue.clear();
+            m_uploading = false;
             return;
         }
-        setProgress(QString());
         note(key, QString::fromUtf8(u8"已发送文件 %1").arg(filename));
+        if (fromQueue)
+            pumpUploadQueue();
+        else {
+            m_uploading = false;
+            setProgress(QString());
+        }
     });
+}
+
+void MainWindow::pumpUploadQueue()
+{
+    if (m_uploadQueue.isEmpty()) {
+        m_uploading = false;
+        setProgress(QString());
+        return;
+    }
+    const QString path = m_uploadQueue.takeFirst();
+    startUpload(path, true);
+}
+
+void MainWindow::sendFile()
+{
+    if (m_uploading) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"正在发送中，请稍候。"));
+        return;
+    }
+    if (!currentPeer(0, 0, 0))
+        return;
+    const QString path = QFileDialog::getOpenFileName(this, QString::fromUtf8(u8"选择要发送的文件"));
+    if (path.isEmpty())
+        return;
+    startUpload(path, false);
+}
+
+void MainWindow::sendFolder()
+{
+    if (m_uploading) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"正在发送中，请稍候。"));
+        return;
+    }
+    if (!currentPeer(0, 0, 0))
+        return;
+    const QString dir = QFileDialog::getExistingDirectory(this, QString::fromUtf8(u8"选择要发送的文件夹"));
+    if (dir.isEmpty())
+        return;
+    const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+    if (files.isEmpty()) {
+        note(currentKey(), QString::fromUtf8(u8"文件夹为空，没有可发送的文件"));
+        return;
+    }
+    m_uploadQueue.clear();
+    for (int i = 0; i < files.size(); ++i)
+        m_uploadQueue.append(files.at(i).absoluteFilePath());
+    note(currentKey(), QString::fromUtf8(u8"开始发送文件夹（%1 个文件）").arg(m_uploadQueue.size()));
+    pumpUploadQueue();
+}
+
+void MainWindow::nudgePeer()
+{
+    QString ip;
+    int port = 0;
+    if (!currentPeer(&ip, &port, 0))
+        return;
+    QJsonObject o;
+    o.insert(QStringLiteral("fromId"), m_id);
+    o.insert(QStringLiteral("fromName"), m_settings.deviceName);
+    o.insert(QStringLiteral("fromPort"), m_settings.port);
+    o.insert(QStringLiteral("text"), QStringLiteral("__landrop_nudge__"));
+    const QByteArray body = QJsonDocument(o).toJson(QJsonDocument::Compact);
+    QNetworkRequest req(QUrl(QStringLiteral("http://%1:%2/api/inbox").arg(ip).arg(port)));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("application/json; charset=utf-8")));
+    QNetworkReply *rep = m_nam->post(req, body);
+    const QString key = currentKey();
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key]() {
+        rep->deleteLater();
+        if (rep->error() != QNetworkReply::NoError) {
+            noteFail(key, rep);
+            return;
+        }
+        note(key, QString::fromUtf8(u8"已发送窗口抖动"));
+        shakeWindow();
+    });
+}
+
+void MainWindow::shakeWindow()
+{
+    const QPoint origin = pos();
+    QTimer *t = new QTimer(this);
+    t->setInterval(28);
+    QObject *guard = new QObject(t);
+    guard->setProperty("step", 0);
+    connect(t, &QTimer::timeout, this, [this, t, origin, guard]() {
+        static const int offs[] = {12, -12, 9, -9, 6, -6, 3, -3, 0};
+        const int step = guard->property("step").toInt();
+        if (step >= 9) {
+            move(origin);
+            t->stop();
+            t->deleteLater();
+            return;
+        }
+        move(origin + QPoint(offs[step], 0));
+        guard->setProperty("step", step + 1);
+    });
+    t->start();
+}
+
+void MainWindow::updateInputPlaceholder()
+{
+    if (!m_input)
+        return;
+    QString name;
+    if (!currentPeer(0, 0, &name) || name.trimmed().isEmpty())
+        m_input->setPlaceholderText(QString::fromUtf8(u8"输入文字或命令…"));
+    else
+        m_input->setPlaceholderText(QString::fromUtf8(u8"向 %1 发送消息...").arg(name));
 }
 
 void MainWindow::addPeer()

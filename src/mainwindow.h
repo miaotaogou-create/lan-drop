@@ -15,6 +15,7 @@ class QLineEdit;
 class QListWidget;
 class QNetworkAccessManager;
 class QNetworkReply;
+class QPlainTextEdit;
 class QPushButton;
 class QStackedWidget;
 class QTextEdit;
@@ -35,6 +36,8 @@ private slots:
     void showChat();
     void sendText();
     void sendFile();
+    void sendFolder();
+    void nudgePeer();
     void addPeer();
     void probePeer();
     void editSettings();
@@ -58,6 +61,10 @@ private:
     void setProgress(const QString &text);
     void noteFail(const QString &key, QNetworkReply *rep);
     void refreshShareBtn();
+    void updateInputPlaceholder();
+    void shakeWindow();
+    void startUpload(const QString &path, bool fromQueue);
+    void pumpUploadQueue();
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;
@@ -80,13 +87,17 @@ private:
     QListWidget *m_list = 0;
     QStackedWidget *m_pages = 0;
     QTextEdit *m_chat = 0;
-    QLineEdit *m_input = 0;
+    QPlainTextEdit *m_input = 0;
+    QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
     QPushButton *m_shareBtn = 0;
     QPushButton *m_maxBtn = 0;
     QWidget *m_composer = 0;
+    QWidget *m_inputShell = 0;
 
     QHash<QString, QStringList> m_log;
+    QStringList m_uploadQueue;
+    bool m_uploading = false;
     QPoint m_dragOrigin;
     bool m_dragging = false;
 };
