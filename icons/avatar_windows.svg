@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect x="2" y="2" width="54" height="54" rx="16" fill="#6366F1"/>
+  <text x="29" y="38" font-family="Segoe UI" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">W</text>
+  <circle cx="47" cy="47" r="13" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+  <rect x="40" y="46.5" width="14" height="6.5" rx="1.8" fill="none" stroke="#2563EB" stroke-width="1.6"/>
+  <path d="M42 46.5 L43.8 42.5 A1 1 0 0 1 44.8 42 L49.2 42 A1 1 0 0 1 50.2 42.5 L52 46.5" fill="none" stroke="#2563EB" stroke-width="1.6"/>
+  <circle cx="43.5" cy="49.8" r="0.8" fill="#2563EB"/>
+  <circle cx="46.5" cy="49.8" r="0.8" fill="#2563EB"/>
+</svg>

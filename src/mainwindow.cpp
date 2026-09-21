@@ -135,36 +135,22 @@ enum DeviceKind {
     DevTablet
 };
 
-static QString badgeSvgForOs(const QString &osName)
+static QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
+
+static QString avatarSvgForOs(const QString &osName)
 {
     const QString o = osName.toLower();
     if (o.contains(QLatin1String("android")) || o.contains(QLatin1String("ios"))
         || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("ipad"))
         || o.contains(QLatin1String("phone")))
-        return QStringLiteral(":/icons/badge-phone.svg");
+        return QStringLiteral(":/avatars/avatar_iphone.svg");
     if (o.contains(QLatin1String("arm")) || o.contains(QLatin1String("aarch"))
         || o.contains(QLatin1String("raspberry")))
-        return QStringLiteral(":/icons/badge-cpu.svg");
+        return QStringLiteral(":/avatars/avatar_raspberrypi.svg");
     if (o.contains(QLatin1String("linux")) || o.contains(QLatin1String("ubuntu"))
         || o.contains(QLatin1String("kylin")))
-        return QStringLiteral(":/icons/badge-terminal.svg");
-    return QStringLiteral(":/icons/badge-server.svg");
-}
-
-static QColor peerAvatarColor(const QString &key)
-{
-    static const QColor palette[] = {
-        QColor(QStringLiteral("#f97316")),
-        QColor(QStringLiteral("#10b981")),
-        QColor(QStringLiteral("#2563eb")),
-        QColor(QStringLiteral("#ec4899")),
-        QColor(QStringLiteral("#8b5cf6")),
-        QColor(QStringLiteral("#06b6d4"))
-    };
-    uint h = 0;
-    for (int i = 0; i < key.size(); ++i)
-        h = h * 33 + uint(key.at(i).unicode());
-    return palette[h % 6];
+        return QStringLiteral(":/avatars/avatar_ubuntu.svg");
+    return QStringLiteral(":/avatars/avatar_windows.svg");
 }
 
 static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
@@ -211,50 +197,13 @@ static QPixmap makeLaptopIcon(int logical = 16)
     return pm;
 }
 
-static QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 40)
+static QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setRenderHint(QPainter::TextAntialiasing, true);
-
-    const QColor bg = peerAvatarColor(name.isEmpty() ? osName : name);
-    const qreal radius = logical * 0.28;
-    p.setPen(Qt::NoPen);
-    p.setBrush(bg);
-    p.drawRoundedRect(QRectF(0, 0, logical, logical), radius, radius);
-
-    QString ch = name.trimmed();
-    if (ch.isEmpty())
-        ch = QStringLiteral("?");
-    else
-        ch = ch.left(1);
-    p.setPen(Qt::white);
-    QFont f = qApp->font();
-    f.setPixelSize(qMax(12, int(logical * 0.44)));
-    f.setBold(true);
-    f.setFamily(QStringLiteral("Microsoft YaHei"));
-    p.setFont(f);
-    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
-
-    const qreal badge = logical * 0.45;
-    const QRectF badgeBox(logical - badge, logical - badge, badge, badge);
-    p.setBrush(Qt::white);
-    p.setPen(QPen(QColor(0, 0, 0, 20), 1));
-    p.drawEllipse(badgeBox);
-
-    QSvgRenderer badgeRenderer(badgeSvgForOs(osName));
-    const qreal pad = badge * 0.18;
-    if (badgeRenderer.isValid())
-        badgeRenderer.render(&p, badgeBox.adjusted(pad, pad, -pad, -pad));
-    return pm;
+    Q_UNUSED(name);
+    return renderSvgIcon(avatarSvgForOs(osName), logical);
 }
 
-static QPixmap renderSvgIcon(const QString &resPath, int logical = 16)
+static QPixmap renderSvgIcon(const QString &resPath, int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     const int px = logical * dpr;
@@ -486,7 +435,7 @@ void MainWindow::buildUi()
     m_list->setObjectName(QStringLiteral("peerList"));
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_list->setIconSize(QSize(40, 40));
+    m_list->setIconSize(QSize(44, 44));
     m_list->setSpacing(2);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
 
@@ -934,8 +883,8 @@ void MainWindow::refreshPeers()
         QListWidgetItem *it = new QListWidgetItem(
             QStringLiteral("%1\n%2:%3  %4%5%6")
                 .arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual).arg(osTag));
-        it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 40)));
-        it->setSizeHint(QSize(0, 56));
+        it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 44)));
+        it->setSizeHint(QSize(0, 60));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());

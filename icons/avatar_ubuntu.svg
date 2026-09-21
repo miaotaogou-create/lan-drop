@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect x="2" y="2" width="54" height="54" rx="16" fill="#F97316"/>
+  <text x="29" y="38" font-family="Segoe UI" font-size="26" font-weight="bold" fill="#FFFFFF" text-anchor="middle">U</text>
+  <circle cx="47" cy="47" r="13" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+  <polyline points="41,42 46,47 41,52" fill="none" stroke="#EA580C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="48" y1="52" x2="54" y2="52" stroke="#EA580C" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

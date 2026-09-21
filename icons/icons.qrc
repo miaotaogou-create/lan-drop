@@ -10,4 +10,10 @@
         <file alias="badge-server.svg">badge-server.svg</file>
         <file alias="badge-phone.svg">badge-phone.svg</file>
     </qresource>
+    <qresource prefix="/avatars">
+        <file>avatar_ubuntu.svg</file>
+        <file>avatar_raspberrypi.svg</file>
+        <file>avatar_windows.svg</file>
+        <file>avatar_iphone.svg</file>
+    </qresource>
 </RCC>
