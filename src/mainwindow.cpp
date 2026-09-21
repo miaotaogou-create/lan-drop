@@ -28,7 +28,6 @@
 #include <QNetworkReply>
 #include <QPainter>
 #include <QPlainTextEdit>
-#include <QPolygonF>
 #include <QtMath>
 #include <QPushButton>
 #include <QStackedWidget>
