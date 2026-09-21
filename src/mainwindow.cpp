@@ -347,16 +347,9 @@ void MainWindow::buildUi()
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
 
-    QLabel *manual = new QLabel(QString::fromUtf8(u8"<a href='add' style='color:#2563eb;text-decoration:none;'>+ 手动输入 IP 连接</a>"));
-    manual->setObjectName(QStringLiteral("manualLink"));
-    manual->setTextFormat(Qt::RichText);
-    manual->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    connect(manual, SIGNAL(linkActivated(QString)), this, SLOT(addPeer()));
-
     sideLay->addLayout(sideHead);
     sideLay->addWidget(m_search);
     sideLay->addWidget(m_list, 1);
-    sideLay->addWidget(manual, 0, Qt::AlignHCenter);
 
     QWidget *right = new QWidget;
     right->setObjectName(QStringLiteral("right"));
@@ -449,7 +442,6 @@ void MainWindow::applyStyle()
         " padding: 10px 8px; margin: 2px 0; color: #0f172a; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
-        "#manualLink { font-size: 12px; padding: 6px; }"
         "#right { background: #ffffff; }"
         "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #ffffff; }"
         "#chat { background: #ffffff; color: #0f172a; font-size: 13px; padding: 16px; }"
