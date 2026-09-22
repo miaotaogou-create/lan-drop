@@ -7,6 +7,7 @@
 
 #include <QApplication>
 #include <QAction>
+#include <QBuffer>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -414,6 +415,22 @@ static QString fileSha256Short(const QString &path)
     return QString::fromLatin1(hex.left(16)) + QStringLiteral("...");
 }
 
+// Qt 富文本几乎不渲染 table 的 border-radius，头像/气泡改绘成 PNG 再嵌入。
+static QString pixmapToImgHtml(const QPixmap &pm)
+{
+    QByteArray bytes;
+    QBuffer buf(&bytes);
+    buf.open(QIODevice::WriteOnly);
+    pm.save(&buf, "PNG");
+    const qreal dpr = pm.devicePixelRatio();
+    const int w = qMax(1, qRound(pm.width() / dpr));
+    const int h = qMax(1, qRound(pm.height() / dpr));
+    return QStringLiteral("<img src=\"data:image/png;base64,%1\" width=\"%2\" height=\"%3\"/>")
+        .arg(QString::fromLatin1(bytes.toBase64()))
+        .arg(w)
+        .arg(h);
+}
+
 static QString letterAvatarHtml(const QString &name, const QString &bg)
 {
     QString ch = QStringLiteral("?");
@@ -423,11 +440,66 @@ static QString letterAvatarHtml(const QString &name, const QString &bg)
             break;
         }
     }
-    return QStringLiteral(
-               "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-               "<td width=\"28\" height=\"28\" bgcolor=\"%1\" align=\"center\" valign=\"middle\">"
-               "<font color=\"#ffffff\" size=\"2\"><b>%2</b></font></td></tr></table>")
-        .arg(bg, htmlEsc(ch));
+    const int logical = 40;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logical * dpr, logical * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(bg));
+    // 参考图：大号圆角方头像（非直角小块）
+    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
+    QFont font = qApp->font();
+    font.setPixelSize(18);
+    font.setBold(true);
+    p.setFont(font);
+    p.setPen(Qt::white);
+    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
+    return pixmapToImgHtml(pm);
+}
+
+static QString textBubbleImgHtml(const QString &text, bool out)
+{
+    const int maxContentW = 340;
+    const int padX = 14;
+    const int padY = 10;
+    const qreal radius = 12.0;
+    QFont font = qApp->font();
+    font.setPixelSize(14);
+    QFontMetrics fm(font);
+    const QRect textBound = fm.boundingRect(QRect(0, 0, maxContentW, 10000),
+                                           Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+                                           text);
+    const int contentW = qMax(24, qMin(maxContentW, textBound.width()));
+    const int contentH = qMax(fm.height(), textBound.height());
+    const int logicalW = contentW + padX * 2;
+    const int logicalH = contentH + padY * 2;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logicalW * dpr, logicalH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(0.5, 0.5, logicalW - 1.0, logicalH - 1.0);
+    if (out) {
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(QStringLiteral("#2563eb")));
+        p.drawRoundedRect(box, radius, radius);
+        p.setPen(Qt::white);
+    } else {
+        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+        p.setBrush(Qt::white);
+        p.drawRoundedRect(box, radius, radius);
+        p.setPen(QColor(QStringLiteral("#0f172a")));
+    }
+    p.setFont(font);
+    p.drawText(QRect(padX, padY, contentW, contentH),
+               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+               text);
+    return pixmapToImgHtml(pm);
 }
 
 static bool splitCodeFence(const QString &text, QString *lang, QString *body)
@@ -470,10 +542,10 @@ static QString renderCodeBlock(const QString &lang, const QString &code, bool al
     if (alignRight)
         return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                               "<td></td><td align=\"right\" valign=\"top\">%1</td>"
-                              "<td width=\"36\" valign=\"bottom\">%2</td></tr></table>")
+                              "<td width=\"48\" valign=\"bottom\">%2</td></tr></table>")
             .arg(block, letterAvatarHtml(QStringLiteral("我"), QStringLiteral("#2563eb")));
     return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                          "<td width=\"36\" valign=\"bottom\">%1</td>"
+                          "<td width=\"48\" valign=\"bottom\">%1</td>"
                           "<td align=\"left\" valign=\"top\">%2</td><td></td></tr></table>")
         .arg(letterAvatarHtml(QStringLiteral("P"), QStringLiteral("#f97316")), block);
 }
@@ -501,36 +573,31 @@ static QString renderTextBubble(const ChatMsg &m)
         // 代码块已含头像；在上方补元数据
         if (out)
             return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
-                                  "<td align=\"right\">%1</td><td width=\"36\"></td></tr></table>%2")
+                                  "<td align=\"right\">%1</td><td width=\"48\"></td></tr></table>%2")
                 .arg(head, block);
         return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
-                              "<td width=\"36\"></td><td align=\"left\">%1</td></tr></table>%2")
+                              "<td width=\"48\"></td><td align=\"left\">%1</td></tr></table>%2")
             .arg(head, block);
     }
     if (m.type == ChatMsg::OutText) {
         return QStringLiteral(
                    "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                    "<td></td><td align=\"right\" valign=\"top\">"
-                   "<div>%1</div>"
-                   "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#2563eb\">"
-                   "<tr><td><font color=\"#ffffff\">%2</font></td></tr></table>"
-                   "</td><td width=\"36\" valign=\"bottom\">%3</td></tr></table>")
+                   "<div>%1</div>%2"
+                   "</td><td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
             .arg(metaLine(m.who, m.time, m.rttMs, false),
-                 htmlEsc(m.text).replace(QLatin1Char('\n'), QStringLiteral("<br/>")),
+                 textBubbleImgHtml(m.text, true),
                  letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
     }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"36\" valign=\"bottom\">%1</td>"
+               "<td width=\"48\" valign=\"bottom\">%1</td>"
                "<td align=\"left\" valign=\"top\">"
-               "<div>%2</div>"
-               "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" "
-               "style=\"border:1px solid #e2e8f0;\">"
-               "<tr><td><font color=\"#0f172a\">%3</font></td></tr></table>"
+               "<div>%2</div>%3"
                "</td><td></td></tr></table>")
         .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")),
              metaLine(m.who, m.time, -1, false),
-             htmlEsc(m.text).replace(QLatin1Char('\n'), QStringLiteral("<br/>")));
+             textBubbleImgHtml(m.text, false));
 }
 
 static QString renderFileCard(const ChatMsg &m)
@@ -584,12 +651,12 @@ static QString renderFileCard(const ChatMsg &m)
                    "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                    "<td></td><td align=\"right\" valign=\"top\">"
                    "<div>%1</div>%2</td>"
-                   "<td width=\"36\" valign=\"bottom\">%3</td></tr></table>")
+                   "<td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
             .arg(head, card, letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
     }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"36\" valign=\"bottom\">%1</td>"
+               "<td width=\"48\" valign=\"bottom\">%1</td>"
                "<td align=\"left\" valign=\"top\"><div>%2</div>%3</td>"
                "<td></td></tr></table>")
         .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")), head, card);
