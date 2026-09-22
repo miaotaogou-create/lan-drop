@@ -48,6 +48,33 @@ QString createUniqueFile(const QString &dir, const QString &filename, QFile *out
     return QString();
 }
 
+QString copyFileIntoDir(const QString &dir, const QString &srcPath)
+{
+    QFileInfo src(srcPath);
+    if (!src.isFile())
+        return QString();
+    const QString name = safeFileName(src.fileName());
+    if (name.isEmpty())
+        return QString();
+    if (!QDir().mkpath(dir))
+        return QString();
+    const QString ext = QFileInfo(name).suffix();
+    const QString base = ext.isEmpty() ? name : name.left(name.size() - ext.size() - 1);
+    for (int i = 0; i < 10000; ++i) {
+        const QString candidate = (i == 0)
+            ? name
+            : (ext.isEmpty() ? QStringLiteral("%1_%2").arg(base).arg(i + 1)
+                             : QStringLiteral("%1_%2.%3").arg(base).arg(i + 1).arg(ext));
+        const QString path = QDir(dir).filePath(candidate);
+        if (QFile::exists(path))
+            continue;
+        if (QFile::copy(src.absoluteFilePath(), path))
+            return path;
+        return QString();
+    }
+    return QString();
+}
+
 bool isVirtualIfaceName(const QString &name)
 {
     const QString n = name.toLower();

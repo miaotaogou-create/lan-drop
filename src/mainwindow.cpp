@@ -14,12 +14,16 @@
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QElapsedTimer>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <functional>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
@@ -31,6 +35,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -1268,6 +1273,60 @@ static QString humanBytes(qint64 n)
     return QString::number(n / 1024.0 / 1024.0, 'f', 1) + QStringLiteral(" MB");
 }
 
+class ShareDropFilter : public QObject
+{
+public:
+    explicit ShareDropFilter(QObject *parent = 0) : QObject(parent) {}
+    std::function<void(const QStringList &)> onFiles;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        Q_UNUSED(watched);
+        if (event->type() == QEvent::DragEnter) {
+            QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
+            if (de->mimeData() && de->mimeData()->hasUrls()) {
+                de->acceptProposedAction();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::DragMove) {
+            QDragMoveEvent *de = static_cast<QDragMoveEvent *>(event);
+            if (de->mimeData() && de->mimeData()->hasUrls()) {
+                de->acceptProposedAction();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::Drop) {
+            QDropEvent *de = static_cast<QDropEvent *>(event);
+            QStringList paths;
+            if (de->mimeData()) {
+                const QList<QUrl> urls = de->mimeData()->urls();
+                for (int i = 0; i < urls.size(); ++i) {
+                    if (!urls.at(i).isLocalFile())
+                        continue;
+                    const QString p = urls.at(i).toLocalFile();
+                    const QFileInfo fi(p);
+                    if (fi.isFile()) {
+                        paths.append(fi.absoluteFilePath());
+                    } else if (fi.isDir()) {
+                        const QFileInfoList kids = QDir(p).entryInfoList(
+                            QDir::Files | QDir::Readable, QDir::Name);
+                        for (int k = 0; k < kids.size(); ++k)
+                            paths.append(kids.at(k).absoluteFilePath());
+                    }
+                }
+            }
+            if (!paths.isEmpty() && onFiles) {
+                onFiles(paths);
+                de->acceptProposedAction();
+                return true;
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
 void MainWindow::openShare()
 {
     QDialog dlg(this);
@@ -1304,6 +1363,8 @@ void MainWindow::openShare()
         "#shareHint { color: #94a3b8; font-size: 12px; }"
         "#shareFile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
         "#shareFileName { color: #0f172a; font-size: 13px; font-weight: 600; }"
+        "#shareDel { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+        "#shareDel:hover { background: #fee2e2; }"
         "#shareDrop { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #94a3b8; }"
         "#shareDrop:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }"
         "#shareFoot { border-top: 1px solid #e2e8f0; background: #ffffff;"
@@ -1498,7 +1559,8 @@ void MainWindow::openShare()
         pauseBtn->setText(on ? QString::fromUtf8(u8"暂停 HTTP 服务")
                              : QString::fromUtf8(u8"开启 HTTP 服务"));
     };
-    auto reloadFiles = [&]() {
+    std::function<void()> reloadFiles;
+    reloadFiles = [&]() {
         while (QLayoutItem *it = listLay->takeAt(0)) {
             delete it->widget();
             delete it;
@@ -1509,6 +1571,7 @@ void MainWindow::openShare()
             const QFileInfoList infos = QDir(dir).entryInfoList(
                 QDir::Files | QDir::Readable, QDir::Name);
             for (int i = 0; i < infos.size(); ++i) {
+                const QString abs = infos.at(i).absoluteFilePath();
                 QWidget *row = new QWidget;
                 row->setObjectName(QStringLiteral("shareFile"));
                 QHBoxLayout *rowLay = new QHBoxLayout(row);
@@ -1517,8 +1580,21 @@ void MainWindow::openShare()
                 name->setObjectName(QStringLiteral("shareFileName"));
                 QLabel *sz = new QLabel(humanBytes(infos.at(i).size()));
                 sz->setObjectName(QStringLiteral("shareMeta"));
+                QPushButton *del = new QPushButton;
+                del->setObjectName(QStringLiteral("shareDel"));
+                del->setFixedSize(28, 28);
+                del->setCursor(Qt::PointingHandCursor);
+                del->setFocusPolicy(Qt::NoFocus);
+                del->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#94a3b8"))));
+                del->setIconSize(QSize(12, 12));
+                del->setToolTip(QString::fromUtf8(u8"从共享中移除"));
+                connect(del, &QPushButton::clicked, &dlg, [abs, &reloadFiles]() {
+                    QFile::remove(abs);
+                    reloadFiles();
+                });
                 rowLay->addWidget(name, 1);
                 rowLay->addWidget(sz);
+                rowLay->addWidget(del);
                 listLay->addWidget(row);
                 names << infos.at(i).fileName();
             }
@@ -1527,16 +1603,48 @@ void MainWindow::openShare()
         count->setText(QString::fromUtf8(u8"%1 个").arg(names.size()));
         paintStatus();
     };
-    auto pickDir = [&]() {
-        const QString start = !lastDir.isEmpty() ? lastDir : QDir::homePath();
-        const QString picked = QFileDialog::getExistingDirectory(
-            &dlg, QString::fromUtf8(u8"选择要共享的目录"), start);
-        if (picked.isEmpty() || !QDir(picked).exists())
-            return;
-        lastDir = picked;
-        m_http->setShareDir(picked);
+    auto ensureShareDir = [&]() -> QString {
+        if (m_http && !m_http->shareDir().isEmpty() && QDir(m_http->shareDir()).exists()) {
+            lastDir = m_http->shareDir();
+            return lastDir;
+        }
+        if (!lastDir.isEmpty() && QDir(lastDir).exists()) {
+            m_http->setShareDir(lastDir);
+            refreshShareBtn();
+            return lastDir;
+        }
+        QString d = QDir(m_settings.downloadDir).filePath(QStringLiteral("lan-drop-share"));
+        if (!QDir().mkpath(d)) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"无法创建共享目录"));
+            return QString();
+        }
+        lastDir = QFileInfo(d).absoluteFilePath();
+        m_http->setShareDir(lastDir);
         refreshShareBtn();
+        return lastDir;
+    };
+    auto addFilesToShare = [&](const QStringList &paths) {
+        if (paths.isEmpty())
+            return;
+        const QString dir = ensureShareDir();
+        if (dir.isEmpty())
+            return;
+        int ok = 0;
+        for (int i = 0; i < paths.size(); ++i) {
+            if (!copyFileIntoDir(dir, paths.at(i)).isEmpty())
+                ++ok;
+        }
         reloadFiles();
+        if (ok == 0) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"没有文件被加入共享（可能无权复制或路径无效）"));
+        }
+    };
+    auto pickFiles = [&]() {
+        const QStringList picked = QFileDialog::getOpenFileNames(
+            &dlg, QString::fromUtf8(u8"选择要共享的文件"));
+        addFilesToShare(picked);
     };
     connect(copyBtn, &QPushButton::clicked, &dlg, [url]() {
         QApplication::clipboard()->setText(url);
@@ -1544,8 +1652,16 @@ void MainWindow::openShare()
     connect(openBtn, &QPushButton::clicked, &dlg, [url]() {
         QDesktopServices::openUrl(QUrl(url));
     });
-    connect(addBtn, &QPushButton::clicked, &dlg, pickDir);
-    connect(dropBtn, &QPushButton::clicked, &dlg, pickDir);
+    connect(addBtn, &QPushButton::clicked, &dlg, pickFiles);
+    connect(dropBtn, &QPushButton::clicked, &dlg, pickFiles);
+    ShareDropFilter *dropFilter = new ShareDropFilter(&dlg);
+    dropFilter->onFiles = addFilesToShare;
+    dropBtn->setAcceptDrops(true);
+    dropBtn->installEventFilter(dropFilter);
+    scroll->setAcceptDrops(true);
+    scroll->installEventFilter(dropFilter);
+    listHost->setAcceptDrops(true);
+    listHost->installEventFilter(dropFilter);
     connect(pauseBtn, &QPushButton::clicked, &dlg, [&]() {
         if (!m_http)
             return;
@@ -1562,7 +1678,7 @@ void MainWindow::openShare()
             reloadFiles();
             return;
         }
-        pickDir();
+        pickFiles();
     });
     reloadFiles();
     dlg.exec();

@@ -71,6 +71,27 @@ int runSelfCheck()
         if (h.result().toHex().left(8) != QByteArray("9f86d081"))
             return fail("sha256");
     }
+    {
+        QDir tmp = QDir::temp();
+        const QString dir = tmp.filePath(QStringLiteral("landrop-copy-check"));
+        const QString srcPath = tmp.filePath(QStringLiteral("landrop-copy-src.txt"));
+        tmp.mkpath(QStringLiteral("landrop-copy-check"));
+        QFile src(srcPath);
+        if (!src.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return fail("copy src");
+        src.write("hi");
+        src.close();
+        const QString once = copyFileIntoDir(dir, srcPath);
+        if (once.isEmpty() || !QFile::exists(once))
+            return fail("copy once");
+        const QString twice = copyFileIntoDir(dir, srcPath);
+        if (twice.isEmpty() || twice == once || !QFile::exists(twice))
+            return fail("copy unique");
+        QFile::remove(srcPath);
+        QFile::remove(once);
+        QFile::remove(twice);
+        QDir().rmdir(dir);
+    }
     if (localHostName().trimmed().isEmpty())
         return fail("hostname");
     std::printf("self-check ok\n");

@@ -11,6 +11,9 @@ QString safeFileName(const QString &raw);
 // 在目录里新建文件，同名不覆盖。失败时 *out 为空。
 QString createUniqueFile(const QString &dir, const QString &filename, QFile *out);
 
+// 把 src 文件复制到 dir，安全文件名 + 重名加后缀。失败返回空。
+QString copyFileIntoDir(const QString &dir, const QString &srcPath);
+
 bool isVirtualIfaceName(const QString &name);
 
 // 在 root 下解析仅含文件名的 name；拒绝穿越。不存在或非普通文件返回空。
