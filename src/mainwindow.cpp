@@ -946,11 +946,15 @@ void MainWindow::buildUi()
     QHBoxLayout *bannerHostLay = new QHBoxLayout(m_connBannerHost);
     bannerHostLay->setContentsMargins(16, 10, 16, 8);
     bannerHostLay->setSpacing(0);
-    m_connBanner = new QWidget;
-    m_connBanner->setObjectName(QStringLiteral("connBanner"));
-    m_connBanner->setAttribute(Qt::WA_StyledBackground, true);
-    QHBoxLayout *bannerLay = new QHBoxLayout(m_connBanner);
-    bannerLay->setContentsMargins(14, 7, 16, 7);
+    // QFrame + 半高圆角：QWidget 上 border-radius:999 在 Windows 常画成直角
+    QFrame *banner = new QFrame;
+    m_connBanner = banner;
+    banner->setObjectName(QStringLiteral("connBanner"));
+    banner->setFrameShape(QFrame::NoFrame);
+    banner->setAttribute(Qt::WA_StyledBackground, true);
+    banner->setFixedHeight(32);
+    QHBoxLayout *bannerLay = new QHBoxLayout(banner);
+    bannerLay->setContentsMargins(14, 0, 16, 0);
     bannerLay->setSpacing(8);
     QLabel *bannerIcon = new QLabel;
     bannerIcon->setFixedSize(16, 16);
@@ -961,7 +965,7 @@ void MainWindow::buildUi()
     bannerLay->addWidget(bannerIcon, 0, Qt::AlignVCenter);
     bannerLay->addWidget(m_connBannerText, 0, Qt::AlignVCenter);
     bannerHostLay->addStretch(1);
-    bannerHostLay->addWidget(m_connBanner, 0, Qt::AlignCenter);
+    bannerHostLay->addWidget(banner, 0, Qt::AlignCenter);
     bannerHostLay->addStretch(1);
 
     QWidget *chatBody = new QWidget;
@@ -1145,8 +1149,9 @@ void MainWindow::applyStyle()
         " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #dbeafe; }"
         "#connBannerHost { background: #f8fafc; }"
-        "#connBanner { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 999px; }"
-        "#connBannerText { color: #64748b; font-size: 12px; }"
+        "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
+        " border-radius: 16px; }"
+        "#connBannerText { color: #64748b; font-size: 12px; background: transparent; }"
         "#filesView { background: #f8fafc; border: none; }"
         "#chat { background: #f8fafc; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
