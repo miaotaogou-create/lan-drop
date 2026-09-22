@@ -38,6 +38,7 @@ struct ChatMsg {
     qint64 rttMs = -1;
     QString sha256;
     QString time;
+    int progressPct = -1; // -1=完成/非传输；0..100=发送中
 };
 
 class MainWindow : public QMainWindow
@@ -111,6 +112,9 @@ private:
     void persistManualPeers();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
+    void updateUploadProgress(const QString &key, int msgIndex, int pct);
+    void finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs, const QString &sha);
+    void dropUploadMsg(const QString &key, int msgIndex);
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;
@@ -159,6 +163,8 @@ private:
     QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
     QStringList m_uploadQueue;
     bool m_uploading = false;
+    int m_uploadLastPct = -1;
+    qint64 m_uploadLastUiMs = 0;
     bool m_pingBusy = false;
     QString m_pingKey;
     QString m_pingText;

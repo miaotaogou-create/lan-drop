@@ -627,13 +627,14 @@ static QString renderTextBubble(const ChatMsg &m)
 static QString renderFileCard(const ChatMsg &m)
 {
     const bool out = (m.type == ChatMsg::OutFile);
+    const bool pending = out && m.progressPct >= 0;
     const QString size = humanBytesChat(m.size);
     QString sha = m.sha256;
-    if (sha.isEmpty() && !m.path.isEmpty())
+    if (!pending && sha.isEmpty() && !m.path.isEmpty())
         sha = fileSha256Short(m.path);
-    const QString pathB64 = m.path.isEmpty()
-        ? QString()
-        : QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+    const QString pathB64 = (!pending && !m.path.isEmpty())
+        ? QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding))
+        : QString();
     QString actions;
     if (!pathB64.isEmpty()) {
         const QString openHref = QStringLiteral("landrop://open/") + pathB64;
@@ -656,9 +657,41 @@ static QString renderFileCard(const ChatMsg &m)
                           u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
                           .arg(openHref, revealHref);
         }
+    } else if (pending) {
+        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
     } else {
         actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
     }
+    const int pct = pending ? qBound(0, 100, m.progressPct) : 100;
+    const int rest = 100 - pct;
+    QString bar;
+    if (pct <= 0) {
+        bar = QString::fromUtf8(
+            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#e2e8f0\">"
+            u8"<tr><td height=\"6\"></td></tr></table>");
+    } else if (rest <= 0) {
+        bar = QString::fromUtf8(
+            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
+            u8"<tr><td height=\"6\"></td></tr></table>");
+    } else {
+        bar = QString::fromUtf8(
+                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+                 u8"<td width=\"%1%\" bgcolor=\"#2563eb\">"
+                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
+                 u8"<tr><td height=\"6\"></td></tr></table></td>"
+                 u8"<td width=\"%2%\" bgcolor=\"#e2e8f0\">"
+                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
+                 u8"<tr><td height=\"6\"></td></tr></table></td>"
+                 u8"</tr></table>")
+                 .arg(pct)
+                 .arg(rest);
+    }
+    const QString status = pending
+        ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"2\">发送中 %1%</font>").arg(pct)
+        : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>");
+    const QString shaLine = (!pending && !sha.isEmpty())
+        ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>").arg(htmlEsc(sha))
+        : QString();
     const QString card =
         QString::fromUtf8(
             u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
@@ -671,19 +704,13 @@ static QString renderFileCard(const ChatMsg &m)
             u8"<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
             u8"<font color=\"#94a3b8\" size=\"2\">%2</font>"
             u8"</td></tr></table>"
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
-            u8"<tr><td height=\"6\"></td></tr></table>"
-            u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>"
             u8"%3"
-            u8"<br/>%4"
+            u8"%4"
+            u8"%5"
+            u8"<br/>%6"
             u8"</td></tr></table>")
-            .arg(htmlEsc(m.text), size,
-                 sha.isEmpty()
-                     ? QString()
-                     : QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>")
-                           .arg(htmlEsc(sha)),
-                 actions);
-    const QString head = metaLine(m.who, m.time, m.rttMs, false);
+            .arg(htmlEsc(m.text), size, bar, status, shaLine, actions);
+    const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
     return renderMsgRow(out, head, card, avatar);
@@ -2602,36 +2629,46 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
     const QString key = currentKey();
+    ChatMsg pending;
+    pending.type = ChatMsg::OutFile;
+    pending.who = QString::fromUtf8(u8"我");
+    pending.face = m_settings.deviceName;
+    pending.text = filename;
+    pending.path = path;
+    pending.size = fsize;
+    pending.sha256 = sha;
+    pending.progressPct = 0;
+    pending.time = nowClock();
+    appendMsg(key, pending);
+    const int msgIndex = m_log.value(key).size() - 1;
     m_uploading = true;
+    m_uploadLastPct = -1;
+    m_uploadLastUiMs = 0;
     setProgress(QString::fromUtf8(u8"正在发送 %1").arg(filename));
-    connect(rep, &QNetworkReply::uploadProgress, this, [this, filename](qint64 sent, qint64 total) {
+    connect(rep, &QNetworkReply::uploadProgress, this, [this, key, msgIndex, filename](qint64 sent, qint64 total) {
         if (total <= 0)
             return;
         const int pct = int(sent * 100 / total);
         setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
+        updateUploadProgress(key, msgIndex, pct);
     });
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, filename, fromQueue, path, fsize, sha, clock]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, fromQueue, clock]() {
         rep->deleteLater();
         const qint64 ms = clock->elapsed();
         delete clock;
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
+            dropUploadMsg(key, msgIndex);
             noteFail(key, rep);
             m_uploadQueue.clear();
             m_uploading = false;
             return;
         }
-        ChatMsg m;
-        m.type = ChatMsg::OutFile;
-        m.who = QString::fromUtf8(u8"我");
-        m.face = m_settings.deviceName;
-        m.text = filename;
-        m.path = path;
-        m.size = fsize;
-        m.sha256 = sha;
-        m.rttMs = ms;
-        m.time = nowClock();
-        appendMsg(key, m);
+        QString sha;
+        QVector<ChatMsg> lines = m_log.value(key);
+        if (msgIndex >= 0 && msgIndex < lines.size())
+            sha = lines.at(msgIndex).sha256;
+        finishUploadMsg(key, msgIndex, ms, sha);
         if (fromQueue)
             pumpUploadQueue();
         else {
@@ -2639,6 +2676,92 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             setProgress(QString());
         }
     });
+}
+
+void MainWindow::updateUploadProgress(const QString &key, int msgIndex, int pct)
+{
+    pct = qBound(0, 100, pct);
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (pct < 100 && m_uploadLastPct >= 0 && pct - m_uploadLastPct < 2
+        && now - m_uploadLastUiMs < 300)
+        return;
+    QVector<ChatMsg> lines = m_log.value(key);
+    int idx = msgIndex;
+    if (idx < 0 || idx >= lines.size() || lines.at(idx).type != ChatMsg::OutFile
+        || lines.at(idx).progressPct < 0) {
+        idx = -1;
+        for (int i = lines.size() - 1; i >= 0; --i) {
+            if (lines.at(i).type == ChatMsg::OutFile && lines.at(i).progressPct >= 0) {
+                idx = i;
+                break;
+            }
+        }
+    }
+    if (idx < 0)
+        return;
+    ChatMsg &m = lines[idx];
+    if (m.progressPct == pct)
+        return;
+    m.progressPct = pct;
+    m_log.insert(key, lines);
+    m_uploadLastPct = pct;
+    m_uploadLastUiMs = now;
+    if (key == currentKey()) {
+        refreshChatHtml();
+        refreshFilesView();
+    }
+}
+
+void MainWindow::finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs, const QString &sha)
+{
+    QVector<ChatMsg> lines = m_log.value(key);
+    int idx = msgIndex;
+    if (idx < 0 || idx >= lines.size() || lines.at(idx).type != ChatMsg::OutFile
+        || lines.at(idx).progressPct < 0) {
+        idx = -1;
+        for (int i = lines.size() - 1; i >= 0; --i) {
+            if (lines.at(i).type == ChatMsg::OutFile && lines.at(i).progressPct >= 0) {
+                idx = i;
+                break;
+            }
+        }
+    }
+    if (idx < 0)
+        return;
+    ChatMsg &m = lines[idx];
+    m.progressPct = -1;
+    m.rttMs = rttMs;
+    if (!sha.isEmpty())
+        m.sha256 = sha;
+    m_log.insert(key, lines);
+    if (key == currentKey()) {
+        refreshChatHtml();
+        refreshFilesView();
+    }
+}
+
+void MainWindow::dropUploadMsg(const QString &key, int msgIndex)
+{
+    QVector<ChatMsg> lines = m_log.value(key);
+    int idx = msgIndex;
+    if (idx < 0 || idx >= lines.size() || lines.at(idx).type != ChatMsg::OutFile
+        || lines.at(idx).progressPct < 0) {
+        idx = -1;
+        for (int i = lines.size() - 1; i >= 0; --i) {
+            if (lines.at(i).type == ChatMsg::OutFile && lines.at(i).progressPct >= 0) {
+                idx = i;
+                break;
+            }
+        }
+    }
+    if (idx < 0)
+        return;
+    lines.removeAt(idx);
+    m_log.insert(key, lines);
+    if (key == currentKey()) {
+        refreshChatHtml();
+        refreshFilesView();
+    }
 }
 
 void MainWindow::pumpUploadQueue()
