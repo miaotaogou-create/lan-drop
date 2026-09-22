@@ -65,6 +65,7 @@ private slots:
     void toggleMax();
     void closeWin();
     void openShare();
+    void openDownloadDir();
     void showChatTab();
     void showFilesTab();
     void onChatAnchor(const QUrl &url);

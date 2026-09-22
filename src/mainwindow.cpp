@@ -850,6 +850,13 @@ void MainWindow::buildUi()
     connect(m_shareBtn, SIGNAL(clicked()), this, SLOT(openShare()));
     refreshShareBtn();
 
+    QPushButton *dlBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"),
+                                   QString::fromUtf8(u8"打开下载目录"));
+    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 20)));
+    dlBtn->setIconSize(QSize(20, 20));
+    dlBtn->setCursor(Qt::PointingHandCursor);
+    connect(dlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
+
     QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
     setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 20)));
     setBtn->setIconSize(QSize(20, 20));
@@ -877,6 +884,7 @@ void MainWindow::buildUi()
     chromeLay->setSpacing(12);
     chromeLay->addStretch(1);
     chromeLay->addWidget(m_shareBtn);
+    chromeLay->addWidget(dlBtn);
     chromeLay->addWidget(setBtn);
     chromeLay->addSpacing(6);
     chromeLay->addWidget(minBtn);
@@ -1319,6 +1327,19 @@ void MainWindow::closeWin()
     close();
 }
 
+void MainWindow::openDownloadDir()
+{
+    QString dir = m_settings.downloadDir.trimmed();
+    if (dir.isEmpty())
+        dir = QStringLiteral("./downloads");
+    QDir().mkpath(dir);
+    const QString abs = QFileInfo(dir).absoluteFilePath();
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(abs))) {
+        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),
+                             QString::fromUtf8(u8"无法打开下载目录：\n%1").arg(abs));
+    }
+}
+
 void MainWindow::setupTray()
 {
     if (!QSystemTrayIcon::isSystemTrayAvailable())
@@ -1328,9 +1349,11 @@ void MainWindow::setupTray()
     m_tray->setToolTip(QString::fromUtf8(u8"局域快传 · 后台接收中"));
     QMenu *menu = new QMenu(this);
     QAction *showAct = menu->addAction(QString::fromUtf8(u8"显示主窗口"));
+    QAction *dlAct = menu->addAction(QString::fromUtf8(u8"打开下载目录"));
     menu->addSeparator();
     QAction *quitAct = menu->addAction(QString::fromUtf8(u8"退出局域快传"));
     connect(showAct, SIGNAL(triggered()), this, SLOT(showFromTray()));
+    connect(dlAct, SIGNAL(triggered()), this, SLOT(openDownloadDir()));
     connect(quitAct, SIGNAL(triggered()), this, SLOT(quitApp()));
     m_tray->setContextMenu(menu);
     connect(m_tray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
