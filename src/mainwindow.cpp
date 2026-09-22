@@ -2757,6 +2757,9 @@ void MainWindow::editSettings()
         "#settingsField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
         " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
         "#settingsField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#settingsBrowse { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #334155; padding: 8px 12px; font-size: 12px; font-weight: 600; }"
+        "#settingsBrowse:hover { background: #f8fafc; }"
         "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
         "#settingsSwitchRow { border-top: 1px solid #e2e8f0; }"
         "#settingsCheck { spacing: 0; }"
@@ -2873,9 +2876,27 @@ void MainWindow::editSettings()
     QVBoxLayout *dirCol = new QVBoxLayout;
     dirCol->setSpacing(4);
     QLineEdit *dir = fieldEdit(m_settings.downloadDir);
+    QPushButton *browse = new QPushButton(QString::fromUtf8(u8"浏览…"));
+    browse->setObjectName(QStringLiteral("settingsBrowse"));
+    browse->setCursor(Qt::PointingHandCursor);
+    browse->setFocusPolicy(Qt::NoFocus);
+    QHBoxLayout *dirRow = new QHBoxLayout;
+    dirRow->setContentsMargins(0, 0, 0, 0);
+    dirRow->setSpacing(8);
+    dirRow->addWidget(dir, 1);
+    dirRow->addWidget(browse, 0);
     dirCol->addWidget(fieldLabel(QString::fromUtf8(u8"文件接收下载目录 (落盘路径)")));
-    dirCol->addWidget(dir);
+    dirCol->addLayout(dirRow);
     dirCol->addWidget(fieldHint(QString::fromUtf8(u8"文件传输以 HTTP Stream 模式直接写盘，避免内存溢出")));
+    connect(browse, &QPushButton::clicked, &dlg, [dir, &dlg]() {
+        QString start = dir->text().trimmed();
+        if (start.isEmpty() || !QDir(start).exists())
+            start = QDir::homePath();
+        const QString picked = QFileDialog::getExistingDirectory(
+            &dlg, QString::fromUtf8(u8"选择下载目录"), start);
+        if (!picked.isEmpty())
+            dir->setText(QDir::toNativeSeparators(picked));
+    });
 
     bodyLay->addLayout(nameCol);
     bodyLay->addLayout(rowPort);
