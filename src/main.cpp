@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
         app.installTranslator(&qtLang);
     useChineseFont(app);
     QApplication::setStyle(QStringLiteral("Fusion"));
+    // 关主窗默认进托盘，不随最后窗口关闭而退出
+    QApplication::setQuitOnLastWindowClosed(false);
 
     MainWindow w;
     w.show();

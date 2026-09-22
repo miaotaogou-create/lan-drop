@@ -9,6 +9,7 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QComboBox>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -52,6 +53,7 @@
 #include <QStyle>
 #include <QStyleFactory>
 #include <QSvgRenderer>
+#include <QSystemTrayIcon>
 #include <QTextBrowser>
 #include <QTextCursor>
 #include <QTextEdit>
@@ -705,6 +707,7 @@ MainWindow::MainWindow(QWidget *parent)
     QTimer *ping = new QTimer(this);
     connect(ping, SIGNAL(timeout()), this, SLOT(measurePing()));
     ping->start(2000);
+    setupTray();
     boot();
 }
 
@@ -1258,6 +1261,64 @@ void MainWindow::toggleMax()
 void MainWindow::closeWin()
 {
     close();
+}
+
+void MainWindow::setupTray()
+{
+    if (!QSystemTrayIcon::isSystemTrayAvailable())
+        return;
+    m_tray = new QSystemTrayIcon(this);
+    m_tray->setIcon(QIcon(makeRadioLogo(32)));
+    m_tray->setToolTip(QString::fromUtf8(u8"局域快传 · 后台接收中"));
+    QMenu *menu = new QMenu(this);
+    QAction *showAct = menu->addAction(QString::fromUtf8(u8"显示主窗口"));
+    menu->addSeparator();
+    QAction *quitAct = menu->addAction(QString::fromUtf8(u8"退出局域快传"));
+    connect(showAct, SIGNAL(triggered()), this, SLOT(showFromTray()));
+    connect(quitAct, SIGNAL(triggered()), this, SLOT(quitApp()));
+    m_tray->setContextMenu(menu);
+    connect(m_tray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+            this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
+    m_tray->show();
+}
+
+void MainWindow::showFromTray()
+{
+    showNormal();
+    raise();
+    activateWindow();
+}
+
+void MainWindow::quitApp()
+{
+    m_forceQuit = true;
+    if (m_tray) {
+        m_tray->hide();
+    }
+    qApp->quit();
+}
+
+void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick)
+        showFromTray();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_forceQuit || !m_tray) {
+        event->accept();
+        qApp->quit();
+        return;
+    }
+    event->ignore();
+    hide();
+    if (!m_trayHintShown) {
+        m_trayHintShown = true;
+        m_tray->showMessage(QString::fromUtf8(u8"局域快传"),
+                            QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"),
+                            QSystemTrayIcon::Information, 4000);
+    }
 }
 
 void MainWindow::refreshShareBtn()

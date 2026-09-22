@@ -7,6 +7,7 @@
 #include <QMainWindow>
 #include <QPoint>
 #include <QStringList>
+#include <QSystemTrayIcon>
 #include <QVector>
 
 class Discovery;
@@ -22,6 +23,7 @@ class QStackedWidget;
 class QTextBrowser;
 class QUrl;
 class QWidget;
+class QCloseEvent;
 
 struct ChatMsg {
     enum Type { OutText = 0, InText, OutFile, InFile, System, Fail };
@@ -44,6 +46,7 @@ public:
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void refreshPeers();
@@ -68,11 +71,15 @@ private slots:
     void measurePing();
     void peerListContextMenu(const QPoint &pos);
     void removeSelectedManualPeer();
+    void showFromTray();
+    void quitApp();
+    void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
 
 private:
     void boot();
     void buildUi();
     void applyStyle();
+    void setupTray();
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
@@ -143,6 +150,9 @@ private:
     QString m_pingText;
     QPoint m_dragOrigin;
     bool m_dragging = false;
+    QSystemTrayIcon *m_tray = 0;
+    bool m_forceQuit = false;
+    bool m_trayHintShown = false;
 };
 
 #endif
