@@ -837,6 +837,7 @@ class ShareDropFilter : public QObject
 public:
     explicit ShareDropFilter(QObject *parent = 0) : QObject(parent) {}
     std::function<void(const QStringList &)> onFiles;
+    std::function<void(bool)> onActive; // 拖入/拖出高亮（可选）
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override
@@ -846,6 +847,9 @@ protected:
             QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
             if (de->mimeData() && de->mimeData()->hasUrls()) {
                 de->acceptProposedAction();
+                ++m_depth;
+                if (m_depth == 1 && onActive)
+                    onActive(true);
                 return true;
             }
         }
@@ -856,8 +860,17 @@ protected:
                 return true;
             }
         }
+        if (event->type() == QEvent::DragLeave) {
+            m_depth = qMax(0, m_depth - 1);
+            if (m_depth == 0 && onActive)
+                onActive(false);
+            return false;
+        }
         if (event->type() == QEvent::Drop) {
             QDropEvent *de = static_cast<QDropEvent *>(event);
+            m_depth = 0;
+            if (onActive)
+                onActive(false);
             QStringList paths;
             if (de->mimeData())
                 paths = localSendPathsFromUrls(de->mimeData()->urls());
@@ -869,6 +882,9 @@ protected:
         }
         return QObject::eventFilter(watched, event);
     }
+
+private:
+    int m_depth = 0;
 };
 
 MainWindow::MainWindow(QWidget *parent)
@@ -1094,6 +1110,7 @@ void MainWindow::buildUi()
     m_emptyHint->setWordWrap(true);
 
     QWidget *chatPage = new QWidget;
+    m_chatPage = chatPage;
     QVBoxLayout *chatLay = new QVBoxLayout(chatPage);
     chatLay->setContentsMargins(0, 0, 0, 0);
     chatLay->setSpacing(0);
@@ -1297,6 +1314,21 @@ void MainWindow::buildUi()
     chatLay->addWidget(m_connBannerHost);
     chatLay->addWidget(m_sessionStack, 1);
 
+    m_chatDropHint = new QFrame(chatPage);
+    m_chatDropHint->setObjectName(QStringLiteral("chatDropHint"));
+    m_chatDropHint->setAttribute(Qt::WA_StyledBackground, true);
+    m_chatDropHint->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_chatDropHint->hide();
+    QVBoxLayout *dropHintLay = new QVBoxLayout(m_chatDropHint);
+    dropHintLay->setContentsMargins(24, 24, 24, 24);
+    m_chatDropHintLabel = new QLabel;
+    m_chatDropHintLabel->setObjectName(QStringLiteral("chatDropHintLabel"));
+    m_chatDropHintLabel->setAlignment(Qt::AlignCenter);
+    m_chatDropHintLabel->setWordWrap(true);
+    dropHintLay->addStretch(1);
+    dropHintLay->addWidget(m_chatDropHintLabel, 0, Qt::AlignCenter);
+    dropHintLay->addStretch(1);
+
     m_pages->addWidget(m_emptyHint);
     m_pages->addWidget(chatPage);
     rightLay->addWidget(m_pages, 1);
@@ -1365,6 +1397,8 @@ void MainWindow::applyStyle()
         "#filesView { background: #f1f5f9; border: none; }"
         "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
+        "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
+        "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
         " padding: 4px 8px; border-radius: 6px; }"
@@ -1389,6 +1423,10 @@ void MainWindow::applyStyle()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
+        && m_chatDropHint && m_chatDropHint->isVisible()) {
+        setChatDropHint(true);
+    }
     if (m_trayToast && watched == m_trayToast
         && event->type() == QEvent::MouseButtonPress) {
         showFromTrayNotify();
@@ -2811,16 +2849,42 @@ void MainWindow::setupChatDrop()
 {
     ShareDropFilter *filter = new ShareDropFilter(this);
     filter->onFiles = [this](const QStringList &paths) { enqueueDroppedPaths(paths); };
-    QWidget *targets[] = { m_chat, m_composer, m_inputShell, m_sessionStack };
-    for (int i = 0; i < 4; ++i) {
-        QWidget *w = targets[i];
-        if (!w)
-            continue;
-        w->setAcceptDrops(true);
-        w->installEventFilter(filter);
+    filter->onActive = [this](bool on) { setChatDropHint(on); };
+    // 只挂会话页：子控件不接 drop，事件落到 chatPage，避免进出子控件时高亮闪烁
+    if (m_chatPage) {
+        m_chatPage->setAcceptDrops(true);
+        m_chatPage->installEventFilter(filter);
+        m_chatPage->installEventFilter(this); // 同步遮罩几何
+    }
+    QWidget *inner[] = { m_chat, m_composer, m_inputShell, m_sessionStack, m_files };
+    for (int i = 0; i < 5; ++i) {
+        if (inner[i])
+            inner[i]->setAcceptDrops(false);
     }
     if (m_chat)
         m_chat->installEventFilter(this); // Ctrl+V 粘贴发文件
+}
+
+void MainWindow::setChatDropHint(bool on)
+{
+    if (!m_chatDropHint || !m_sessionStack || !m_chatPage)
+        return;
+    if (!on) {
+        m_chatDropHint->hide();
+        return;
+    }
+    QString name;
+    currentPeer(0, 0, &name);
+    if (name.trimmed().isEmpty())
+        name = QString::fromUtf8(u8"当前设备");
+    if (m_chatDropHintLabel) {
+        m_chatDropHintLabel->setText(
+            QString::fromUtf8(u8"松手发送到 %1").arg(name.trimmed()));
+    }
+    const QRect r = m_sessionStack->geometry().adjusted(10, 10, -10, -10);
+    m_chatDropHint->setGeometry(r);
+    m_chatDropHint->show();
+    m_chatDropHint->raise();
 }
 
 bool MainWindow::tryPasteClipboardFiles()

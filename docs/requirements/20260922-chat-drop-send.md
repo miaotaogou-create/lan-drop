@@ -37,3 +37,4 @@
 - 无
 
 - 相关：同会话亦支持 Ctrl+V 粘贴发送，见 `20260922-chat-paste-send.md`。
+- 拖放虚线反馈：见 `20260922-chat-drop-visual.md`。

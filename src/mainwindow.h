@@ -88,6 +88,7 @@ private:
     void applyStyle();
     void setupTray();
     void setupChatDrop();
+    void setChatDropHint(bool on);
     void enqueueDroppedPaths(const QStringList &paths);
     bool tryPasteClipboardFiles();
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
@@ -158,6 +159,9 @@ private:
     QPushButton *m_maxBtn = 0;
     QWidget *m_composer = 0;
     QWidget *m_inputShell = 0;
+    QWidget *m_chatPage = 0;
+    QFrame *m_chatDropHint = 0;
+    QLabel *m_chatDropHintLabel = 0;
 
     QHash<QString, QVector<ChatMsg> > m_log;
     QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
