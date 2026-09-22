@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 
 #include "discovery.h"
 #include "files.h"
@@ -1770,16 +1770,15 @@ void MainWindow::updatePeerSession()
     }
     const QString label = peer.label().isEmpty() ? name : peer.label();
     const QString addr = QStringLiteral("%1:%2").arg(ip).arg(port);
-    const QString osTag = peer.osName.trimmed().isEmpty()
-        ? QString::fromUtf8(u8"未知系统")
-        : peer.osName.trimmed();
-
+    const QString hostTag = !peer.hostname.trimmed().isEmpty()
+        ? peer.hostname.trimmed()
+        : (!label.isEmpty() ? label : ip);
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 44));
     m_peerName->setText(label);
     m_peerOnlineDot->setPixmap(makeStatusDot(found ? peer.online() : true, 8));
     m_peerAddr->setText(addr);
     m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping %2  ·  %3")
-                            .arg(osTag)
+                            .arg(hostTag)
                             .arg(m_pingKey == addr && !m_pingText.isEmpty()
                                      ? m_pingText
                                      : QString::fromUtf8(u8"—"))
@@ -1891,16 +1890,25 @@ void MainWindow::measurePing()
     const QString key = ip + QLatin1Char(':') + QString::number(port);
     QNetworkReply *rep = m_nam->get(
         QNetworkRequest(QUrl(QStringLiteral("http://%1:%2/api/info").arg(ip).arg(port))));
-    connect(rep, &QNetworkReply::finished, this, [this, rep, clock, key]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, clock, key, ip, port]() {
         rep->deleteLater();
         const double ms = clock->nsecsElapsed() / 1000000.0;
         delete clock;
         m_pingBusy = false;
         m_pingKey = key;
-        if (rep->error() != QNetworkReply::NoError)
+        if (rep->error() != QNetworkReply::NoError) {
             m_pingText = QString::fromUtf8(u8"超时");
-        else
+        } else {
             m_pingText = QString::number(ms, 'f', ms < 10.0 ? 1 : 0) + QStringLiteral("ms");
+            const QJsonObject o = QJsonDocument::fromJson(rep->readAll()).object();
+            const int p = o.value(QStringLiteral("port")).toInt() > 0
+                ? o.value(QStringLiteral("port")).toInt() : port;
+            m_disc->touch(ip, p,
+                          o.value(QStringLiteral("id")).toString(),
+                          o.value(QStringLiteral("name")).toString(),
+                          o.value(QStringLiteral("os")).toString(),
+                          o.value(QStringLiteral("hostname")).toString());
+        }
         if (key == currentKey())
             updatePeerSession();
     });
@@ -2495,7 +2503,8 @@ void MainWindow::probePeer()
         m_disc->touch(ip, o.value(QStringLiteral("port")).toInt() > 0 ? o.value(QStringLiteral("port")).toInt() : port,
                       o.value(QStringLiteral("id")).toString(),
                       o.value(QStringLiteral("name")).toString(),
-                      o.value(QStringLiteral("os")).toString());
+                      o.value(QStringLiteral("os")).toString(),
+                      o.value(QStringLiteral("hostname")).toString());
         refreshPeers();
     });
 }

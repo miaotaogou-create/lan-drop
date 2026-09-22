@@ -241,12 +241,19 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-34 会话顶栏主机名
+- 对应验收：H1–H3（`docs/requirements/20260922-peer-hostname.md`）
+- 步骤：本机 `landrop --self-check`；选中对端看副行首段；可用浏览器打开 `http://本机IP:端口/api/info` 看 `hostname`
+- 期望：自检含 hostname；`/api/info` 有 hostname 字段；副行为「主机名 · Ping · 链路」，无字段时回退设备名且不崩
+- 类型：手测 / 集成
+- 结果：自检通过（`--self-check` 含 hostname）；界面待双机目视
+
 ### 缺口
 - 扫码：对话框已出二维码；旧条目 A9 仅复制链接的说法以 W3 为准
 - 拖放添加、单文件删除、散文件列表：见 `20260921-web-share-dialog.md` 非本轮
-- 聊天气泡、文件卡片、Ping/链路/传输 Tab：已落地，见对应需求文档
+- 聊天气泡、文件卡片、Ping/链路/传输 Tab、hostname：已落地，见对应需求文档
 - 部门标签入库：见 `20260921-add-peer-dialog.md` 非本轮（D6）
 - 通知声：见 `20260922-sound-notification.md`（本轮已播放系统 beep）
 - 并发线程池：见 `20260921-settings-dialog.md` 仍非本轮
-- 气泡内实时进度、hostname 副行、自定义铃声：待开需求
+- 气泡内实时进度、自定义铃声：待开需求
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端

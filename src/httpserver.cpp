@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QHostAddress>
+#include <QHostInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -378,6 +379,9 @@ void HttpServer::takeBytes(Conn *c)
 #else
         o.insert(QStringLiteral("os"), localOsTag());
 #endif
+        const QString host = QHostInfo::localHostName().trimmed();
+        if (!host.isEmpty())
+            o.insert(QStringLiteral("hostname"), host);
         QJsonArray ips;
         // localIpv4 在 discovery.cpp，这里直接再扫会重复。调用方通过名字已经够用，IP 列表给探测看。
         extern QStringList localIpv4();

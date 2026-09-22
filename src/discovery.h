@@ -15,6 +15,7 @@ struct Peer {
     QString ip;
     int port = 8848;
     QString osName;
+    QString hostname;
     QString alias;
     bool manual = false;
     QDateTime lastSeen;
@@ -37,7 +38,8 @@ public:
     QList<Peer> peers() const;
     Peer addManual(const QString &ip, int port, const QString &alias,
                    const QString &osName = QString());
-    void touch(const QString &ip, int port, const QString &id, const QString &name, const QString &osName);
+    void touch(const QString &ip, int port, const QString &id, const QString &name,
+               const QString &osName, const QString &hostname = QString());
     bool find(const QString &ip, int port, Peer *out) const;
 
 signals:
@@ -65,5 +67,6 @@ private:
 QString deviceId();
 QStringList localIpv4();
 QString localLinkLabel();
+QString localHostName();
 
 #endif

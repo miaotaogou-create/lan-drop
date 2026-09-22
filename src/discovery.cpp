@@ -125,6 +125,11 @@ QString localLinkLabel()
     return formatLinkLabel(-1, false);
 }
 
+QString localHostName()
+{
+    return QHostInfo::localHostName().trimmed();
+}
+
 bool Peer::online() const
 {
     return lastSeen.isValid() && lastSeen.msecsTo(QDateTime::currentDateTime()) <= 12000;
@@ -214,6 +219,8 @@ void Discovery::upsert(const Peer &in)
             old.port = in.port;
         if (!in.osName.isEmpty())
             old.osName = in.osName;
+        if (!in.hostname.isEmpty())
+            old.hostname = in.hostname;
         if (!in.alias.isEmpty())
             old.alias = in.alias;
         if (in.manual)
@@ -248,7 +255,8 @@ Peer Discovery::addManual(const QString &ip, int port, const QString &alias, con
     return p;
 }
 
-void Discovery::touch(const QString &ip, int port, const QString &id, const QString &name, const QString &osName)
+void Discovery::touch(const QString &ip, int port, const QString &id, const QString &name,
+                      const QString &osName, const QString &hostname)
 {
     Peer p;
     p.ip = ip.trimmed();
@@ -256,6 +264,7 @@ void Discovery::touch(const QString &ip, int port, const QString &id, const QStr
     p.id = id;
     p.name = name;
     p.osName = osName;
+    p.hostname = hostname.trimmed();
     p.lastSeen = QDateTime::currentDateTime();
     upsert(p);
 }
@@ -285,6 +294,9 @@ void Discovery::announce()
 #else
     o.insert(QStringLiteral("os"), localOsTag());
 #endif
+    const QString host = localHostName();
+    if (!host.isEmpty())
+        o.insert(QStringLiteral("hostname"), host);
     const QByteArray body = QJsonDocument(o).toJson(QJsonDocument::Compact);
     QStringList targets;
     targets.append(QStringLiteral("255.255.255.255"));
@@ -336,6 +348,7 @@ void Discovery::onDatagram()
         p.ip = ip;
         p.port = port;
         p.osName = o.value(QStringLiteral("os")).toString();
+        p.hostname = o.value(QStringLiteral("hostname")).toString().trimmed();
         p.lastSeen = QDateTime::currentDateTime();
         upsert(p);
     }

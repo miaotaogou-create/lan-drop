@@ -1,6 +1,7 @@
 ﻿#include "selfcheck.h"
 
 #include "files.h"
+#include "discovery.h"
 #include "qrcodegen.hpp"
 
 #include <QCryptographicHash>
@@ -70,6 +71,8 @@ int runSelfCheck()
         if (h.result().toHex().left(8) != QByteArray("9f86d081"))
             return fail("sha256");
     }
+    if (localHostName().trimmed().isEmpty())
+        return fail("hostname");
     std::printf("self-check ok\n");
     return 0;
 }
