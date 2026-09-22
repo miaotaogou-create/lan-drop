@@ -80,6 +80,8 @@ private:
     void buildUi();
     void applyStyle();
     void setupTray();
+    void setupChatDrop();
+    void enqueueDroppedPaths(const QStringList &paths);
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
