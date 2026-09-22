@@ -3,6 +3,7 @@
 #include "files.h"
 #include "discovery.h"
 #include "qrcodegen.hpp"
+#include "settings.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -94,6 +95,61 @@ int runSelfCheck()
     }
     if (localHostName().trimmed().isEmpty())
         return fail("hostname");
+    {
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-settings-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
+        QFile::remove(path);
+        Settings s = Settings::defaults();
+        s.deviceName = QStringLiteral("check-host");
+        ManualPeerEntry a;
+        a.ip = QStringLiteral("10.9.8.7");
+        a.port = 0; // 存盘夹到 8848
+        a.alias = QString::fromUtf8(u8"跨网段");
+        a.os = QStringLiteral("linux");
+        ManualPeerEntry dup = a;
+        dup.port = 8848; // 与夹紧后同键，应去重
+        s.manualPeers << a << dup;
+        if (!s.saveToFile(path))
+            return fail("manualPeers save");
+        const Settings loaded = Settings::loadFromFile(path);
+        if (loaded.manualPeers.size() != 1)
+            return fail("manualPeers dedupe");
+        const ManualPeerEntry &e = loaded.manualPeers.at(0);
+        if (e.ip != QLatin1String("10.9.8.7") || e.port != 8848)
+            return fail("manualPeers addr");
+        if (e.alias != QString::fromUtf8(u8"跨网段") || e.os != QLatin1String("linux"))
+            return fail("manualPeers meta");
+        // 缺字段也能加载
+        {
+            QFile f(path);
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                return fail("manualPeers strip");
+            f.write("{\"deviceName\":\"x\",\"port\":8848}\n");
+            f.close();
+        }
+        if (!Settings::loadFromFile(path).manualPeers.isEmpty())
+            return fail("manualPeers missing");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
+    {
+        Discovery disc;
+        const Peer p = disc.addManual(QStringLiteral("10.1.2.3"), 8848,
+                                      QString::fromUtf8(u8"别名"), QStringLiteral("linux"));
+        if (!p.manual || p.ip != QLatin1String("10.1.2.3") || p.alias != QString::fromUtf8(u8"别名"))
+            return fail("addManual");
+        bool found = false;
+        const QList<Peer> list = disc.peers();
+        for (int i = 0; i < list.size(); ++i) {
+            if (list.at(i).manual && list.at(i).ip == QLatin1String("10.1.2.3")) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return fail("addManual list");
+    }
     std::printf("self-check ok\n");
     return 0;
 }

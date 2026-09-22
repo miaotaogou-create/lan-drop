@@ -86,6 +86,7 @@ private:
     void updateInputPlaceholder();
     void shakeWindow();
     void playNotifySound();
+    void persistManualPeers();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     QString currentKey() const;

@@ -4,8 +4,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHostInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 #include <QStandardPaths>
 
 static QString configDir()
@@ -60,10 +62,61 @@ static int clampThreads(int n, int fallback)
     return n;
 }
 
-Settings Settings::load()
+static QList<ManualPeerEntry> readManualPeers(const QJsonObject &o)
+{
+    QList<ManualPeerEntry> out;
+    if (!o.contains(QStringLiteral("manualPeers")) || !o.value(QStringLiteral("manualPeers")).isArray())
+        return out;
+    const QJsonArray arr = o.value(QStringLiteral("manualPeers")).toArray();
+    QSet<QString> seen;
+    for (int i = 0; i < arr.size(); ++i) {
+        const QJsonObject row = arr.at(i).toObject();
+        ManualPeerEntry e;
+        e.ip = row.value(QStringLiteral("ip")).toString().trimmed();
+        if (e.ip.isEmpty() || e.ip.contains(QLatin1Char(' ')))
+            continue;
+        e.port = clampPort(row.value(QStringLiteral("port")).toInt(), 8848);
+        e.alias = row.value(QStringLiteral("alias")).toString().trimmed();
+        e.os = row.value(QStringLiteral("os")).toString().trimmed();
+        const QString key = e.ip + QLatin1Char(':') + QString::number(e.port);
+        if (seen.contains(key))
+            continue;
+        seen.insert(key);
+        out.append(e);
+    }
+    return out;
+}
+
+static QJsonArray writeManualPeers(const QList<ManualPeerEntry> &list)
+{
+    QJsonArray arr;
+    QSet<QString> seen;
+    for (int i = 0; i < list.size(); ++i) {
+        const ManualPeerEntry &e = list.at(i);
+        const QString ip = e.ip.trimmed();
+        if (ip.isEmpty() || ip.contains(QLatin1Char(' ')))
+            continue;
+        const int port = clampPort(e.port, 8848);
+        const QString key = ip + QLatin1Char(':') + QString::number(port);
+        if (seen.contains(key))
+            continue;
+        seen.insert(key);
+        QJsonObject row;
+        row.insert(QStringLiteral("ip"), ip);
+        row.insert(QStringLiteral("port"), port);
+        if (!e.alias.trimmed().isEmpty())
+            row.insert(QStringLiteral("alias"), e.alias.trimmed());
+        if (!e.os.trimmed().isEmpty())
+            row.insert(QStringLiteral("os"), e.os.trimmed());
+        arr.append(row);
+    }
+    return arr;
+}
+
+Settings Settings::loadFromFile(const QString &path)
 {
     Settings s = defaults();
-    QFile f(filePath());
+    QFile f(path);
     if (!f.open(QIODevice::ReadOnly))
         return s;
     const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
@@ -81,12 +134,17 @@ Settings Settings::load()
         s.nudgeEnabled = o.value(QStringLiteral("nudgeEnabled")).toBool();
     if (o.contains(QStringLiteral("soundNotification")))
         s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
+    s.manualPeers = readManualPeers(o);
     return s;
 }
 
-bool Settings::save() const
+Settings Settings::load()
 {
-    const QString path = filePath();
+    return loadFromFile(filePath());
+}
+
+bool Settings::saveToFile(const QString &path) const
+{
     QDir().mkpath(QFileInfo(path).absolutePath());
     QJsonObject o;
     o.insert(QStringLiteral("deviceName"), deviceName.trimmed().isEmpty() ? defaults().deviceName : deviceName.trimmed());
@@ -96,9 +154,15 @@ bool Settings::save() const
     o.insert(QStringLiteral("transferThreads"), clampThreads(transferThreads, 8));
     o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
     o.insert(QStringLiteral("soundNotification"), soundNotification);
+    o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
     f.write(QJsonDocument(o).toJson(QJsonDocument::Indented));
     return true;
+}
+
+bool Settings::save() const
+{
+    return saveToFile(filePath());
 }

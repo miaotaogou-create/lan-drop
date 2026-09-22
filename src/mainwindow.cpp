@@ -1736,6 +1736,10 @@ void MainWindow::boot()
     }
     const bool httpOk = m_http->listen(m_settings.port);
     const bool discOk = m_disc->start(m_settings.discoverPort);
+    for (int i = 0; i < m_settings.manualPeers.size(); ++i) {
+        const ManualPeerEntry &e = m_settings.manualPeers.at(i);
+        m_disc->addManual(e.ip, e.port, e.alias, e.os);
+    }
     updateHostPill();
     refreshShareBtn();
     if (!httpOk) {
@@ -1750,6 +1754,27 @@ void MainWindow::boot()
     refreshPeers();
     showChat();
     updateChrome();
+}
+
+void MainWindow::persistManualPeers()
+{
+    if (!m_disc)
+        return;
+    QList<ManualPeerEntry> list;
+    const QList<Peer> peers = m_disc->peers();
+    for (int i = 0; i < peers.size(); ++i) {
+        const Peer &p = peers.at(i);
+        if (!p.manual || p.ip.trimmed().isEmpty())
+            continue;
+        ManualPeerEntry e;
+        e.ip = p.ip.trimmed();
+        e.port = p.port > 0 ? p.port : 8848;
+        e.alias = p.alias.trimmed();
+        e.os = p.osName.trimmed();
+        list.append(e);
+    }
+    m_settings.manualPeers = list;
+    m_settings.save();
 }
 
 QString MainWindow::localIpText() const
@@ -2610,6 +2635,7 @@ void MainWindow::addPeer()
         Q_UNUSED(tag);
         const QString osName = osBox->currentData().toString();
         m_disc->addManual(host, p, alias->text(), osName);
+        persistManualPeers();
         refreshPeers();
         for (int i = 0; i < m_list->count(); ++i) {
             QListWidgetItem *it = m_list->item(i);
