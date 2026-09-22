@@ -12,6 +12,7 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCursor>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -63,6 +64,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QTime>
+#include <QToolTip>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -981,18 +983,25 @@ void MainWindow::buildUi()
     m_hostPill = new QWidget;
     m_hostPill->setObjectName(QStringLiteral("hostPill"));
     m_hostPill->setFixedHeight(28);
+    m_hostPill->setCursor(Qt::PointingHandCursor);
+    m_hostPill->setToolTip(QString::fromUtf8(u8"点击复制本机 IP:端口"));
+    m_hostPill->installEventFilter(this);
     QHBoxLayout *pillLay = new QHBoxLayout(m_hostPill);
     pillLay->setContentsMargins(10, 0, 12, 0);
     pillLay->setSpacing(5);
     QLabel *hostIcon = new QLabel;
     hostIcon->setFixedSize(16, 16);
     hostIcon->setPixmap(makeLaptopIcon(16));
+    hostIcon->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     QLabel *hostTag = new QLabel(QString::fromUtf8(u8"本机:"));
     hostTag->setObjectName(QStringLiteral("hostTag"));
+    hostTag->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_hostName = new QLabel;
     m_hostName->setObjectName(QStringLiteral("hostName"));
+    m_hostName->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_hostIp = new QLabel;
     m_hostIp->setObjectName(QStringLiteral("hostIp"));
+    m_hostIp->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     pillLay->addWidget(hostIcon, 0, Qt::AlignVCenter);
     pillLay->addWidget(hostTag, 0, Qt::AlignVCenter);
     pillLay->addWidget(m_hostName, 0, Qt::AlignVCenter);
@@ -1370,6 +1379,7 @@ void MainWindow::applyStyle()
         "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
         "#statusOnline { color: #64748b; font-size: 11px; padding: 0; margin: 0; }"
         "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
+        "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
         "#hostIp { color: #94a3b8; font-size: 12px; font-family: Consolas, 'Courier New', monospace; }"
@@ -1451,6 +1461,14 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     }
     if (m_chatHost && watched == m_chatHost && event->type() == QEvent::Resize) {
         placeJumpBottomBtn();
+    }
+    if (m_hostPill && watched == m_hostPill
+        && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton) {
+            copyLocalAddr();
+            return true;
+        }
     }
     if (m_trayToast && watched == m_trayToast
         && event->type() == QEvent::MouseButtonPress) {
@@ -2119,6 +2137,18 @@ void MainWindow::updateHostPill()
         return;
     m_hostName->setText(m_settings.deviceName);
     m_hostIp->setText(QLatin1Char('(') + localIpText() + QLatin1Char(')'));
+}
+
+void MainWindow::copyLocalAddr()
+{
+    const QString ip = localIpText();
+    if (ip.isEmpty() || ip == QString::fromUtf8(u8"—")) {
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"暂无可用 IP"), this);
+        return;
+    }
+    const QString addr = ip + QLatin1Char(':') + QString::number(m_settings.port);
+    QApplication::clipboard()->setText(addr);
+    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
 }
 
 void MainWindow::setStatusOnline(const QString &text, bool ok)

@@ -82,6 +82,7 @@ private slots:
     void hideTrayToast();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void jumpChatToBottom();
+    void copyLocalAddr();
 
 private:
     void boot();
