@@ -75,11 +75,11 @@
 - 结果：通过（`tests\api-smoke.ps1`，2026-09-21）
 
 ### TC-09 设备类型映射
-- 对应验收：U2
-- 步骤：`landrop.exe --self-check`
-- 期望：windows→笔记本、android→手机、iPadOS→平板
-- 类型：单元
-- 结果：随 self-check
+- 对应验收：U2；O1–O3（`docs/requirements/20260922-arm-os-not-rpi.md`）
+- 步骤：`landrop.exe --self-check`；看 ARM 麒麟对端头像
+- 期望：windows→笔记本、android→手机、iPadOS→平板；ARM 麒麟/Ubuntu 桌面→Ubuntu 头像（非「树」）；手动「工控/树莓派」仍为树莓派
+- 类型：单元 + 手测
+- 结果：随 self-check；头像待手测
 
 ### TC-10 顶栏广播 Logo 左右弧
 - 对应验收：U1

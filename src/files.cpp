@@ -165,9 +165,19 @@ QString localOsTag()
 #ifdef Q_OS_WIN
     return QStringLiteral("windows");
 #else
-    const QString arch = QSysInfo::currentCpuArchitecture().toLower();
-    if (arch.contains(QLatin1String("arm")) || arch.contains(QLatin1String("aarch")))
-        return QStringLiteral("arm-linux");
+    // 仅树莓派等板子报 arm-linux；ARM 麒麟/Ubuntu 桌面报 linux，避免列表被画成「树」。
+    const QStringList modelPaths = QStringList()
+        << QStringLiteral("/proc/device-tree/model")
+        << QStringLiteral("/sys/firmware/devicetree/base/model");
+    for (int i = 0; i < modelPaths.size(); ++i) {
+        QFile f(modelPaths.at(i));
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        const QByteArray model = f.readAll().toLower();
+        if (model.contains("raspberry") || model.contains("raspberrypi"))
+            return QStringLiteral("arm-linux");
+        break;
+    }
     return QStringLiteral("linux");
 #endif
 }

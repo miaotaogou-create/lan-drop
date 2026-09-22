@@ -201,11 +201,13 @@ static QString avatarSvgForOs(const QString &osName)
         || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("ipad"))
         || o.contains(QLatin1String("phone")))
         return QStringLiteral(":/avatars/avatar_iphone.svg");
-    if (o.contains(QLatin1String("arm")) || o.contains(QLatin1String("aarch"))
-        || o.contains(QLatin1String("raspberry")))
+    // 仅明确树莓派/工控标签；勿用裸 arm/aarch（ARM 麒麟会误伤）
+    if (o.contains(QLatin1String("raspberry")) || o.contains(QLatin1String("rpi"))
+        || o.contains(QLatin1String("arm-linux")))
         return QStringLiteral(":/avatars/avatar_raspberrypi.svg");
     if (o.contains(QLatin1String("linux")) || o.contains(QLatin1String("ubuntu"))
-        || o.contains(QLatin1String("kylin")))
+        || o.contains(QLatin1String("kylin")) || o.contains(QLatin1String("debian"))
+        || o.contains(QLatin1String("arm")) || o.contains(QLatin1String("aarch")))
         return QStringLiteral(":/avatars/avatar_ubuntu.svg");
     return QStringLiteral(":/avatars/avatar_windows.svg");
 }
