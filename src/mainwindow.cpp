@@ -2946,6 +2946,7 @@ void MainWindow::finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs,
         m.sha256 = sha;
     m_log.insert(key, lines);
     if (key == currentKey()) {
+        markChatNewBelowIfAway();
         refreshChatHtml();
         refreshFilesView();
     }
