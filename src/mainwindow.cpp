@@ -536,16 +536,16 @@ static QString renderCodeBlock(const QString &lang, const QString &code, bool al
             "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
             "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
             "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
-            "<font color=\"#93c5fd\" size=\"2\">复制</font></a></td>"
+            "<font color=\"#93c5fd\" size=\"2\">%4</font></a></td>"
             "</tr></table>"
             "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
             "</td></tr></table>")
-            .arg(htmlEsc(lang), href, htmlEsc(code));
+            .arg(htmlEsc(lang), href, htmlEsc(code), QString::fromUtf8(u8"复制"));
     if (alignRight)
         return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                               "<td></td><td align=\"right\" valign=\"top\">%1</td>"
                               "<td width=\"48\" valign=\"bottom\">%2</td></tr></table>")
-            .arg(block, letterAvatarHtml(QStringLiteral("我"), QStringLiteral("#2563eb")));
+            .arg(block, letterAvatarHtml(QString::fromUtf8(u8"我"), QStringLiteral("#2563eb")));
     return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                           "<td width=\"48\" valign=\"bottom\">%1</td>"
                           "<td align=\"left\" valign=\"top\">%2</td><td></td></tr></table>")
@@ -556,10 +556,10 @@ static QString metaLine(const QString &who, const QString &time, qint64 rttMs, b
 {
     QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
     if (failed)
-        return mid + QStringLiteral(" <font color=\"#dc2626\" size=\"2\">发送失败</font>");
+        return mid + QString::fromUtf8(u8" <font color=\"#dc2626\" size=\"2\">发送失败</font>");
     if (rttMs >= 0) {
         const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
-        mid += QStringLiteral(" <font color=\"#16a34a\" size=\"2\">✓✓ 已送达 - %1ms</font>").arg(ms);
+        mid += QString::fromUtf8(u8" <font color=\"#16a34a\" size=\"2\">✓✓ 已送达 - %1ms</font>").arg(ms);
     }
     return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
 }
@@ -615,32 +615,32 @@ static QString renderFileCard(const ChatMsg &m)
            + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding)));
     QString actions;
     if (!openHref.isEmpty()) {
-        actions = QStringLiteral(
-                      "<a href=\"%1\" style=\"text-decoration:none;\">"
-                      "<font color=\"#2563eb\" size=\"2\">↓ 下载保存至本地</font></a>"
-                      "&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
+        actions = QString::fromUtf8(
+                      u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                      u8"<font color=\"#2563eb\" size=\"2\">↓ 下载保存至本地</font></a>"
+                      u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
                       .arg(openHref);
     } else {
-        actions = QStringLiteral("<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
+        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
     }
     const QString card =
-        QStringLiteral(
-            "<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
-            "style=\"border:1px solid #e2e8f0;\">"
-            "<tr><td>"
-            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            "<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"#ede9fe\">"
-            "<tr><td><font color=\"#7c3aed\" size=\"2\"><b>FILE</b></font></td></tr></table></td>"
-            "<td>"
-            "<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
-            "<font color=\"#94a3b8\" size=\"2\">%2</font>"
-            "</td></tr></table>"
-            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
-            "<tr><td height=\"6\"></td></tr></table>"
-            "<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>"
-            "%3"
-            "<br/>%4"
-            "</td></tr></table>")
+        QString::fromUtf8(
+            u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
+            u8"style=\"border:1px solid #e2e8f0;\">"
+            u8"<tr><td>"
+            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+            u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"#ede9fe\">"
+            u8"<tr><td><font color=\"#7c3aed\" size=\"2\"><b>FILE</b></font></td></tr></table></td>"
+            u8"<td>"
+            u8"<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
+            u8"<font color=\"#94a3b8\" size=\"2\">%2</font>"
+            u8"</td></tr></table>"
+            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
+            u8"<tr><td height=\"6\"></td></tr></table>"
+            u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>"
+            u8"%3"
+            u8"<br/>%4"
+            u8"</td></tr></table>")
             .arg(htmlEsc(m.text), size,
                  sha.isEmpty()
                      ? QString()
