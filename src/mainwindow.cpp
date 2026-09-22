@@ -631,17 +631,31 @@ static QString renderFileCard(const ChatMsg &m)
     QString sha = m.sha256;
     if (sha.isEmpty() && !m.path.isEmpty())
         sha = fileSha256Short(m.path);
-    const QString openHref = m.path.isEmpty()
+    const QString pathB64 = m.path.isEmpty()
         ? QString()
-        : (QStringLiteral("landrop://reveal/")
-           + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding)));
+        : QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
     QString actions;
-    if (!openHref.isEmpty()) {
-        actions = QString::fromUtf8(
-                      u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                      u8"<font color=\"#2563eb\" size=\"2\">↓ 下载保存至本地</font></a>"
-                      u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
-                      .arg(openHref);
+    if (!pathB64.isEmpty()) {
+        const QString openHref = QStringLiteral("landrop://open/") + pathB64;
+        const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
+        if (out) {
+            actions = QString::fromUtf8(
+                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
+                          u8"&nbsp;&nbsp;"
+                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>")
+                          .arg(openHref, revealHref);
+        } else {
+            actions = QString::fromUtf8(
+                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
+                          u8"&nbsp;&nbsp;"
+                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
+                          u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
+                          .arg(openHref, revealHref);
+        }
     } else {
         actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
     }
@@ -2421,10 +2435,15 @@ void MainWindow::onChatAnchor(const QUrl &url)
         QApplication::clipboard()->setText(QString::fromUtf8(raw));
         return;
     }
-    if (url.host() == QLatin1String("reveal")) {
+    if (url.host() == QLatin1String("open") || url.host() == QLatin1String("reveal")) {
         const QString path = QString::fromUtf8(raw);
-        if (QFileInfo(path).exists())
-            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+        const QFileInfo fi(path);
+        if (!fi.exists())
+            return;
+        if (url.host() == QLatin1String("open"))
+            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absoluteFilePath()));
+        else
+            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
     }
 }
 
