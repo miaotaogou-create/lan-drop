@@ -31,6 +31,7 @@ struct ChatMsg {
     enum Type { OutText = 0, InText, OutFile, InFile, System, Fail };
     int type = OutText;
     QString who;
+    QString face; // 头像取首字；空则用 who（发出侧 who=「我」时填本机设备名）
     QString text;
     QString path;
     qint64 size = 0;

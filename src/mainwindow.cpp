@@ -194,22 +194,22 @@ enum DeviceKind {
 
 static QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
 
-static QString avatarSvgForOs(const QString &osName)
+static QString avatarInitial(const QString &name)
 {
-    const QString o = osName.toLower();
-    if (o.contains(QLatin1String("android")) || o.contains(QLatin1String("ios"))
-        || o.contains(QLatin1String("iphone")) || o.contains(QLatin1String("ipad"))
-        || o.contains(QLatin1String("phone")))
-        return QStringLiteral(":/avatars/avatar_iphone.svg");
-    // 仅明确树莓派/工控标签；勿用裸 arm/aarch（ARM 麒麟会误伤）
-    if (o.contains(QLatin1String("raspberry")) || o.contains(QLatin1String("rpi"))
-        || o.contains(QLatin1String("arm-linux")))
-        return QStringLiteral(":/avatars/avatar_raspberrypi.svg");
-    if (o.contains(QLatin1String("linux")) || o.contains(QLatin1String("ubuntu"))
-        || o.contains(QLatin1String("kylin")) || o.contains(QLatin1String("debian"))
-        || o.contains(QLatin1String("arm")) || o.contains(QLatin1String("aarch")))
-        return QStringLiteral(":/avatars/avatar_ubuntu.svg");
-    return QStringLiteral(":/avatars/avatar_windows.svg");
+    for (int i = 0; i < name.size(); ++i) {
+        if (!name.at(i).isSpace())
+            return QString(name.at(i).toUpper());
+    }
+    return QStringLiteral("?");
+}
+
+static QColor avatarColorForName(const QString &name)
+{
+    static const char *kColors[] = {
+        "#f97316", "#2563eb", "#059669", "#7c3aed", "#db2777", "#0891b2", "#ca8a04"
+    };
+    const uint h = qHash(name.isEmpty() ? QStringLiteral("?") : name);
+    return QColor(QString::fromLatin1(kColors[h % 7]));
 }
 
 static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
@@ -258,8 +258,38 @@ static QPixmap makeLaptopIcon(int logical = 16)
 
 static QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44)
 {
-    Q_UNUSED(name);
-    return renderSvgIcon(avatarSvgForOs(osName), logical);
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(avatarColorForName(name));
+    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
+    QFont font = qApp->font();
+    font.setPixelSize(qMax(14, logical * 2 / 5));
+    font.setBold(true);
+    p.setFont(font);
+    p.setPen(Qt::white);
+    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, avatarInitial(name));
+    // 右下角设备类型小标（笔记本/手机/平板）
+    const int badge = qMax(14, logical * 14 / 44);
+    const QRectF badgeRect(logical - badge - 1.0, logical - badge - 1.0, badge, badge);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#dbeafe")));
+    p.drawEllipse(badgeRect);
+    DeviceKind kind = DevLaptop;
+    const int k = deviceKindFromOs(osName);
+    if (k == 1)
+        kind = DevPhone;
+    else if (k == 2)
+        kind = DevTablet;
+    paintDeviceGlyph(p, kind, badgeRect.adjusted(2.5, 2.5, -2.5, -2.5),
+                     QColor(QStringLiteral("#2563eb")));
+    return pm;
 }
 
 static QPixmap renderSvgIcon(const QString &resPath, int logical)
@@ -435,13 +465,7 @@ static QString pixmapToImgHtml(const QPixmap &pm)
 
 static QString letterAvatarHtml(const QString &name, const QString &bg)
 {
-    QString ch = QStringLiteral("?");
-    for (int i = 0; i < name.size(); ++i) {
-        if (!name.at(i).isSpace()) {
-            ch = name.at(i).toUpper();
-            break;
-        }
-    }
+    const QString ch = avatarInitial(name);
     const int logical = 40;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     QPixmap pm(logical * dpr, logical * dpr);
@@ -449,6 +473,7 @@ static QString letterAvatarHtml(const QString &name, const QString &bg)
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(bg));
     // 参考图：大号圆角方头像（非直角小块）
@@ -460,6 +485,11 @@ static QString letterAvatarHtml(const QString &name, const QString &bg)
     p.setPen(Qt::white);
     p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
     return pixmapToImgHtml(pm);
+}
+
+static QString faceName(const ChatMsg &m)
+{
+    return m.face.trimmed().isEmpty() ? m.who : m.face;
 }
 
 static QString textBubbleImgHtml(const QString &text, bool out)
@@ -525,7 +555,8 @@ static bool splitCodeFence(const QString &text, QString *lang, QString *body)
     return true;
 }
 
-static QString renderCodeBlock(const QString &lang, const QString &code, bool alignRight)
+static QString renderCodeBlock(const QString &lang, const QString &code, bool alignRight,
+                               const QString &avatarName)
 {
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
@@ -545,11 +576,11 @@ static QString renderCodeBlock(const QString &lang, const QString &code, bool al
         return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                               "<td></td><td align=\"right\" valign=\"top\">%1</td>"
                               "<td width=\"48\" valign=\"bottom\">%2</td></tr></table>")
-            .arg(block, letterAvatarHtml(QString::fromUtf8(u8"我"), QStringLiteral("#2563eb")));
+            .arg(block, letterAvatarHtml(avatarName, QStringLiteral("#2563eb")));
     return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                           "<td width=\"48\" valign=\"bottom\">%1</td>"
                           "<td align=\"left\" valign=\"top\">%2</td><td></td></tr></table>")
-        .arg(letterAvatarHtml(QStringLiteral("P"), QStringLiteral("#f97316")), block);
+        .arg(letterAvatarHtml(avatarName, QStringLiteral("#f97316")), block);
 }
 
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
@@ -571,7 +602,7 @@ static QString renderTextBubble(const ChatMsg &m)
     if (splitCodeFence(m.text, &lang, &code)) {
         const bool out = (m.type == ChatMsg::OutText);
         QString head = metaLine(m.who, m.time, m.rttMs, false);
-        QString block = renderCodeBlock(lang, code, out);
+        QString block = renderCodeBlock(lang, code, out, faceName(m));
         // 代码块已含头像；在上方补元数据
         if (out)
             return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
@@ -589,7 +620,7 @@ static QString renderTextBubble(const ChatMsg &m)
                    "</td><td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
             .arg(metaLine(m.who, m.time, m.rttMs, false),
                  textBubbleImgHtml(m.text, true),
-                 letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
+                 letterAvatarHtml(faceName(m), QStringLiteral("#2563eb")));
     }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
@@ -597,7 +628,7 @@ static QString renderTextBubble(const ChatMsg &m)
                "<td align=\"left\" valign=\"top\">"
                "<div>%2</div>%3"
                "</td><td></td></tr></table>")
-        .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")),
+        .arg(letterAvatarHtml(faceName(m), QStringLiteral("#f97316")),
              metaLine(m.who, m.time, -1, false),
              textBubbleImgHtml(m.text, false));
 }
@@ -654,14 +685,14 @@ static QString renderFileCard(const ChatMsg &m)
                    "<td></td><td align=\"right\" valign=\"top\">"
                    "<div>%1</div>%2</td>"
                    "<td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
-            .arg(head, card, letterAvatarHtml(m.who, QStringLiteral("#2563eb")));
+            .arg(head, card, letterAvatarHtml(faceName(m), QStringLiteral("#2563eb")));
     }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                "<td width=\"48\" valign=\"bottom\">%1</td>"
                "<td align=\"left\" valign=\"top\"><div>%2</div>%3</td>"
                "<td></td></tr></table>")
-        .arg(letterAvatarHtml(m.who, QStringLiteral("#f97316")), head, card);
+        .arg(letterAvatarHtml(faceName(m), QStringLiteral("#f97316")), head, card);
 }
 
 static QString renderSystem(const ChatMsg &m)
@@ -2459,6 +2490,7 @@ void MainWindow::sendText()
         ChatMsg m;
         m.type = ChatMsg::OutText;
         m.who = QString::fromUtf8(u8"我");
+        m.face = m_settings.deviceName;
         m.text = sent;
         m.rttMs = ms;
         m.time = nowClock();
@@ -2532,6 +2564,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         ChatMsg m;
         m.type = ChatMsg::OutFile;
         m.who = QString::fromUtf8(u8"我");
+        m.face = m_settings.deviceName;
         m.text = filename;
         m.path = path;
         m.size = fsize;
