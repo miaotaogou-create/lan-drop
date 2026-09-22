@@ -1358,6 +1358,7 @@ void MainWindow::setupTray()
     m_tray->setContextMenu(menu);
     connect(m_tray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
             this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
+    connect(m_tray, SIGNAL(messageClicked()), this, SLOT(showFromTray()));
     m_tray->show();
 }
 
@@ -1366,6 +1367,13 @@ void MainWindow::showFromTray()
     showNormal();
     raise();
     activateWindow();
+}
+
+void MainWindow::maybeTrayNotify(const QString &title, const QString &body)
+{
+    if (!m_tray || isVisible())
+        return;
+    m_tray->showMessage(title, body, QSystemTrayIcon::Information, 5000);
 }
 
 void MainWindow::quitApp()
@@ -2263,6 +2271,10 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     m.text = text;
     appendMsg(key, m);
     playNotifySound();
+    QString preview = text.trimmed();
+    if (preview.size() > 80)
+        preview = preview.left(80) + QString::fromUtf8(u8"…");
+    maybeTrayNotify(QString::fromUtf8(u8"新消息 · %1").arg(who), preview);
 }
 
 void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
@@ -2281,6 +2293,8 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
     m.time = nowClock();
     appendMsg(ip + QLatin1Char(':') + QString::number(port), m);
     playNotifySound();
+    maybeTrayNotify(QString::fromUtf8(u8"收到文件 · %1").arg(m.who),
+                    QString::fromUtf8(u8"%1（%2）").arg(name).arg(humanBytesChat(size)));
 }
 
 void MainWindow::sendText()

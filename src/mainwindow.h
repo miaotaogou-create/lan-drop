@@ -83,6 +83,7 @@ private:
     void setupTray();
     void setupChatDrop();
     void enqueueDroppedPaths(const QStringList &paths);
+    void maybeTrayNotify(const QString &title, const QString &body);
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
