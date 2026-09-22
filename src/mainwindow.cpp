@@ -57,8 +57,6 @@
 #include <QStyle>
 #include <QStyleFactory>
 #include <QSvgRenderer>
-#include <QGuiApplication>
-#include <QScreen>
 #include <QSystemTrayIcon>
 #include <QTextBrowser>
 #include <QTextCursor>
