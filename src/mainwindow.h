@@ -88,6 +88,7 @@ private:
     void setupTray();
     void setupChatDrop();
     void enqueueDroppedPaths(const QStringList &paths);
+    bool tryPasteClipboardFiles();
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
     void selectPeerByKey(const QString &key);

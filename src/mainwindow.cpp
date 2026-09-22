@@ -762,6 +762,26 @@ static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const 
 }
 
 // 网页共享 / 聊天区共用：本地文件与文件夹顶层文件
+static QStringList localSendPathsFromUrls(const QList<QUrl> &urls)
+{
+    QStringList paths;
+    for (int i = 0; i < urls.size(); ++i) {
+        if (!urls.at(i).isLocalFile())
+            continue;
+        const QString p = urls.at(i).toLocalFile();
+        const QFileInfo fi(p);
+        if (fi.isFile()) {
+            paths.append(fi.absoluteFilePath());
+        } else if (fi.isDir()) {
+            const QFileInfoList kids = QDir(p).entryInfoList(
+                QDir::Files | QDir::Readable, QDir::Name);
+            for (int k = 0; k < kids.size(); ++k)
+                paths.append(kids.at(k).absoluteFilePath());
+        }
+    }
+    return paths;
+}
+
 class ShareDropFilter : public QObject
 {
 public:
@@ -789,23 +809,8 @@ protected:
         if (event->type() == QEvent::Drop) {
             QDropEvent *de = static_cast<QDropEvent *>(event);
             QStringList paths;
-            if (de->mimeData()) {
-                const QList<QUrl> urls = de->mimeData()->urls();
-                for (int i = 0; i < urls.size(); ++i) {
-                    if (!urls.at(i).isLocalFile())
-                        continue;
-                    const QString p = urls.at(i).toLocalFile();
-                    const QFileInfo fi(p);
-                    if (fi.isFile()) {
-                        paths.append(fi.absoluteFilePath());
-                    } else if (fi.isDir()) {
-                        const QFileInfoList kids = QDir(p).entryInfoList(
-                            QDir::Files | QDir::Readable, QDir::Name);
-                        for (int k = 0; k < kids.size(); ++k)
-                            paths.append(kids.at(k).absoluteFilePath());
-                    }
-                }
-            }
+            if (de->mimeData())
+                paths = localSendPathsFromUrls(de->mimeData()->urls());
             if (!paths.isEmpty() && onFiles) {
                 onFiles(paths);
                 de->acceptProposedAction();
@@ -1339,9 +1344,16 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         showFromTrayNotify();
         return true;
     }
-    if (watched == m_input && event->type() == QEvent::KeyPress) {
+    if ((watched == m_input || watched == m_chat) && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
-        if ((ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
+        const bool pasteMod = (ke->modifiers() & Qt::ControlModifier)
+            || (ke->modifiers() & Qt::MetaModifier);
+        if (pasteMod && ke->key() == Qt::Key_V) {
+            if (tryPasteClipboardFiles())
+                return true;
+        }
+        if (watched == m_input
+            && (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
             && !(ke->modifiers() & Qt::ShiftModifier)) {
             sendText();
             return true;
@@ -2615,6 +2627,20 @@ void MainWindow::setupChatDrop()
         w->setAcceptDrops(true);
         w->installEventFilter(filter);
     }
+    if (m_chat)
+        m_chat->installEventFilter(this); // Ctrl+V 粘贴发文件
+}
+
+bool MainWindow::tryPasteClipboardFiles()
+{
+    const QMimeData *md = QApplication::clipboard()->mimeData();
+    if (!md || !md->hasUrls())
+        return false;
+    const QStringList paths = localSendPathsFromUrls(md->urls());
+    if (paths.isEmpty())
+        return false;
+    enqueueDroppedPaths(paths);
+    return true;
 }
 
 void MainWindow::enqueueDroppedPaths(const QStringList &paths)
@@ -2623,7 +2649,7 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths)
         return;
     if (!currentPeer(0, 0, 0)) {
         QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"请先选择一台设备，再拖放发送。"));
+                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
         return;
     }
     if (m_uploading) {
@@ -2648,7 +2674,7 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths)
     {
         ChatMsg m;
         m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"开始发送拖入的文件（%1 个）").arg(m_uploadQueue.size());
+        m.text = QString::fromUtf8(u8"开始发送文件（%1 个）").arg(m_uploadQueue.size());
         m.time = nowClock();
         appendMsg(currentKey(), m);
     }
