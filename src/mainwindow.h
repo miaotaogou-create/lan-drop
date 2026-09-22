@@ -104,7 +104,7 @@ private:
     void setSessionTab(int index);
     void setStatusOnline(const QString &text, bool ok);
     void setProgress(const QString &text);
-    void noteFail(const QString &key, QNetworkReply *rep);
+    void noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath = QString());
     void refreshShareBtn();
     void updateInputPlaceholder();
     void shakeWindow();

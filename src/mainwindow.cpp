@@ -721,12 +721,21 @@ static QString renderSystem(const ChatMsg &m)
     const bool fail = (m.type == ChatMsg::Fail);
     const QString bg = fail ? QStringLiteral("#fef2f2") : QStringLiteral("#fffbeb");
     const QString fg = fail ? QStringLiteral("#b91c1c") : QStringLiteral("#b45309");
+    QString body = htmlEsc(m.text);
+    if (fail && !m.path.isEmpty()) {
+        const QString href = QStringLiteral("landrop://retry/")
+            + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+        body += QString::fromUtf8(
+                    u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+                    u8"<font color=\"#2563eb\" size=\"2\">重试</font></a>")
+                    .arg(href);
+    }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
                "<table cellspacing=\"0\" cellpadding=\"6\" bgcolor=\"%1\">"
                "<tr><td><font color=\"%2\" size=\"2\">%3</font></td></tr></table>"
                "</td></tr></table>")
-        .arg(bg, fg, htmlEsc(m.text));
+        .arg(bg, fg, body);
 }
 
 static QString renderChatHtml(const QVector<ChatMsg> &msgs)
@@ -2379,7 +2388,7 @@ void MainWindow::setProgress(const QString &text)
     }
 }
 
-void MainWindow::noteFail(const QString &key, QNetworkReply *rep)
+void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath)
 {
     const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     QString why = QString::fromUtf8(rep->readAll()).trimmed();
@@ -2390,6 +2399,7 @@ void MainWindow::noteFail(const QString &key, QNetworkReply *rep)
     ChatMsg m;
     m.type = ChatMsg::Fail;
     m.text = QString::fromUtf8(u8"发送失败：%1").arg(why);
+    m.path = retryPath;
     m.time = nowClock();
     appendMsg(key, m);
     setProgress(QString());
@@ -2478,6 +2488,27 @@ void MainWindow::onChatAnchor(const QUrl &url)
         url.path().mid(1).toLatin1(), QByteArray::Base64UrlEncoding);
     if (url.host() == QLatin1String("copy")) {
         QApplication::clipboard()->setText(QString::fromUtf8(raw));
+        return;
+    }
+    if (url.host() == QLatin1String("retry")) {
+        const QString path = QString::fromUtf8(raw);
+        if (path.isEmpty())
+            return;
+        if (m_uploading) {
+            QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                     QString::fromUtf8(u8"请等待当前文件传完后再重试"));
+            return;
+        }
+        if (!QFileInfo::exists(path)) {
+            ChatMsg m;
+            m.type = ChatMsg::Fail;
+            m.text = QString::fromUtf8(u8"发送失败：文件不存在或已移动");
+            m.path = path;
+            m.time = nowClock();
+            appendMsg(currentKey(), m);
+            return;
+        }
+        startUpload(path, false);
         return;
     }
     if (url.host() == QLatin1String("open") || url.host() == QLatin1String("reveal")) {
@@ -2602,6 +2633,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         ChatMsg m;
         m.type = ChatMsg::Fail;
         m.text = QString::fromUtf8(u8"发送失败：打不开 %1").arg(QFileInfo(path).fileName());
+        m.path = path;
         m.time = nowClock();
         appendMsg(currentKey(), m);
         if (fromQueue)
@@ -2652,14 +2684,14 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
         updateUploadProgress(key, msgIndex, pct);
     });
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, fromQueue, clock]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, fromQueue, path, clock]() {
         rep->deleteLater();
         const qint64 ms = clock->elapsed();
         delete clock;
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             dropUploadMsg(key, msgIndex);
-            noteFail(key, rep);
+            noteFail(key, rep, path);
             m_uploadQueue.clear();
             m_uploading = false;
             return;
