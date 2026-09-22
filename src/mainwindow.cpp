@@ -49,6 +49,7 @@
 #include <QtMath>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
@@ -2398,7 +2399,7 @@ void MainWindow::showChat()
     clearUnread(key);
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
-    refreshChatHtml();
+    refreshChatHtml(true);
     refreshFilesView();
     updatePeerSession();
     updateInputPlaceholder();
@@ -2460,15 +2461,28 @@ void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
     }
 }
 
-void MainWindow::refreshChatHtml()
+void MainWindow::refreshChatHtml(bool forceBottom)
 {
     if (!m_chat)
         return;
-    const QString key = currentKey();
-    m_chat->setHtml(renderChatHtml(m_log.value(key)));
-    QTextCursor c = m_chat->textCursor();
-    c.movePosition(QTextCursor::End);
-    m_chat->setTextCursor(c);
+    QScrollBar *bar = m_chat->verticalScrollBar();
+    const int oldVal = bar ? bar->value() : 0;
+    const int oldMax = bar ? bar->maximum() : 0;
+    const bool stick = forceBottom || !bar || oldMax <= 0
+        || (oldMax - oldVal) <= 80;
+
+    m_chat->setHtml(renderChatHtml(m_log.value(currentKey())));
+
+    if (!bar)
+        return;
+    if (stick) {
+        bar->setValue(bar->maximum());
+        QTextCursor c = m_chat->textCursor();
+        c.movePosition(QTextCursor::End);
+        m_chat->setTextCursor(c);
+    } else {
+        bar->setValue(qBound(0, bar->maximum(), oldVal));
+    }
 }
 
 void MainWindow::refreshFilesView()

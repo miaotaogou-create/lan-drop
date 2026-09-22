@@ -96,7 +96,7 @@ private:
     void selectPeerByKey(const QString &key);
     void clearUnread(const QString &key);
     void appendMsg(const QString &key, const ChatMsg &msg);
-    void refreshChatHtml();
+    void refreshChatHtml(bool forceBottom = false);
     void refreshFilesView();
     void updateChrome();
     void updateEmpty();
