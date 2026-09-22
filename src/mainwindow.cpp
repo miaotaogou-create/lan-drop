@@ -942,19 +942,22 @@ void MainWindow::buildUi()
 
     m_connBannerHost = new QWidget;
     m_connBannerHost->setObjectName(QStringLiteral("connBannerHost"));
+    m_connBannerHost->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *bannerHostLay = new QHBoxLayout(m_connBannerHost);
-    bannerHostLay->setContentsMargins(16, 10, 16, 6);
+    bannerHostLay->setContentsMargins(16, 10, 16, 8);
     bannerHostLay->setSpacing(0);
     m_connBanner = new QWidget;
     m_connBanner->setObjectName(QStringLiteral("connBanner"));
+    m_connBanner->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *bannerLay = new QHBoxLayout(m_connBanner);
-    bannerLay->setContentsMargins(14, 6, 16, 6);
+    bannerLay->setContentsMargins(14, 7, 16, 7);
     bannerLay->setSpacing(8);
     QLabel *bannerIcon = new QLabel;
     bannerIcon->setFixedSize(16, 16);
     bannerIcon->setPixmap(loadSvgPixmap(QStringLiteral(":/icons/shield-check.svg"), 16));
     m_connBannerText = new QLabel;
     m_connBannerText->setObjectName(QStringLiteral("connBannerText"));
+    m_connBannerText->setTextFormat(Qt::RichText);
     bannerLay->addWidget(bannerIcon, 0, Qt::AlignVCenter);
     bannerLay->addWidget(m_connBannerText, 0, Qt::AlignVCenter);
     bannerHostLay->addStretch(1);
@@ -1141,8 +1144,8 @@ void MainWindow::applyStyle()
         "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
         " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #dbeafe; }"
-        "#connBannerHost { background: #ffffff; }"
-        "#connBanner { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; }"
+        "#connBannerHost { background: #f8fafc; }"
+        "#connBanner { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 999px; }"
         "#connBannerText { color: #64748b; font-size: 12px; }"
         "#filesView { background: #f8fafc; border: none; }"
         "#chat { background: #f8fafc; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
@@ -1910,8 +1913,14 @@ void MainWindow::updatePeerSession()
                                      ? m_pingText
                                      : QString::fromUtf8(u8"—"))
                             .arg(localLinkLabel()));
+    // 参考图：灰字前缀 + 加粗设备名 + 灰字地址
     m_connBannerText->setText(
-        QString::fromUtf8(u8"已建立局域网直连: %1 (%2)").arg(label).arg(addr));
+        QString::fromUtf8(
+            u8"<span style=\"color:#64748b;\">已建立局域网直连：</span>"
+            "<span style=\"color:#0f172a;font-weight:700;\">%1</span>"
+            "<span style=\"color:#64748b;\"> (%2)</span>")
+            .arg(label.toHtmlEscaped())
+            .arg(addr.toHtmlEscaped()));
     if (m_tabFiles)
         m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
                                 .arg(countFiles(m_log.value(currentKey()))));

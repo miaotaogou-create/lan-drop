@@ -200,9 +200,9 @@
 - 结果：待目视确认
 
 ### TC-28 直连胶囊
-- 对应验收：M1（`docs/requirements/20260921-chat-message-bubbles.md`）
-- 步骤：选中一台在线对端
-- 期望：聊天区顶部居中白底胶囊，绿盾图标，文案含「已建立局域网直连」与名称、IP:端口
+- 对应验收：M1（`docs/requirements/20260921-chat-message-bubbles.md`）；C1–C4（`docs/requirements/20260922-conn-banner-capsule.md`）
+- 步骤：选中一台在线对端，看会话顶栏下方状态条
+- 期望：浅灰底上居中白底真胶囊（细灰边、两端半圆）；绿盾；「已建立局域网直连：」灰字 + 设备名加粗深色 + `(IP:端口)` 灰字
 - 类型：手测
 - 结果：待目视确认
 
