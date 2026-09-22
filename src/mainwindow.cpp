@@ -555,32 +555,21 @@ static bool splitCodeFence(const QString &text, QString *lang, QString *body)
     return true;
 }
 
-static QString renderCodeBlock(const QString &lang, const QString &code, bool alignRight,
-                               const QString &avatarName)
+static QString renderCodeBlock(const QString &lang, const QString &code)
 {
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-    const QString block =
-        QStringLiteral(
-            "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"420\">"
-            "<tr><td>"
-            "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
-            "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
-            "<font color=\"#93c5fd\" size=\"2\">%4</font></a></td>"
-            "</tr></table>"
-            "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
-            "</td></tr></table>")
-            .arg(htmlEsc(lang), href, htmlEsc(code), QString::fromUtf8(u8"复制"));
-    if (alignRight)
-        return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                              "<td></td><td align=\"right\" valign=\"top\">%1</td>"
-                              "<td width=\"48\" valign=\"bottom\">%2</td></tr></table>")
-            .arg(block, letterAvatarHtml(avatarName, QStringLiteral("#2563eb")));
-    return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                          "<td width=\"48\" valign=\"bottom\">%1</td>"
-                          "<td align=\"left\" valign=\"top\">%2</td><td></td></tr></table>")
-        .arg(letterAvatarHtml(avatarName, QStringLiteral("#f97316")), block);
+    return QStringLiteral(
+               "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"420\">"
+               "<tr><td>"
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+               "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
+               "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
+               "<font color=\"#93c5fd\" size=\"2\">%4</font></a></td>"
+               "</tr></table>"
+               "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
+               "</td></tr></table>")
+        .arg(htmlEsc(lang), href, htmlEsc(code), QString::fromUtf8(u8"复制"));
 }
 
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
@@ -595,42 +584,44 @@ static QString metaLine(const QString &who, const QString &time, qint64 rttMs, b
     return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
 }
 
+// 参考图：头像与名字顶对齐；气泡在名字下方、相对头像斜对角偏下（勿把头像贴气泡底边）。
+static QString renderMsgRow(bool out, const QString &meta, const QString &body, const QString &avatarHtml)
+{
+    if (out) {
+        return QStringLiteral(
+                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                   "<td></td>"
+                   "<td align=\"right\" valign=\"top\">"
+                   "<div align=\"right\">%1</div>"
+                   "<div style=\"margin-top:6px;\" align=\"right\">%2</div>"
+                   "</td>"
+                   "<td width=\"48\" valign=\"top\">%3</td>"
+                   "</tr></table>")
+            .arg(meta, body, avatarHtml);
+    }
+    return QStringLiteral(
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+               "<td width=\"48\" valign=\"top\">%1</td>"
+               "<td align=\"left\" valign=\"top\">"
+               "<div>%2</div>"
+               "<div style=\"margin-top:6px;\">%3</div>"
+               "</td>"
+               "<td></td>"
+               "</tr></table>")
+        .arg(avatarHtml, meta, body);
+}
+
 static QString renderTextBubble(const ChatMsg &m)
 {
     QString lang;
     QString code;
-    if (splitCodeFence(m.text, &lang, &code)) {
-        const bool out = (m.type == ChatMsg::OutText);
-        QString head = metaLine(m.who, m.time, m.rttMs, false);
-        QString block = renderCodeBlock(lang, code, out, faceName(m));
-        // 代码块已含头像；在上方补元数据
-        if (out)
-            return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
-                                  "<td align=\"right\">%1</td><td width=\"48\"></td></tr></table>%2")
-                .arg(head, block);
-        return QStringLiteral("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"2\"><tr>"
-                              "<td width=\"48\"></td><td align=\"left\">%1</td></tr></table>%2")
-            .arg(head, block);
-    }
-    if (m.type == ChatMsg::OutText) {
-        return QStringLiteral(
-                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                   "<td></td><td align=\"right\" valign=\"top\">"
-                   "<div>%1</div>%2"
-                   "</td><td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
-            .arg(metaLine(m.who, m.time, m.rttMs, false),
-                 textBubbleImgHtml(m.text, true),
-                 letterAvatarHtml(faceName(m), QStringLiteral("#2563eb")));
-    }
-    return QStringLiteral(
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"48\" valign=\"bottom\">%1</td>"
-               "<td align=\"left\" valign=\"top\">"
-               "<div>%2</div>%3"
-               "</td><td></td></tr></table>")
-        .arg(letterAvatarHtml(faceName(m), QStringLiteral("#f97316")),
-             metaLine(m.who, m.time, -1, false),
-             textBubbleImgHtml(m.text, false));
+    const bool out = (m.type == ChatMsg::OutText);
+    const QString avatar = letterAvatarHtml(
+        faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
+    const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false);
+    if (splitCodeFence(m.text, &lang, &code))
+        return renderMsgRow(out, head, renderCodeBlock(lang, code), avatar);
+    return renderMsgRow(out, head, textBubbleImgHtml(m.text, out), avatar);
 }
 
 static QString renderFileCard(const ChatMsg &m)
@@ -679,20 +670,9 @@ static QString renderFileCard(const ChatMsg &m)
                            .arg(htmlEsc(sha)),
                  actions);
     const QString head = metaLine(m.who, m.time, m.rttMs, false);
-    if (out) {
-        return QStringLiteral(
-                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                   "<td></td><td align=\"right\" valign=\"top\">"
-                   "<div>%1</div>%2</td>"
-                   "<td width=\"48\" valign=\"bottom\">%3</td></tr></table>")
-            .arg(head, card, letterAvatarHtml(faceName(m), QStringLiteral("#2563eb")));
-    }
-    return QStringLiteral(
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"48\" valign=\"bottom\">%1</td>"
-               "<td align=\"left\" valign=\"top\"><div>%2</div>%3</td>"
-               "<td></td></tr></table>")
-        .arg(letterAvatarHtml(faceName(m), QStringLiteral("#f97316")), head, card);
+    const QString avatar = letterAvatarHtml(
+        faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
+    return renderMsgRow(out, head, card, avatar);
 }
 
 static QString renderSystem(const ChatMsg &m)
