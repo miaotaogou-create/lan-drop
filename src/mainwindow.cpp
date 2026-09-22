@@ -1336,7 +1336,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     if (m_trayToast && watched == m_trayToast
         && event->type() == QEvent::MouseButtonPress) {
-        showFromTray();
+        showFromTrayNotify();
         return true;
     }
     if (watched == m_input && event->type() == QEvent::KeyPress) {
@@ -1445,7 +1445,7 @@ void MainWindow::setupTray()
     m_tray->setContextMenu(menu);
     connect(m_tray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
             this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
-    connect(m_tray, SIGNAL(messageClicked()), this, SLOT(showFromTray()));
+    connect(m_tray, SIGNAL(messageClicked()), this, SLOT(showFromTrayNotify()));
     m_tray->show();
 }
 
@@ -1455,6 +1455,33 @@ void MainWindow::showFromTray()
     showNormal();
     raise();
     activateWindow();
+}
+
+void MainWindow::showFromTrayNotify()
+{
+    const QString key = m_trayNotifyKey;
+    showFromTray();
+    if (!key.isEmpty()) {
+        selectPeerByKey(key);
+        setSessionTab(0);
+    }
+}
+
+void MainWindow::selectPeerByKey(const QString &key)
+{
+    if (key.isEmpty() || !m_list)
+        return;
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem *it = m_list->item(i);
+        if (!it || it->isHidden())
+            continue;
+        const QString k = it->data(Qt::UserRole).toString() + QLatin1Char(':')
+            + QString::number(it->data(Qt::UserRole + 1).toInt());
+        if (k == key) {
+            m_list->setCurrentRow(i);
+            return;
+        }
+    }
 }
 
 void MainWindow::hideTrayToast()
@@ -1506,10 +1533,11 @@ void MainWindow::showTrayToast(const QString &title, const QString &body)
     m_trayToastTimer->start(5000);
 }
 
-void MainWindow::maybeTrayNotify(const QString &title, const QString &body)
+void MainWindow::maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey)
 {
     if (!m_tray || isVisible())
         return;
+    m_trayNotifyKey = peerKey;
     // Win10/11 与部分桌面会吞掉 showMessage；自绘右下角提示作可靠出口
     showTrayToast(title, body);
 }
@@ -1541,6 +1569,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     hide();
     if (!m_trayHintShown) {
         m_trayHintShown = true;
+        m_trayNotifyKey.clear(); // 首次提示不跳会话
         showTrayToast(QString::fromUtf8(u8"局域快传"),
                       QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"));
     }
@@ -2412,7 +2441,7 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     QString preview = text.trimmed();
     if (preview.size() > 80)
         preview = preview.left(80) + QString::fromUtf8(u8"…");
-    maybeTrayNotify(QString::fromUtf8(u8"新消息 · %1").arg(who), preview);
+    maybeTrayNotify(QString::fromUtf8(u8"新消息 · %1").arg(who), preview, key);
 }
 
 void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
@@ -2429,10 +2458,12 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
     m.size = size;
     m.sha256 = fileSha256Short(path);
     m.time = nowClock();
-    appendMsg(ip + QLatin1Char(':') + QString::number(port), m);
+    const QString key = ip + QLatin1Char(':') + QString::number(port);
+    appendMsg(key, m);
     playNotifySound();
     maybeTrayNotify(QString::fromUtf8(u8"收到文件 · %1").arg(m.who),
-                    QString::fromUtf8(u8"%1（%2）").arg(name).arg(humanBytesChat(size)));
+                    QString::fromUtf8(u8"%1（%2）").arg(name).arg(humanBytesChat(size)),
+                    key);
 }
 
 void MainWindow::sendText()

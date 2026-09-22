@@ -76,6 +76,7 @@ private slots:
     void peerListContextMenu(const QPoint &pos);
     void removeSelectedManualPeer();
     void showFromTray();
+    void showFromTrayNotify();
     void quitApp();
     void hideTrayToast();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
@@ -87,8 +88,9 @@ private:
     void setupTray();
     void setupChatDrop();
     void enqueueDroppedPaths(const QStringList &paths);
-    void maybeTrayNotify(const QString &title, const QString &body);
+    void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
+    void selectPeerByKey(const QString &key);
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
@@ -166,6 +168,7 @@ private:
     QLabel *m_trayToastTitle = 0;
     QLabel *m_trayToastBody = 0;
     QTimer *m_trayToastTimer = 0;
+    QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转
 };
 
 #endif
