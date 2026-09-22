@@ -12,6 +12,8 @@
 
 class Discovery;
 class HttpServer;
+class QCloseEvent;
+class QFrame;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -21,9 +23,9 @@ class QPlainTextEdit;
 class QPushButton;
 class QStackedWidget;
 class QTextBrowser;
+class QTimer;
 class QUrl;
 class QWidget;
-class QCloseEvent;
 
 struct ChatMsg {
     enum Type { OutText = 0, InText, OutFile, InFile, System, Fail };
@@ -74,6 +76,7 @@ private slots:
     void removeSelectedManualPeer();
     void showFromTray();
     void quitApp();
+    void hideTrayToast();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
 
 private:
@@ -84,6 +87,7 @@ private:
     void setupChatDrop();
     void enqueueDroppedPaths(const QStringList &paths);
     void maybeTrayNotify(const QString &title, const QString &body);
+    void showTrayToast(const QString &title, const QString &body);
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
@@ -157,6 +161,10 @@ private:
     QSystemTrayIcon *m_tray = 0;
     bool m_forceQuit = false;
     bool m_trayHintShown = false;
+    QFrame *m_trayToast = 0;
+    QLabel *m_trayToastTitle = 0;
+    QLabel *m_trayToastBody = 0;
+    QTimer *m_trayToastTimer = 0;
 };
 
 #endif

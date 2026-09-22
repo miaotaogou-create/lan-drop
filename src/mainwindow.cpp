@@ -53,6 +53,8 @@
 #include <QStyle>
 #include <QStyleFactory>
 #include <QSvgRenderer>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QSystemTrayIcon>
 #include <QTextBrowser>
 #include <QTextCursor>
@@ -1252,6 +1254,11 @@ void MainWindow::applyStyle()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (m_trayToast && watched == m_trayToast
+        && event->type() == QEvent::MouseButtonPress) {
+        showFromTray();
+        return true;
+    }
     if (watched == m_input && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
         if ((ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
@@ -1364,21 +1371,73 @@ void MainWindow::setupTray()
 
 void MainWindow::showFromTray()
 {
+    hideTrayToast();
     showNormal();
     raise();
     activateWindow();
+}
+
+void MainWindow::hideTrayToast()
+{
+    if (m_trayToast)
+        m_trayToast->hide();
+}
+
+void MainWindow::showTrayToast(const QString &title, const QString &body)
+{
+    if (!m_trayToast) {
+        m_trayToast = new QFrame(0, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        m_trayToast->setObjectName(QStringLiteral("trayToast"));
+        m_trayToast->setAttribute(Qt::WA_ShowWithoutActivating);
+        m_trayToast->setFixedWidth(320);
+        m_trayToast->setCursor(Qt::PointingHandCursor);
+        QVBoxLayout *lay = new QVBoxLayout(m_trayToast);
+        lay->setContentsMargins(14, 12, 14, 12);
+        lay->setSpacing(4);
+        m_trayToastTitle = new QLabel(m_trayToast);
+        m_trayToastTitle->setObjectName(QStringLiteral("trayToastTitle"));
+        m_trayToastTitle->setWordWrap(true);
+        m_trayToastTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_trayToastBody = new QLabel(m_trayToast);
+        m_trayToastBody->setObjectName(QStringLiteral("trayToastBody"));
+        m_trayToastBody->setWordWrap(true);
+        m_trayToastBody->setAttribute(Qt::WA_TransparentForMouseEvents);
+        lay->addWidget(m_trayToastTitle);
+        lay->addWidget(m_trayToastBody);
+        m_trayToast->setStyleSheet(QStringLiteral(
+            "#trayToast { background: #0f172a; border: 1px solid #334155; border-radius: 10px; }"
+            "#trayToastTitle { color: #f8fafc; font-size: 13px; font-weight: 600; }"
+            "#trayToastBody { color: #cbd5e1; font-size: 12px; }"));
+        m_trayToast->installEventFilter(this);
+        m_trayToastTimer = new QTimer(this);
+        m_trayToastTimer->setSingleShot(true);
+        connect(m_trayToastTimer, SIGNAL(timeout()), this, SLOT(hideTrayToast()));
+    }
+    m_trayToastTitle->setText(title);
+    m_trayToastBody->setText(body);
+    m_trayToast->adjustSize();
+    if (QScreen *screen = QGuiApplication::primaryScreen()) {
+        const QRect ag = screen->availableGeometry();
+        m_trayToast->move(ag.right() - m_trayToast->width() - 16,
+                          ag.bottom() - m_trayToast->height() - 16);
+    }
+    m_trayToast->show();
+    m_trayToast->raise();
+    m_trayToastTimer->start(5000);
 }
 
 void MainWindow::maybeTrayNotify(const QString &title, const QString &body)
 {
     if (!m_tray || isVisible())
         return;
-    m_tray->showMessage(title, body, QSystemTrayIcon::Information, 5000);
+    // Win10/11 与部分桌面会吞掉 showMessage；自绘右下角提示作可靠出口
+    showTrayToast(title, body);
 }
 
 void MainWindow::quitApp()
 {
     m_forceQuit = true;
+    hideTrayToast();
     if (m_tray) {
         m_tray->hide();
     }
@@ -1402,9 +1461,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     hide();
     if (!m_trayHintShown) {
         m_trayHintShown = true;
-        m_tray->showMessage(QString::fromUtf8(u8"局域快传"),
-                            QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"),
-                            QSystemTrayIcon::Information, 4000);
+        showTrayToast(QString::fromUtf8(u8"局域快传"),
+                      QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"));
     }
 }
 
