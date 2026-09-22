@@ -149,6 +149,38 @@ int runSelfCheck()
         }
         if (!found)
             return fail("addManual list");
+        // 非手动节点不可删
+        disc.touch(QStringLiteral("10.1.2.4"), 8848, QStringLiteral("id-auto"),
+                   QStringLiteral("auto"), QStringLiteral("windows"));
+        if (disc.removeManual(QStringLiteral("10.1.2.4"), 8848))
+            return fail("removeManual auto");
+        if (!disc.removeManual(QStringLiteral("10.1.2.3"), 8848))
+            return fail("removeManual");
+        const QList<Peer> after = disc.peers();
+        for (int i = 0; i < after.size(); ++i) {
+            if (after.at(i).ip == QLatin1String("10.1.2.3"))
+                return fail("removeManual gone");
+        }
+        // 持久化：删后写盘再读应无该项
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-rm-manual-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
+        Settings s = Settings::defaults();
+        ManualPeerEntry keep;
+        keep.ip = QStringLiteral("10.9.9.9");
+        keep.port = 8848;
+        s.manualPeers << keep;
+        if (!s.saveToFile(path))
+            return fail("removeManual save");
+        Settings loaded = Settings::loadFromFile(path);
+        // 模拟删除后只留下空
+        loaded.manualPeers.clear();
+        if (!loaded.saveToFile(path))
+            return fail("removeManual clear");
+        if (!Settings::loadFromFile(path).manualPeers.isEmpty())
+            return fail("removeManual persist");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
     }
     std::printf("self-check ok\n");
     return 0;

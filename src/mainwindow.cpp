@@ -6,6 +6,7 @@
 #include "qrcodegen.hpp"
 
 #include <QApplication>
+#include <QAction>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
@@ -34,6 +35,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -865,7 +867,11 @@ void MainWindow::buildUi()
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setIconSize(QSize(44, 44));
     m_list->setSpacing(2);
+    m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
+    connect(m_list, SIGNAL(customContextMenuRequested(QPoint)),
+            this, SLOT(peerListContextMenu(QPoint)));
+    m_list->installEventFilter(this);
 
     sideLay->addLayout(sideHead);
     sideLay->addWidget(m_search);
@@ -1184,6 +1190,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         if ((ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
             && !(ke->modifiers() & Qt::ShiftModifier)) {
             sendText();
+            return true;
+        }
+    }
+    if (watched == m_list && event->type() == QEvent::KeyPress) {
+        QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+        if (ke->key() == Qt::Key_Delete || ke->key() == Qt::Key_Backspace) {
+            removeSelectedManualPeer();
             return true;
         }
     }
@@ -1777,6 +1790,51 @@ void MainWindow::persistManualPeers()
     m_settings.save();
 }
 
+void MainWindow::peerListContextMenu(const QPoint &pos)
+{
+    QListWidgetItem *it = m_list ? m_list->itemAt(pos) : 0;
+    if (!it)
+        return;
+    m_list->setCurrentItem(it);
+    const bool manual = it->data(Qt::UserRole + 3).toBool();
+    QMenu menu(this);
+    QAction *del = menu.addAction(QString::fromUtf8(u8"删除手动节点"));
+    del->setEnabled(manual);
+    if (!manual)
+        del->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可删除"));
+    QAction *chosen = menu.exec(m_list->viewport()->mapToGlobal(pos));
+    if (chosen == del)
+        removeSelectedManualPeer();
+}
+
+void MainWindow::removeSelectedManualPeer()
+{
+    QListWidgetItem *it = m_list ? m_list->currentItem() : 0;
+    if (!it || !m_disc)
+        return;
+    if (!it->data(Qt::UserRole + 3).toBool()) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"自动发现的节点不能从这里删除，离线后会自动消失。"));
+        return;
+    }
+    const QString ip = it->data(Qt::UserRole).toString();
+    const int port = it->data(Qt::UserRole + 1).toInt();
+    const QString name = it->data(Qt::UserRole + 2).toString();
+    const QString label = name.isEmpty() ? (ip + QLatin1Char(':') + QString::number(port)) : name;
+    if (QMessageBox::question(this, QString::fromUtf8(u8"局域快传"),
+                              QString::fromUtf8(u8"删除手动节点「%1」？\n重启后也不会再出现。").arg(label),
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::No)
+        != QMessageBox::Yes) {
+        return;
+    }
+    if (!m_disc->removeManual(ip, port))
+        return;
+    persistManualPeers();
+    // changed 会触发 refreshPeers；若信号被挡住则手动刷
+    refreshPeers();
+}
+
 QString MainWindow::localIpText() const
 {
     const QStringList ips = localIpv4();
@@ -1862,6 +1920,7 @@ void MainWindow::refreshPeers()
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
+        it->setData(Qt::UserRole + 3, p.manual);
         m_list->addItem(it);
         if (p.key() == keep)
             row = m_list->count() - 1;

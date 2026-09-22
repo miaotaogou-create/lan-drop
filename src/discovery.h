@@ -38,6 +38,7 @@ public:
     QList<Peer> peers() const;
     Peer addManual(const QString &ip, int port, const QString &alias,
                    const QString &osName = QString());
+    bool removeManual(const QString &ip, int port);
     void touch(const QString &ip, int port, const QString &id, const QString &name,
                const QString &osName, const QString &hostname = QString());
     bool find(const QString &ip, int port, Peer *out) const;

@@ -255,6 +255,21 @@ Peer Discovery::addManual(const QString &ip, int port, const QString &alias, con
     return p;
 }
 
+bool Discovery::removeManual(const QString &ip, int port)
+{
+    const QString wantIp = ip.trimmed();
+    const int wantPort = port > 0 ? port : 8848;
+    for (int i = 0; i < m_peers.size(); ++i) {
+        const Peer &p = m_peers.at(i);
+        if (!p.manual || p.ip != wantIp || p.port != wantPort)
+            continue;
+        m_peers.removeAt(i);
+        emit changed();
+        return true;
+    }
+    return false;
+}
+
 void Discovery::touch(const QString &ip, int port, const QString &id, const QString &name,
                       const QString &osName, const QString &hostname)
 {
