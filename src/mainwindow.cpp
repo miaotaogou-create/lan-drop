@@ -711,7 +711,7 @@ static QString renderSystem(const ChatMsg &m)
 static QString renderChatHtml(const QVector<ChatMsg> &msgs)
 {
     QString html = QStringLiteral(
-        "<html><body style=\"margin:0;padding:8px;background:#ffffff;\">");
+        "<html><body style=\"margin:0;padding:8px;background:#f1f5f9;\">");
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
         html += QStringLiteral("<div style=\"margin:10px 0;\">");
@@ -1310,8 +1310,8 @@ void MainWindow::applyStyle()
         " padding: 8px 8px; margin: 2px 0; color: #0f172a; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
-        "#right { background: #ffffff; }"
-        "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #ffffff; }"
+        "#right { background: #f1f5f9; }"
+        "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #f1f5f9; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
         "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
@@ -1323,12 +1323,12 @@ void MainWindow::applyStyle()
         "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
         " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #dbeafe; }"
-        "#connBannerHost { background: #f8fafc; }"
+        "#connBannerHost { background: #f1f5f9; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
         "#connBannerText { color: #64748b; font-size: 12px; background: transparent; }"
-        "#filesView { background: #f8fafc; border: none; }"
-        "#chat { background: #f8fafc; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
+        "#filesView { background: #f1f5f9; border: none; }"
+        "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
