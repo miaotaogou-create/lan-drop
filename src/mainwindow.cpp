@@ -1200,6 +1200,11 @@ void MainWindow::buildUi()
     QVBoxLayout *chatBodyLay = new QVBoxLayout(chatBody);
     chatBodyLay->setContentsMargins(0, 0, 0, 0);
     chatBodyLay->setSpacing(0);
+    m_chatHost = new QWidget;
+    m_chatHost->setObjectName(QStringLiteral("chatHost"));
+    QVBoxLayout *chatHostLay = new QVBoxLayout(m_chatHost);
+    chatHostLay->setContentsMargins(0, 0, 0, 0);
+    chatHostLay->setSpacing(0);
     m_chat = new QTextBrowser;
     m_chat->setObjectName(QStringLiteral("chat"));
     m_chat->setReadOnly(true);
@@ -1207,6 +1212,18 @@ void MainWindow::buildUi()
     m_chat->setOpenExternalLinks(false);
     m_chat->setOpenLinks(false);
     connect(m_chat, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
+    chatHostLay->addWidget(m_chat);
+    m_jumpBottomBtn = new QPushButton(m_chatHost);
+    m_jumpBottomBtn->setObjectName(QStringLiteral("jumpBottomBtn"));
+    m_jumpBottomBtn->setCursor(Qt::PointingHandCursor);
+    m_jumpBottomBtn->setFocusPolicy(Qt::NoFocus);
+    m_jumpBottomBtn->setText(QString::fromUtf8(u8"有新消息 ↓"));
+    m_jumpBottomBtn->hide();
+    connect(m_jumpBottomBtn, SIGNAL(clicked()), this, SLOT(jumpChatToBottom()));
+    connect(m_chat->verticalScrollBar(), &QScrollBar::valueChanged, this, [this](int) {
+        syncJumpBottomBtn();
+    });
+    m_chatHost->installEventFilter(this);
 
     m_composer = new QWidget;
     m_composer->setObjectName(QStringLiteral("composer"));
@@ -1285,7 +1302,7 @@ void MainWindow::buildUi()
     compCol->addLayout(toolLay);
     compCol->addWidget(m_inputShell);
 
-    chatBodyLay->addWidget(m_chat, 1);
+    chatBodyLay->addWidget(m_chatHost, 1);
     chatBodyLay->addWidget(m_composer);
 
     QWidget *filesPage = new QWidget;
@@ -1397,6 +1414,10 @@ void MainWindow::applyStyle()
         "#connBannerText { color: #64748b; font-size: 12px; background: transparent; }"
         "#filesView { background: #f1f5f9; border: none; }"
         "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
+        "#chatHost { background: #f1f5f9; }"
+        "#jumpBottomBtn { background: #1e293b; color: #f8fafc; border: none; border-radius: 16px;"
+        " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
+        "#jumpBottomBtn:hover { background: #334155; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
@@ -1427,6 +1448,9 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
         && m_chatDropHint && m_chatDropHint->isVisible()) {
         setChatDropHint(true);
+    }
+    if (m_chatHost && watched == m_chatHost && event->type() == QEvent::Resize) {
+        placeJumpBottomBtn();
     }
     if (m_trayToast && watched == m_trayToast
         && event->type() == QEvent::MouseButtonPress) {
@@ -2435,6 +2459,9 @@ void MainWindow::showChat()
         return;
     }
     clearUnread(key);
+    m_chatNewBelow = false;
+    if (m_jumpBottomBtn)
+        m_jumpBottomBtn->hide();
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
     refreshChatHtml(true);
@@ -2491,12 +2518,70 @@ void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
     m_log.insert(key, lines);
     const bool viewing = (key == currentKey()) && isVisible();
     if (viewing) {
+        markChatNewBelowIfAway();
         refreshChatHtml();
         refreshFilesView();
     } else if (msg.type == ChatMsg::InText || msg.type == ChatMsg::InFile) {
         m_unread[key] = m_unread.value(key, 0) + 1;
         refreshPeers();
     }
+}
+
+bool MainWindow::isChatNearBottom() const
+{
+    if (!m_chat)
+        return true;
+    QScrollBar *bar = m_chat->verticalScrollBar();
+    if (!bar || bar->maximum() <= 0)
+        return true;
+    return (bar->maximum() - bar->value()) <= 80;
+}
+
+void MainWindow::markChatNewBelowIfAway()
+{
+    if (!isChatNearBottom())
+        m_chatNewBelow = true;
+}
+
+void MainWindow::placeJumpBottomBtn()
+{
+    if (!m_jumpBottomBtn || !m_chatHost)
+        return;
+    m_jumpBottomBtn->adjustSize();
+    const int bw = qMax(120, m_jumpBottomBtn->sizeHint().width() + 8);
+    const int bh = 32;
+    m_jumpBottomBtn->setFixedSize(bw, bh);
+    const int x = qMax(8, (m_chatHost->width() - bw) / 2);
+    const int y = qMax(8, m_chatHost->height() - bh - 14);
+    m_jumpBottomBtn->move(x, y);
+    m_jumpBottomBtn->raise();
+}
+
+void MainWindow::syncJumpBottomBtn()
+{
+    if (!m_jumpBottomBtn)
+        return;
+    if (isChatNearBottom()) {
+        m_chatNewBelow = false;
+        m_jumpBottomBtn->hide();
+        return;
+    }
+    if (!m_chatNewBelow) {
+        m_jumpBottomBtn->hide();
+        return;
+    }
+    m_jumpBottomBtn->setText(QString::fromUtf8(u8"有新消息 ↓"));
+    placeJumpBottomBtn();
+    m_jumpBottomBtn->show();
+    m_jumpBottomBtn->raise();
+}
+
+void MainWindow::jumpChatToBottom()
+{
+    m_chatNewBelow = false;
+    if (m_jumpBottomBtn)
+        m_jumpBottomBtn->hide();
+    refreshChatHtml(true);
 }
 
 void MainWindow::refreshChatHtml(bool forceBottom)
@@ -2518,8 +2603,12 @@ void MainWindow::refreshChatHtml(bool forceBottom)
         QTextCursor c = m_chat->textCursor();
         c.movePosition(QTextCursor::End);
         m_chat->setTextCursor(c);
+        m_chatNewBelow = false;
+        if (m_jumpBottomBtn)
+            m_jumpBottomBtn->hide();
     } else {
         bar->setValue(qBound(0, bar->maximum(), oldVal));
+        syncJumpBottomBtn();
     }
 }
 

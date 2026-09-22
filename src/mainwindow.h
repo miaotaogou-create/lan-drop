@@ -81,6 +81,7 @@ private slots:
     void quitApp();
     void hideTrayToast();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+    void jumpChatToBottom();
 
 private:
     void boot();
@@ -98,6 +99,10 @@ private:
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml(bool forceBottom = false);
     void refreshFilesView();
+    bool isChatNearBottom() const;
+    void markChatNewBelowIfAway();
+    void syncJumpBottomBtn();
+    void placeJumpBottomBtn();
     void updateChrome();
     void updateEmpty();
     void updateHostPill();
@@ -152,6 +157,9 @@ private:
     QLabel *m_connBannerText = 0;
     QStackedWidget *m_sessionStack = 0;
     QTextBrowser *m_chat = 0;
+    QWidget *m_chatHost = 0;
+    QPushButton *m_jumpBottomBtn = 0;
+    bool m_chatNewBelow = false;
     QTextBrowser *m_files = 0;
     QLabel *m_fileLive = 0;
     QPlainTextEdit *m_input = 0;
