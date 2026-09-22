@@ -31,7 +31,7 @@ copy_lib() {
     cp -L "$src" "$DIST/lib/$name"
 }
 
-for so in libQt5Core.so.5 libQt5Gui.so.5 libQt5Widgets.so.5 libQt5Network.so.5 libQt5DBus.so.5 libQt5XcbQpa.so.5; do
+for so in libQt5Core.so.5 libQt5Gui.so.5 libQt5Widgets.so.5 libQt5Network.so.5 libQt5DBus.so.5 libQt5XcbQpa.so.5 libQt5Svg.so.5; do
     copy_lib "$QT_LIB/lib/$so"
 done
 # Qt 自己链进来、桌面不一定同版本的库。X11 / fontconfig / freetype 仍用麒麟系统的，中文字体才能被找到。
