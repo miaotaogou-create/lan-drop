@@ -111,6 +111,8 @@ private:
     void shakeWindow();
     void playNotifySound();
     void persistManualPeers();
+    void persistWindowGeometry();
+    void applyWindowGeometry();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     void updateUploadProgress(const QString &key, int msgIndex, int pct);

@@ -23,6 +23,12 @@ struct Settings {
     bool nudgeEnabled = true;
     bool soundNotification = true; // 收文字/文件时播系统提示音；关则静音
     QList<ManualPeerEntry> manualPeers;
+    // 窗口几何；windowW/H≤0 表示未记忆，启动用默认尺寸
+    int windowX = 0;
+    int windowY = 0;
+    int windowW = 0;
+    int windowH = 0;
+    bool windowMaximized = false;
 
     static QString filePath();
     static Settings defaults();

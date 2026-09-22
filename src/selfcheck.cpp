@@ -120,6 +120,21 @@ int runSelfCheck()
             return fail("manualPeers addr");
         if (e.alias != QString::fromUtf8(u8"跨网段") || e.os != QLatin1String("linux"))
             return fail("manualPeers meta");
+        // 窗口几何往返
+        {
+            Settings g = Settings::defaults();
+            g.windowX = 120;
+            g.windowY = 80;
+            g.windowW = 1000;
+            g.windowH = 640;
+            g.windowMaximized = true;
+            if (!g.saveToFile(path))
+                return fail("window geom save");
+            const Settings gl = Settings::loadFromFile(path);
+            if (gl.windowX != 120 || gl.windowY != 80 || gl.windowW != 1000 || gl.windowH != 640
+                || !gl.windowMaximized)
+                return fail("window geom load");
+        }
         // 缺字段也能加载
         {
             QFile f(path);
@@ -130,6 +145,8 @@ int runSelfCheck()
         }
         if (!Settings::loadFromFile(path).manualPeers.isEmpty())
             return fail("manualPeers missing");
+        if (Settings::loadFromFile(path).windowW != 0)
+            return fail("window geom missing");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }

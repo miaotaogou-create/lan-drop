@@ -135,6 +135,16 @@ Settings Settings::loadFromFile(const QString &path)
     if (o.contains(QStringLiteral("soundNotification")))
         s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
     s.manualPeers = readManualPeers(o);
+    if (o.contains(QStringLiteral("windowX")))
+        s.windowX = o.value(QStringLiteral("windowX")).toInt();
+    if (o.contains(QStringLiteral("windowY")))
+        s.windowY = o.value(QStringLiteral("windowY")).toInt();
+    if (o.contains(QStringLiteral("windowW")))
+        s.windowW = o.value(QStringLiteral("windowW")).toInt();
+    if (o.contains(QStringLiteral("windowH")))
+        s.windowH = o.value(QStringLiteral("windowH")).toInt();
+    if (o.contains(QStringLiteral("windowMaximized")))
+        s.windowMaximized = o.value(QStringLiteral("windowMaximized")).toBool();
     return s;
 }
 
@@ -155,6 +165,11 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
     o.insert(QStringLiteral("soundNotification"), soundNotification);
     o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));
+    o.insert(QStringLiteral("windowX"), windowX);
+    o.insert(QStringLiteral("windowY"), windowY);
+    o.insert(QStringLiteral("windowW"), windowW);
+    o.insert(QStringLiteral("windowH"), windowH);
+    o.insert(QStringLiteral("windowMaximized"), windowMaximized);
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;

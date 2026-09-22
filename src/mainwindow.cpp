@@ -49,6 +49,8 @@
 #include <QtMath>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QScrollBar>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -1654,6 +1656,7 @@ void MainWindow::maybeTrayNotify(const QString &title, const QString &body, cons
 
 void MainWindow::quitApp()
 {
+    persistWindowGeometry();
     m_forceQuit = true;
     hideTrayToast();
     if (m_tray) {
@@ -1670,6 +1673,7 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    persistWindowGeometry();
     if (m_forceQuit || !m_tray) {
         event->accept();
         qApp->quit();
@@ -2137,6 +2141,42 @@ void MainWindow::boot()
     refreshPeers();
     showChat();
     updateChrome();
+    applyWindowGeometry();
+}
+
+void MainWindow::persistWindowGeometry()
+{
+    // 最大化时记还原矩形，否则记当前客户区几何
+    const QRect geo = isMaximized() ? normalGeometry() : geometry();
+    m_settings.windowX = geo.x();
+    m_settings.windowY = geo.y();
+    m_settings.windowW = geo.width();
+    m_settings.windowH = geo.height();
+    m_settings.windowMaximized = isMaximized();
+    m_settings.save();
+}
+
+void MainWindow::applyWindowGeometry()
+{
+    const int w = m_settings.windowW;
+    const int h = m_settings.windowH;
+    if (w >= minimumWidth() && h >= minimumHeight()) {
+        const QRect want(m_settings.windowX, m_settings.windowY, w, h);
+        bool onScreen = false;
+        const QList<QScreen *> screens = QGuiApplication::screens();
+        for (int i = 0; i < screens.size(); ++i) {
+            if (screens.at(i)->availableGeometry().intersects(want.adjusted(32, 32, -32, -32))) {
+                onScreen = true;
+                break;
+            }
+        }
+        if (onScreen || screens.isEmpty())
+            setGeometry(want);
+        else
+            resize(w, h);
+    }
+    if (m_settings.windowMaximized)
+        setWindowState(windowState() | Qt::WindowMaximized);
 }
 
 void MainWindow::persistManualPeers()
