@@ -1,4 +1,4 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 
 #include "discovery.h"
 #include "files.h"
@@ -52,6 +52,10 @@
 #include <QTime>
 #include <QUrl>
 #include <QVBoxLayout>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 enum ChromeIcon {
     IconSettings = 0,
@@ -480,7 +484,7 @@ static QString renderTextBubble(const ChatMsg &m)
     QString lang;
     QString code;
     if (splitCodeFence(m.text, &lang, &code)) {
-        const bool out = (m.type == ChatMsg::TextOut);
+        const bool out = (m.type == ChatMsg::OutText);
         QString head = metaLine(m.who, m.time, m.rttMs, false);
         QString block = renderCodeBlock(lang, code, out);
         // 代码块已含头像；在上方补元数据
@@ -492,7 +496,7 @@ static QString renderTextBubble(const ChatMsg &m)
                               "<td width=\"36\"></td><td align=\"left\">%1</td></tr></table>%2")
             .arg(head, block);
     }
-    if (m.type == ChatMsg::TextOut) {
+    if (m.type == ChatMsg::OutText) {
         return QStringLiteral(
                    "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
                    "<td></td><td align=\"right\" valign=\"top\">"
@@ -520,7 +524,7 @@ static QString renderTextBubble(const ChatMsg &m)
 
 static QString renderFileCard(const ChatMsg &m)
 {
-    const bool out = (m.type == ChatMsg::FileOut);
+    const bool out = (m.type == ChatMsg::OutFile);
     const QString size = humanBytesChat(m.size);
     QString sha = m.sha256;
     if (sha.isEmpty() && !m.path.isEmpty())
@@ -601,12 +605,12 @@ static QString renderChatHtml(const QVector<ChatMsg> &msgs)
         const ChatMsg &m = msgs.at(i);
         html += QStringLiteral("<div style=\"margin:10px 0;\">");
         switch (m.type) {
-        case ChatMsg::TextOut:
-        case ChatMsg::TextIn:
+        case ChatMsg::OutText:
+        case ChatMsg::InText:
             html += renderTextBubble(m);
             break;
-        case ChatMsg::FileOut:
-        case ChatMsg::FileIn:
+        case ChatMsg::OutFile:
+        case ChatMsg::InFile:
             html += renderFileCard(m);
             break;
         case ChatMsg::System:
@@ -624,7 +628,7 @@ static int countFiles(const QVector<ChatMsg> &msgs)
 {
     int n = 0;
     for (int i = 0; i < msgs.size(); ++i) {
-        if (msgs.at(i).type == ChatMsg::FileIn || msgs.at(i).type == ChatMsg::FileOut)
+        if (msgs.at(i).type == ChatMsg::InFile || msgs.at(i).type == ChatMsg::OutFile)
             ++n;
     }
     return n;
@@ -637,7 +641,7 @@ static QString renderFilesHtml(const QVector<ChatMsg> &msgs)
     int n = 0;
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
-        if (m.type != ChatMsg::FileIn && m.type != ChatMsg::FileOut)
+        if (m.type != ChatMsg::InFile && m.type != ChatMsg::OutFile)
             continue;
         html += QStringLiteral("<div style=\"margin:10px 0;\">");
         html += renderFileCard(m);
@@ -1937,9 +1941,10 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
             shakeWindow();
         return;
     }
-    m.type = ChatMsg::TextIn;
+    m.type = ChatMsg::InText;
     m.text = text;
     appendMsg(key, m);
+    playNotifySound();
 }
 
 void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
@@ -1949,7 +1954,7 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
     if (m_disc->find(ip, 8848, &known))
         port = known.port;
     ChatMsg m;
-    m.type = ChatMsg::FileIn;
+    m.type = ChatMsg::InFile;
     m.who = known.name.trimmed().isEmpty() ? ip : known.name.trimmed();
     m.text = name;
     m.path = path;
@@ -1957,6 +1962,7 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
     m.sha256 = fileSha256Short(path);
     m.time = nowClock();
     appendMsg(ip + QLatin1Char(':') + QString::number(port), m);
+    playNotifySound();
 }
 
 void MainWindow::sendText()
@@ -1992,7 +1998,7 @@ void MainWindow::sendText()
             return;
         }
         ChatMsg m;
-        m.type = ChatMsg::TextOut;
+        m.type = ChatMsg::OutText;
         m.who = QString::fromUtf8(u8"我");
         m.text = sent;
         m.rttMs = ms;
@@ -2065,7 +2071,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             return;
         }
         ChatMsg m;
-        m.type = ChatMsg::FileOut;
+        m.type = ChatMsg::OutFile;
         m.who = QString::fromUtf8(u8"我");
         m.text = filename;
         m.path = path;
@@ -2174,6 +2180,17 @@ void MainWindow::nudgePeer()
         appendMsg(key, m);
         shakeWindow();
     });
+}
+
+void MainWindow::playNotifySound()
+{
+    if (!m_settings.soundNotification)
+        return;
+#ifdef Q_OS_WIN
+    MessageBeep(MB_OK);
+#else
+    QApplication::beep();
+#endif
 }
 
 void MainWindow::shakeWindow()

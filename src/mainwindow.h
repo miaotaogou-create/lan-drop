@@ -24,8 +24,8 @@ class QUrl;
 class QWidget;
 
 struct ChatMsg {
-    enum Type { TextOut = 0, TextIn, FileOut, FileIn, System, Fail };
-    int type = TextOut;
+    enum Type { OutText = 0, InText, OutFile, InFile, System, Fail };
+    int type = OutText;
     QString who;
     QString text;
     QString path;
@@ -85,6 +85,7 @@ private:
     void refreshShareBtn();
     void updateInputPlaceholder();
     void shakeWindow();
+    void playNotifySound();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     QString currentKey() const;

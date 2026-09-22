@@ -12,7 +12,7 @@ struct Settings {
     QString downloadDir = QStringLiteral("./downloads");
     int transferThreads = 8; // ponytail: 仅入库；上传仍是单队列，以后再接线程池
     bool nudgeEnabled = true;
-    bool soundNotification = true; // ponytail: 仅入库；本轮不播系统提示音
+    bool soundNotification = true; // 收文字/文件时播系统提示音；关则静音
 
     static QString filePath();
     static Settings defaults();
