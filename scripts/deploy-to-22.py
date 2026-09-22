@@ -61,13 +61,18 @@ def main():
     run("who; ls /tmp/.X11-unix 2>/dev/null || true")
 
     start = (
-        "cd %s && nohup env DISPLAY=:0 "
+        "setsid env DISPLAY=:0 "
         "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus "
-        "./landrop.sh >/tmp/landrop.log 2>&1 & echo STARTED:$!; "
-        "sleep 2; ps -ef | grep -v grep | grep landrop || true; "
-        "tail -30 /tmp/landrop.log || true" % REMOTE
+        "%s/landrop.sh >/tmp/landrop.log 2>&1 </dev/null &" % REMOTE
     )
-    run(start)
+    # GUI 进程会拖住 SSH 通道，火后即忘
+    print("FIRE", start)
+    chan = c.get_transport().open_session()
+    chan.exec_command(start)
+    time.sleep(0.5)
+    chan.close()
+    time.sleep(2)
+    run("pgrep -a landrop || echo NO_PROC; tail -20 /tmp/landrop.log || true")
     c.close()
     print("deploy done")
 

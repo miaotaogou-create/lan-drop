@@ -64,6 +64,37 @@ cat > "$DIST/landrop.sh" << 'EOF'
 DIR=$(dirname "$(readlink -f "$0")")
 export LD_LIBRARY_PATH="$DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$DIR/plugins"
+
+# 自带包只有 ibus/compose；麒麟默认 fcitx。把系统 fcitx Qt 插件挂进包内目录，
+# 否则 QT_PLUGIN_PATH 隔离后永远加载不到，文本框无法出中文。
+FCITX_DST="$DIR/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so"
+if [ ! -e "$FCITX_DST" ]; then
+    for cand in \
+        /usr/lib/aarch64-linux-gnu/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
+        /usr/lib/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
+        /usr/lib64/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so; do
+        if [ -f "$cand" ]; then
+            ln -sf "$cand" "$FCITX_DST" 2>/dev/null || cp -L "$cand" "$FCITX_DST" 2>/dev/null || true
+            break
+        fi
+    done
+fi
+
+# SSH/快捷方式启动常丢桌面 IM 环境；有则不覆盖。
+if [ -z "$QT_IM_MODULE" ]; then
+    if [ -e "$FCITX_DST" ]; then
+        export QT_IM_MODULE=fcitx
+    elif [ -f "$DIR/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so" ]; then
+        export QT_IM_MODULE=ibus
+    fi
+fi
+if [ -z "$XMODIFIERS" ] && [ "$QT_IM_MODULE" = "fcitx" ]; then
+    export XMODIFIERS=@im=fcitx
+fi
+if [ -z "$GTK_IM_MODULE" ] && [ "$QT_IM_MODULE" = "fcitx" ]; then
+    export GTK_IM_MODULE=fcitx
+fi
+
 cd "$DIR"
 exec "$DIR/landrop" "$@"
 EOF

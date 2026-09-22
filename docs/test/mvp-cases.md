@@ -201,6 +201,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-43 ARM 麒麟中文输入
+- 对应验收：A1–A3（`docs/requirements/20260922-kylin-ime-chinese.md`）
+- 步骤：麒麟上用 `landrop.sh` 启动 → 聊天框切中文输入法打字 → 设置改中文设备名
+- 期望：可出候选并上屏；进程有 `QT_IM_MODULE=fcitx`；`plugins/platforminputcontexts/` 能解析到 fcitx 插件
+- 类型：手测（22 机）
+- 结果：待手测
+
 ### TC-22 设置保存与 Nudge 开关
 - 对应验收：S4、S5
 - 步骤：改本机名称并保存；再关闭 Nudge 后点「抖动窗口」
