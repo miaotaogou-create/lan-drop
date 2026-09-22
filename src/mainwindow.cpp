@@ -726,14 +726,23 @@ void MainWindow::buildUi()
     QLabel *logo = new QLabel;
     logo->setObjectName(QStringLiteral("logo"));
     logo->setFixedSize(36, 36);
+    logo->setAlignment(Qt::AlignCenter);
     logo->setPixmap(makeRadioLogo(36));
 
-    QVBoxLayout *brandCol = new QVBoxLayout;
-    brandCol->setSpacing(2);
+    // 参考图：两行文字块高度与图标齐平（顶对齐标题、底对齐状态行）
+    QWidget *brandWrap = new QWidget;
+    brandWrap->setObjectName(QStringLiteral("brandWrap"));
+    brandWrap->setFixedHeight(36);
+    QVBoxLayout *brandCol = new QVBoxLayout(brandWrap);
+    brandCol->setSpacing(1);
     brandCol->setContentsMargins(0, 0, 0, 0);
     QLabel *brand = new QLabel(QString::fromUtf8(u8"局域快传"));
     brand->setObjectName(QStringLiteral("brand"));
-    QHBoxLayout *statusRow = new QHBoxLayout;
+    brand->setFixedHeight(20);
+    brand->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    QWidget *statusWrap = new QWidget;
+    statusWrap->setFixedHeight(15);
+    QHBoxLayout *statusRow = new QHBoxLayout(statusWrap);
     statusRow->setContentsMargins(0, 0, 0, 0);
     statusRow->setSpacing(5);
     m_statusDot = new QLabel;
@@ -741,17 +750,18 @@ void MainWindow::buildUi()
     m_statusLabel = new QLabel;
     m_statusLabel->setObjectName(QStringLiteral("statusOnline"));
     m_statusLabel->setTextFormat(Qt::PlainText);
+    m_statusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     statusRow->addWidget(m_statusDot, 0, Qt::AlignVCenter);
     statusRow->addWidget(m_statusLabel, 0, Qt::AlignVCenter);
     statusRow->addStretch(1);
-    brandCol->addWidget(brand);
-    brandCol->addLayout(statusRow);
+    brandCol->addWidget(brand, 0, Qt::AlignLeft | Qt::AlignTop);
+    brandCol->addWidget(statusWrap, 0, Qt::AlignLeft | Qt::AlignBottom);
 
     QHBoxLayout *brandRow = new QHBoxLayout;
     brandRow->setSpacing(10);
     brandRow->setContentsMargins(0, 0, 0, 0);
-    brandRow->addWidget(logo);
-    brandRow->addLayout(brandCol);
+    brandRow->addWidget(logo, 0, Qt::AlignVCenter);
+    brandRow->addWidget(brandWrap, 0, Qt::AlignVCenter);
 
     m_hostPill = new QWidget;
     m_hostPill->setObjectName(QStringLiteral("hostPill"));
@@ -1088,9 +1098,10 @@ void MainWindow::applyStyle()
     setStyleSheet(QStringLiteral(
         "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
         "#titleBar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
-        "#logo { background: transparent; border: none; }"
-        "#brand { color: #0f172a; font-size: 16px; font-weight: 700; }"
-        "#statusOnline { color: #64748b; font-size: 11px; }"
+        "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
+        "#brandWrap { background: transparent; }"
+        "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
+        "#statusOnline { color: #64748b; font-size: 11px; padding: 0; margin: 0; }"
         "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
