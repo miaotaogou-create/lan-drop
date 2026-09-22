@@ -208,7 +208,12 @@
 - 类型：手测
 - 结果：待手测
 
-### TC-43 ARM 麒麟中文输入
+### TC-44 对端未读角标
+- 对应验收：U1–U4（`docs/requirements/20260922-unread-badge.md`）
+- 步骤：选中 A → B 发文字；点 B；再隐藏窗口让当前对端发文件后点托盘图标恢复；另测抖动不计未读
+- 期望：B 名旁出现 `· N`；点进后消失；托盘恢复清当前未读；抖动不加未读
+- 类型：手测
+- 结果：待手测
 - 对应验收：A1–A3（`docs/requirements/20260922-kylin-ime-chinese.md`）
 - 步骤：麒麟上用 `landrop.sh` 启动 → 聊天框切中文输入法打字 → 设置改中文设备名
 - 期望：可出候选并上屏；进程有 `QT_IM_MODULE=fcitx`；`plugins/platforminputcontexts/` 能解析到 fcitx 插件

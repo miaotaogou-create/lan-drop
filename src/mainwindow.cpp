@@ -1481,6 +1481,7 @@ void MainWindow::showFromTray()
     showNormal();
     raise();
     activateWindow();
+    clearUnread(currentKey());
 }
 
 void MainWindow::showFromTrayNotify()
@@ -1508,6 +1509,14 @@ void MainWindow::selectPeerByKey(const QString &key)
             return;
         }
     }
+}
+
+void MainWindow::clearUnread(const QString &key)
+{
+    if (key.isEmpty())
+        return;
+    if (m_unread.remove(key) > 0)
+        refreshPeers();
 }
 
 void MainWindow::hideTrayToast()
@@ -2198,9 +2207,13 @@ void MainWindow::refreshPeers()
         const QString osTag = p.osName.trimmed().isEmpty()
             ? QString()
             : (QStringLiteral("  ·  ") + p.osName);
+        const int unread = m_unread.value(p.key(), 0);
+        const QString unreadTag = (unread > 0)
+            ? QString::fromUtf8(u8" · %1").arg(unread)
+            : QString();
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1\n%2:%3  %4%5%6")
-                .arg(p.label()).arg(p.ip).arg(p.port).arg(flag).arg(manual).arg(osTag));
+            QStringLiteral("%1%2\n%3:%4  %5%6%7")
+                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, osTag));
         it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 44)));
         it->setSizeHint(QSize(0, 60));
         it->setData(Qt::UserRole, p.ip);
@@ -2308,6 +2321,7 @@ void MainWindow::showChat()
         updateEmpty();
         return;
     }
+    clearUnread(key);
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
     refreshChatHtml();
@@ -2361,9 +2375,13 @@ void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
     if (lines.size() > 500)
         lines = lines.mid(lines.size() - 500);
     m_log.insert(key, lines);
-    if (key == currentKey()) {
+    const bool viewing = (key == currentKey()) && isVisible();
+    if (viewing) {
         refreshChatHtml();
         refreshFilesView();
+    } else if (msg.type == ChatMsg::InText || msg.type == ChatMsg::InFile) {
+        m_unread[key] = m_unread.value(key, 0) + 1;
+        refreshPeers();
     }
 }
 

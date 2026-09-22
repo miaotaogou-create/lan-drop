@@ -92,6 +92,7 @@ private:
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
     void selectPeerByKey(const QString &key);
+    void clearUnread(const QString &key);
     void appendMsg(const QString &key, const ChatMsg &msg);
     void refreshChatHtml();
     void refreshFilesView();
@@ -155,6 +156,7 @@ private:
     QWidget *m_inputShell = 0;
 
     QHash<QString, QVector<ChatMsg> > m_log;
+    QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
     QStringList m_uploadQueue;
     bool m_uploading = false;
     bool m_pingBusy = false;
