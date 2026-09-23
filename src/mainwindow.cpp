@@ -33,6 +33,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFont>
 #include <QFormLayout>
 #include <functional>
 #include <QFrame>
@@ -983,6 +984,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
             m_search->clear();
             return true;
         }
+    }
+    if (m_chat && watched == m_chat
+        && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton && m_input && currentPeer(0, 0, 0))
+            m_input->setFocus(Qt::MouseFocusReason);
+        // 不 return：锚点「复制 / 打开」仍由 QTextBrowser 处理
     }
     if ((watched == m_input || watched == m_chat) && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
@@ -2329,7 +2337,7 @@ void MainWindow::refreshPeers()
             : (QStringLiteral("  ·  ") + p.tag.trimmed());
         const int unread = m_unread.value(p.key(), 0);
         const QString unreadTag = (unread > 0)
-            ? QString::fromUtf8(u8" · %1").arg(unread)
+            ? QString::fromUtf8(u8" · 未读 %1").arg(unread)
             : QString();
         QListWidgetItem *it = new QListWidgetItem(
             QStringLiteral("%1%2\n%3:%4  %5%6%7%8%9")
@@ -2344,6 +2352,13 @@ void MainWindow::refreshPeers()
         it->setData(Qt::UserRole + 4, p.tag);
         if (!p.online())
             it->setForeground(QBrush(QColor(QStringLiteral("#94a3b8"))));
+        if (unread > 0) {
+            QFont f = it->font();
+            f.setBold(true);
+            it->setFont(f);
+            if (p.online())
+                it->setForeground(QBrush(QColor(QStringLiteral("#1e3a8a"))));
+        }
         m_list->addItem(it);
         if (!want.isEmpty() && p.key() == want)
             row = m_list->count() - 1;
@@ -3903,6 +3918,10 @@ void MainWindow::nudgePeer()
     int port = 0;
     if (!currentPeer(&ip, &port, 0))
         return;
+    maybeWarnOfflinePeer();
+    const bool hintProg = !m_uploading && m_recvCurrentName.isEmpty();
+    if (hintProg)
+        setProgress(QString::fromUtf8(u8"正在发送抖动…"));
     QJsonObject o;
     o.insert(QStringLiteral("fromId"), m_id);
     o.insert(QStringLiteral("fromName"), m_settings.deviceName);
@@ -3913,8 +3932,10 @@ void MainWindow::nudgePeer()
     req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("application/json; charset=utf-8")));
     QNetworkReply *rep = m_nam->post(req, body);
     const QString key = currentKey();
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key]() {
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, hintProg]() {
         rep->deleteLater();
+        if (hintProg)
+            setProgress(QString());
         if (rep->error() != QNetworkReply::NoError) {
             noteFail(key, rep);
             return;
