@@ -733,6 +733,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-143 白卡确认与提示弹窗
+- 对应验收：D1–D3（`docs/requirements/20260922-app-dialogs-card.md`）
+- 步骤：清空会话；删除手动节点；发送含二级目录的文件夹；设置里填无效端口保存
+- 期望：均为圆角白卡+阴影，非系统 MessageBox；确认默认焦点在取消
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

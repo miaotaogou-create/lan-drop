@@ -8,6 +8,7 @@
 #include "httpserver.h"
 #include "qrcodegen.hpp"
 #include "uiicons.h"
+#include "uidialogs.h"
 #include "windowchrome.h"
 #include "ziputil.h"
 
@@ -38,7 +39,6 @@
 #include <QFormLayout>
 #include <functional>
 #include <QFrame>
-#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
 #include <QImage>
@@ -51,7 +51,6 @@
 #include <QBrush>
 #include <QListWidget>
 #include <QMenu>
-#include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
@@ -141,27 +140,25 @@ enum FolderSendChoice { FolderSendTop = 0, FolderSendZip, FolderSendCancel };
 
 static FolderSendChoice askNestedFolderChoice(QWidget *parent, int topFileCount)
 {
-    QMessageBox box(parent);
-    box.setWindowTitle(QString::fromUtf8(u8"局域快传"));
+    QString text;
     if (topFileCount <= 0) {
-        box.setText(QString::fromUtf8(
-            u8"顶层没有普通文件，但有子目录。\n可打包为 zip 发送完整目录树。"));
+        text = QString::fromUtf8(
+            u8"顶层没有普通文件，但有子目录。\n可打包为 zip 发送完整目录树。");
     } else {
-        box.setText(QString::fromUtf8(
-            u8"文件夹包含子目录。\n"
-            u8"可打包 zip（含完整子目录），或只发顶层的 %1 个文件。")
-                        .arg(topFileCount));
+        text = QString::fromUtf8(
+                   u8"文件夹包含子目录。\n"
+                   u8"可打包 zip（含完整子目录），或只发顶层的 %1 个文件。")
+                   .arg(topFileCount);
     }
-    QPushButton *zipBtn = box.addButton(QString::fromUtf8(u8"打包 zip 发送"),
-                                        QMessageBox::AcceptRole);
-    QPushButton *topBtn = 0;
+    QStringList labels;
+    labels << QString::fromUtf8(u8"打包 zip 发送");
     if (topFileCount > 0)
-        topBtn = box.addButton(QString::fromUtf8(u8"仅发顶层"), QMessageBox::ActionRole);
-    box.addButton(QMessageBox::Cancel);
-    box.exec();
-    if (box.clickedButton() == zipBtn)
+        labels << QString::fromUtf8(u8"仅发顶层");
+    labels << QString::fromUtf8(u8"取消");
+    const int picked = appChoice(parent, text, labels, labels.size() - 1);
+    if (picked == 0)
         return FolderSendZip;
-    if (topBtn && box.clickedButton() == topBtn)
+    if (topFileCount > 0 && picked == 1)
         return FolderSendTop;
     return FolderSendCancel;
 }
@@ -314,18 +311,7 @@ private:
     int m_depth = 0;
 };
 
-// 弹窗/空卡浮起阴影（与 #emptyCard 参数一致）
-static void applyFloatingShadow(QWidget *w)
-{
-    if (!w)
-        return;
-    w->setAttribute(Qt::WA_StyledBackground, true);
-    QGraphicsDropShadowEffect *fx = new QGraphicsDropShadowEffect(w);
-    fx->setBlurRadius(20);
-    fx->setOffset(0, 4);
-    fx->setColor(QColor(15, 23, 42, 36));
-    w->setGraphicsEffect(fx);
-}
+// 弹窗阴影见 uidialogs::applyFloatingShadow
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -1314,8 +1300,7 @@ void MainWindow::openDownloadDir()
     QDir().mkpath(dir);
     const QString abs = QFileInfo(dir).absoluteFilePath();
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(abs))) {
-        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),
-                             QString::fromUtf8(u8"无法打开下载目录：\n%1").arg(abs));
+        appWarn(this, QString::fromUtf8(u8"无法打开下载目录：\n%1").arg(abs));
     }
 }
 
@@ -1861,8 +1846,7 @@ void MainWindow::openShare()
         }
         QString d = QDir(m_settings.downloadDir).filePath(QStringLiteral("lan-drop-share"));
         if (!QDir().mkpath(d)) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"无法创建共享目录"));
+            appWarn(&dlg, QString::fromUtf8(u8"无法创建共享目录"));
             return QString();
         }
         lastDir = QFileInfo(d).absoluteFilePath();
@@ -1883,8 +1867,7 @@ void MainWindow::openShare()
         }
         reloadFiles();
         if (ok == 0) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"没有文件被加入共享（可能无权复制或路径无效）"));
+            appWarn(&dlg, QString::fromUtf8(u8"没有文件被加入共享（可能无权复制或路径无效）"));
         }
     };
     auto pickFiles = [&]() {
@@ -2001,8 +1984,7 @@ void MainWindow::boot()
     refreshShareBtn();
     if (!httpOk) {
         setStatusOnline(QString::fromUtf8(u8"传输端口占用，请在设置里改端口"), false);
-        QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),
-                             QString::fromUtf8(u8"端口 %1 被占用，其他电脑连不上这台机器。请在设置里改端口后重启。").arg(m_settings.port));
+        appWarn(this, QString::fromUtf8(u8"端口 %1 被占用，其他电脑连不上这台机器。请在设置里改端口后重启。").arg(m_settings.port));
     } else if (!discOk) {
         setStatusOnline(QString::fromUtf8(u8"在线 · 发现端口占用，仍可手动加 IP"), false);
     } else {
@@ -2304,19 +2286,16 @@ void MainWindow::clearSelectedPeerChat()
     for (int i = 0; i < lines.size(); ++i) {
         if ((lines.at(i).type == ChatMsg::OutFile || lines.at(i).type == ChatMsg::InFile)
             && lines.at(i).progressPct >= 0) {
-            QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                     QString::fromUtf8(u8"该对端正在收发文件，请等传完后再清空。"));
+            appInfo(this, QString::fromUtf8(u8"该对端正在收发文件，请等传完后再清空。"));
             return;
         }
     }
     const QString label = name.isEmpty() ? key : name;
-    if (QMessageBox::question(this, QString::fromUtf8(u8"局域快传"),
-                              QString::fromUtf8(u8"清空与「%1」的聊天记录？\n"
-                                                  u8"不会删除对端节点，也不会删除已下载的文件。")
-                                  .arg(label),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
-        != QMessageBox::Yes) {
+    if (!appConfirm(this,
+                    QString::fromUtf8(u8"清空与「%1」的聊天记录？\n"
+                                        u8"不会删除对端节点，也不会删除已下载的文件。")
+                        .arg(label),
+                    QString::fromUtf8(u8"清空"), QString::fromUtf8(u8"取消"), false)) {
         return;
     }
     m_log.remove(key);
@@ -2337,8 +2316,7 @@ void MainWindow::editSelectedManualPeer()
     if (!it || !m_disc)
         return;
     if (!it->data(Qt::UserRole + 3).toBool()) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"自动发现的节点不能从这里编辑。"));
+        appInfo(this, QString::fromUtf8(u8"自动发现的节点不能从这里编辑。"));
         return;
     }
     const QString ip = it->data(Qt::UserRole).toString();
@@ -2417,19 +2395,16 @@ void MainWindow::removeSelectedManualPeer()
     if (!it || !m_disc)
         return;
     if (!it->data(Qt::UserRole + 3).toBool()) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"自动发现的节点不能从这里删除，离线后会自动消失。"));
+        appInfo(this, QString::fromUtf8(u8"自动发现的节点不能从这里删除，离线后会自动消失。"));
         return;
     }
     const QString ip = it->data(Qt::UserRole).toString();
     const int port = it->data(Qt::UserRole + 1).toInt();
     const QString name = it->data(Qt::UserRole + 2).toString();
     const QString label = name.isEmpty() ? (ip + QLatin1Char(':') + QString::number(port)) : name;
-    if (QMessageBox::question(this, QString::fromUtf8(u8"局域快传"),
-                              QString::fromUtf8(u8"删除手动节点「%1」？\n重启后也不会再出现。").arg(label),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
-        != QMessageBox::Yes) {
+    if (!appConfirm(this,
+                    QString::fromUtf8(u8"删除手动节点「%1」？\n重启后也不会再出现。").arg(label),
+                    QString::fromUtf8(u8"删除"), QString::fromUtf8(u8"取消"), false)) {
         return;
     }
     if (!m_disc->removeManual(ip, port))
@@ -3817,8 +3792,7 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
     if (paths.isEmpty())
         return;
     if (!currentPeer(0, 0, 0)) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
+        appInfo(this, QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
         return;
     }
     maybeWarnOfflinePeer();
@@ -3963,8 +3937,7 @@ bool MainWindow::tryPasteClipboardImage()
     if (img.isNull())
         return false;
     if (!currentPeer(0, 0, 0)) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
+        appInfo(this, QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
         return true;
     }
     const QString dir = QDir::temp().filePath(QStringLiteral("landrop-paste"));
@@ -4590,8 +4563,7 @@ void MainWindow::addPeer()
         bool portOk = false;
         const int p = port->text().trimmed().toInt(&portOk);
         if (host.isEmpty() || host.contains(QLatin1Char(' ')) || !portOk || p < 1 || p > 65535) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"IP 或端口无效"));
+            appWarn(&dlg, QString::fromUtf8(u8"IP 或端口无效"));
             return;
         }
         const QString osName = osBox->currentData().toString();
@@ -4623,8 +4595,7 @@ void MainWindow::probePeer()
     connect(rep, &QNetworkReply::finished, this, [this, rep, ip, port]() {
         rep->deleteLater();
         if (rep->error() != QNetworkReply::NoError) {
-            QMessageBox::warning(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"连不上 %1:%2").arg(ip).arg(port));
+            appWarn(this, QString::fromUtf8(u8"连不上 %1:%2").arg(ip).arg(port));
             return;
         }
         const QJsonObject o = QJsonDocument::fromJson(rep->readAll()).object();
@@ -4937,8 +4908,7 @@ void MainWindow::editSettings()
         }
         if (!playCustomWav(p)) {
             playSystemBeep();
-            QMessageBox::information(&dlg, QString::fromUtf8(u8"局域快传"),
-                                     QString::fromUtf8(u8"无法播放该文件，已回落系统提示音。\n请选用有效的 wav。"));
+            appInfo(&dlg, QString::fromUtf8(u8"无法播放该文件，已回落系统提示音。\n请选用有效的 wav。"));
         }
     });
     connect(soundReset, &QPushButton::clicked, &dlg, [soundPath]() {
@@ -4967,8 +4937,7 @@ void MainWindow::editSettings()
         bool okPort = false;
         const int p = port->text().trimmed().toInt(&okPort);
         if (name->text().trimmed().isEmpty() || !okPort || p < 1 || p > 65535) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"名称或端口无效"));
+            appWarn(&dlg, QString::fromUtf8(u8"名称或端口无效"));
             return;
         }
         m_settings.deviceName = name->text().trimmed();
@@ -4983,13 +4952,11 @@ void MainWindow::editSettings()
         m_settings.soundFile = soundPath->text().trimmed();
         m_settings.preferredLocalIp = ipPick->currentData().toString().trimmed();
         if (!m_settings.save()) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"保存设置失败"));
+            appWarn(&dlg, QString::fromUtf8(u8"保存设置失败"));
             return;
         }
         if (!Autostart::setEnabled(m_settings.runAtStartup)) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"开机启动项写入失败，设置已保存；请检查系统权限后重试。"));
+            appWarn(&dlg, QString::fromUtf8(u8"开机启动项写入失败，设置已保存；请检查系统权限后重试。"));
         }
         if (m_traySoundAct) {
             const bool blocked = m_traySoundAct->blockSignals(true);

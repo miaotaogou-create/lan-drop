@@ -12,6 +12,7 @@ SOURCES += \
     src/files.cpp \
     src/fmtutil.cpp \
     src/uiicons.cpp \
+    src/uidialogs.cpp \
     src/chatrender.cpp \
     src/ziputil.cpp \
     src/qrcodegen.cpp \
@@ -27,6 +28,7 @@ HEADERS += \
     src/files.h \
     src/fmtutil.h \
     src/uiicons.h \
+    src/uidialogs.h \
     src/chatmsg.h \
     src/chatrender.h \
     src/ziputil.h \
