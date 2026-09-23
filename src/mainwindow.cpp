@@ -3515,8 +3515,7 @@ bool MainWindow::tryPasteClipboardFiles()
     if (!md || !md->hasUrls())
         return false;
     bool hadDir = false;
-    bool hadNested = false;
-    const QStringList paths = localSendPathsFromUrls(md->urls(), &hadDir, &hadNested);
+    const QStringList paths = localSendPathsFromUrls(md->urls(), &hadDir, 0);
     if (paths.isEmpty())
         return false;
     enqueueDroppedPaths(paths, hadDir);
