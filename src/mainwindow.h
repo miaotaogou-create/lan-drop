@@ -107,6 +107,8 @@ private:
     void setChatDropHint(bool on);
     void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
     bool tryPasteClipboardFiles();
+    bool tryPasteClipboardImage();
+    void revealInFolder(const QString &path);
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
     void selectPeerByKey(const QString &key);

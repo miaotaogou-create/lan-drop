@@ -1562,6 +1562,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         if (pasteMod && ke->key() == Qt::Key_V) {
             if (tryPasteClipboardFiles())
                 return true;
+            if (tryPasteClipboardImage())
+                return true;
         }
         if (watched == m_input
             && (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
@@ -2873,6 +2875,12 @@ void MainWindow::showChat()
     refreshFilesView();
     updatePeerSession();
     updateInputPlaceholder();
+    if (m_input) {
+        QTimer::singleShot(0, this, [this]() {
+            if (m_input && currentPeer(0, 0, 0))
+                m_input->setFocus(Qt::OtherFocusReason);
+        });
+    }
     QTimer::singleShot(0, this, SLOT(measurePing()));
 }
 
@@ -3155,7 +3163,7 @@ void MainWindow::onChatAnchor(const QUrl &url)
         if (url.host() == QLatin1String("open"))
             QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absoluteFilePath()));
         else
-            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+            revealInFolder(fi.absoluteFilePath());
     }
 }
 
@@ -3670,6 +3678,45 @@ bool MainWindow::tryPasteClipboardFiles()
         return false;
     enqueueDroppedPaths(paths, hadDir);
     return true;
+}
+
+bool MainWindow::tryPasteClipboardImage()
+{
+    const QMimeData *md = QApplication::clipboard()->mimeData();
+    if (!md || !md->hasImage())
+        return false;
+    const QImage img = qvariant_cast<QImage>(md->imageData());
+    if (img.isNull())
+        return false;
+    if (!currentPeer(0, 0, 0)) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
+        return true;
+    }
+    const QString dir = QDir::temp().filePath(QStringLiteral("landrop-paste"));
+    if (!QDir().mkpath(dir))
+        return false;
+    const QString path = QDir(dir).filePath(
+        QStringLiteral("screenshot-%1.png")
+            .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss-zzz"))));
+    if (!img.save(path, "PNG"))
+        return false;
+    enqueueDroppedPaths(QStringList() << path, false);
+    return true;
+}
+
+void MainWindow::revealInFolder(const QString &path)
+{
+    const QFileInfo fi(path);
+    if (!fi.exists())
+        return;
+#ifdef Q_OS_WIN
+    const QString native = QDir::toNativeSeparators(fi.absoluteFilePath());
+    if (QProcess::startDetached(QStringLiteral("explorer.exe"),
+                                QStringList() << (QStringLiteral("/select,") + native)))
+        return;
+#endif
+    QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
 }
 
 void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)

@@ -229,6 +229,27 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-71 粘贴剪贴板图片发送
+- 对应验收：I1–I4（`docs/requirements/20260922-paste-clipboard-image.md`）
+- 步骤：选对端后 Win+Shift+S 截图再 Ctrl+V；再复制一个文件 Ctrl+V；再复制文字 Ctrl+V；未选对端时粘贴截图
+- 期望：截图发成 PNG；文件粘贴仍发文件；文字进输入框；未选对端有提示
+- 类型：手测
+- 结果：待手测
+
+### TC-72 打开所在目录并选中
+- 对应验收：S1–S3（`docs/requirements/20260922-reveal-select.md`）
+- 步骤：收或发一个文件后点「打开所在目录」；再点「打开文件」；删文件后再点所在目录
+- 期望：资源管理器高亮该文件；打开文件仍用默认程序；已删路径无崩溃
+- 类型：手测
+- 结果：待手测
+
+### TC-73 选中对端聚焦输入框
+- 对应验收：F1–F2（`docs/requirements/20260922-focus-input-on-peer.md`）
+- 步骤：点列表某对端直接打字；再切到另一对端继续打字
+- 期望：无需再点输入框即可输入
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -548,4 +569,7 @@
 - 取消当前发送：见 `20260922-cancel-upload.md`（本轮已落地）
 - 进度显示排队剩余：见 `20260922-upload-queue-remain.md`（本轮已落地）
 - 发送文件多选：见 `20260922-send-file-multiselect.md`（本轮已落地）
+- 粘贴剪贴板图片发送：见 `20260922-paste-clipboard-image.md`（本轮已落地）
+- 打开所在目录并选中：见 `20260922-reveal-select.md`（本轮已落地）
+- 选中对端聚焦输入框：见 `20260922-focus-input-on-peer.md`（本轮已落地）
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端
