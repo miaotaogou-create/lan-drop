@@ -74,6 +74,9 @@ static void paintSoftShadow(QPainter &p, const QRectF &box, qreal radius)
     }
 }
 
+static QString actionChipHtml(const QString &href, const QString &label, const QString &title,
+                              bool primary);
+
 static QString letterAvatarHtml(const QString &name, const QString &bg)
 {
     const QString ch = avatarInitial(name);
@@ -221,22 +224,65 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
                Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
                code);
     const QString img = pixmapToImgHtml(pm);
-    return QString::fromUtf8(
-               u8"%1<br/><a href=\"%2\" title=\"%3\" style=\"text-decoration:none;\">"
-               u8"<font color=\"#93c5fd\" size=\"3\">复制</font></a>")
-        .arg(img, href, QString::fromUtf8(u8"点击复制"));
+    return QStringLiteral("%1<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>%2</tr></table>")
+        .arg(img, actionChipHtml(href, QString::fromUtf8(u8"复制"),
+                                 QString::fromUtf8(u8"点击复制"), true));
 }
 
-static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
+static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QColor &fg,
+                                const QColor &border)
+{
+    QFont font = qApp->font();
+    font.setPixelSize(11);
+    font.setBold(true);
+    QFontMetrics fm(font);
+    const int padX = 7;
+    const int padY = 2;
+    const int innerH = qMax(18, fm.height() + padY * 2);
+    const int innerW = fm.horizontalAdvance(text) + padX * 2;
+    const qreal radius = 6.0;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(innerW * dpr, innerH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(0.5, 0.5, innerW - 1.0, innerH - 1.0);
+    p.setPen(QPen(border, 1.0));
+    p.setBrush(bg);
+    p.drawRoundedRect(box, radius, radius);
+    p.setFont(font);
+    p.setPen(fg);
+    p.drawText(QRect(0, 0, innerW, innerH), Qt::AlignCenter, text);
+    return pixmapToImgHtml(pm);
+}
+
+static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed,
+                        bool showSendState = false)
 {
     QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
-    if (failed)
-        return mid + QString::fromUtf8(u8" <font color=\"#dc2626\" size=\"3\">发送失败</font>");
-    if (rttMs >= 0) {
+    QString badge;
+    if (failed) {
+        badge = metaBadgeImgHtml(QString::fromUtf8(u8"发送失败"),
+                                 QColor(QStringLiteral("#fef2f2")),
+                                 QColor(QStringLiteral("#dc2626")),
+                                 QColor(QStringLiteral("#fecaca")));
+    } else if (showSendState && rttMs < 0) {
+        badge = metaBadgeImgHtml(QString::fromUtf8(u8"发送中…"),
+                                 QColor(QStringLiteral("#f1f5f9")),
+                                 QColor(QStringLiteral("#64748b")),
+                                 QColor(QStringLiteral("#e2e8f0")));
+    } else if (rttMs >= 0) {
         const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
-        mid += QString::fromUtf8(u8" <font color=\"#16a34a\" size=\"3\">✓✓ 已送达 - %1ms</font>").arg(ms);
+        badge = metaBadgeImgHtml(QString::fromUtf8(u8"已送达 · %1ms").arg(ms),
+                                 QColor(QStringLiteral("#ecfdf5")),
+                                 QColor(QStringLiteral("#16a34a")),
+                                 QColor(QStringLiteral("#86efac")));
     }
-    return QStringLiteral("<font color=\"#64748b\" size=\"3\">%1</font>").arg(mid);
+    if (!badge.isEmpty())
+        mid += QStringLiteral(" ") + badge;
+    return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
 }
 
 // 参考图：头像与名字顶对齐；气泡在名字下方、相对头像斜对角偏下（勿把头像贴气泡底边）。
@@ -273,7 +319,7 @@ static QString renderTextBubble(const ChatMsg &m)
     const bool out = (m.type == ChatMsg::OutText);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
-    const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false);
+    const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false, out);
     if (splitCodeFence(m.text, &lang, &code))
         return renderMsgRow(out, head, renderCodeBlock(lang, code), avatar);
     QString img = textBubbleImgHtml(m.text, out);
@@ -281,16 +327,16 @@ static QString renderTextBubble(const ChatMsg &m)
     if (!m.text.isEmpty()) {
         const QString href = QStringLiteral("landrop://copy/")
             + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-        // 点气泡本体即可复制；下方仍保留「复制」链
+        // 点气泡本体即可复制；下方保留同族「复制」胶囊
         body = QStringLiteral(
                    "<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
                    .arg(href,
                         QString::fromUtf8(u8"点击复制"),
                         img);
-        body += QString::fromUtf8(
-                    u8"<br/><a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#2563eb\" size=\"3\">复制</font></a>")
-                    .arg(href, QString::fromUtf8(u8"点击复制"));
+        body += QStringLiteral("<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>")
+            + actionChipHtml(href, QString::fromUtf8(u8"复制"),
+                             QString::fromUtf8(u8"点击复制"), false)
+            + QStringLiteral("</tr></table>");
     }
     return renderMsgRow(out, head, body, avatar);
 }

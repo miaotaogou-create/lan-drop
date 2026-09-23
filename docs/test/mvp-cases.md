@@ -803,6 +803,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-153 复制 chip、送达 meta 与蓝钮对齐
+- 对应验收：C1–C4（`docs/requirements/20260922-copy-chip-send-meta.md`）
+- 步骤：对比顶栏共享与侧栏加 IP 高度；发文字看「发送中…」再看「已送达」；看气泡/代码块「复制」
+- 期望：两蓝钮约 32px；复制为圆角胶囊；发出有发送中徽标，送达有绿色徽标
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
