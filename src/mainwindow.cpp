@@ -630,7 +630,16 @@ static QString renderTextBubble(const ChatMsg &m)
     const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false);
     if (splitCodeFence(m.text, &lang, &code))
         return renderMsgRow(out, head, renderCodeBlock(lang, code), avatar);
-    return renderMsgRow(out, head, textBubbleImgHtml(m.text, out), avatar);
+    QString body = textBubbleImgHtml(m.text, out);
+    if (!m.text.isEmpty()) {
+        const QString href = QStringLiteral("landrop://copy/")
+            + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+        body += QString::fromUtf8(
+                    u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
+                    u8"<font color=\"#64748b\" size=\"1\">复制</font></a>")
+                    .arg(href);
+    }
+    return renderMsgRow(out, head, body, avatar);
 }
 
 static QString renderFileCard(const ChatMsg &m)
@@ -746,6 +755,22 @@ static QString renderSystem(const ChatMsg &m)
                     u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
                     u8"<font color=\"#2563eb\" size=\"2\">重试</font></a>")
                     .arg(href);
+        if (!m.morePaths.isEmpty()) {
+            QStringList all;
+            all << m.path;
+            for (int i = 0; i < m.morePaths.size(); ++i) {
+                if (!m.morePaths.at(i).isEmpty() && !all.contains(m.morePaths.at(i)))
+                    all.append(m.morePaths.at(i));
+            }
+            const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
+            const QString batchHref = QStringLiteral("landrop://retrybatch/")
+                + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
+            body += QString::fromUtf8(
+                        u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+                        u8"<font color=\"#2563eb\" size=\"2\">重发剩余 %2</font></a>")
+                        .arg(batchHref)
+                        .arg(all.size());
+        }
     }
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
@@ -2400,6 +2425,12 @@ bool MainWindow::saveChatHistoryToFile(const QString &path, const QHash<QString,
             o.insert(QStringLiteral("face"), m.face);
             o.insert(QStringLiteral("text"), m.text);
             o.insert(QStringLiteral("path"), m.path);
+            if (!m.morePaths.isEmpty()) {
+                QJsonArray more;
+                for (int j = 0; j < m.morePaths.size(); ++j)
+                    more.append(m.morePaths.at(j));
+                o.insert(QStringLiteral("morePaths"), more);
+            }
             o.insert(QStringLiteral("size"), m.size);
             o.insert(QStringLiteral("rttMs"), m.rttMs);
             o.insert(QStringLiteral("sha256"), m.sha256);
@@ -2439,6 +2470,14 @@ QHash<QString, QVector<ChatMsg> > MainWindow::loadChatHistoryFromFile(const QStr
             m.face = o.value(QStringLiteral("face")).toString();
             m.text = o.value(QStringLiteral("text")).toString();
             m.path = o.value(QStringLiteral("path")).toString();
+            if (o.contains(QStringLiteral("morePaths")) && o.value(QStringLiteral("morePaths")).isArray()) {
+                const QJsonArray more = o.value(QStringLiteral("morePaths")).toArray();
+                for (int j = 0; j < more.size(); ++j) {
+                    const QString p = more.at(j).toString();
+                    if (!p.isEmpty())
+                        m.morePaths.append(p);
+                }
+            }
             m.size = static_cast<qint64>(o.value(QStringLiteral("size")).toDouble());
             m.rttMs = static_cast<qint64>(o.value(QStringLiteral("rttMs")).toDouble(-1));
             m.sha256 = o.value(QStringLiteral("sha256")).toString();
@@ -2940,6 +2979,8 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
     QString text = pct < 0
         ? QString::fromUtf8(u8"正在发送 %1").arg(filename)
         : QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct);
+    if (m_uploadSpeedBps >= 1024)
+        text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_uploadSpeedBps)));
     if (!m_uploadQueue.isEmpty())
         text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
     setProgress(text);
@@ -3010,7 +3051,8 @@ void MainWindow::maybeWarnOfflinePeer()
     appendMsg(key, m);
 }
 
-void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath)
+void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath,
+                          const QStringList &morePaths)
 {
     const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     QString why = QString::fromUtf8(rep->readAll()).trimmed();
@@ -3022,6 +3064,7 @@ void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString 
     m.type = ChatMsg::Fail;
     m.text = QString::fromUtf8(u8"发送失败：%1").arg(why);
     m.path = retryPath;
+    m.morePaths = morePaths;
     m.time = nowClock();
     appendMsg(key, m);
     setProgress(QString());
@@ -3215,6 +3258,30 @@ void MainWindow::onChatAnchor(const QUrl &url)
             return;
         }
         startUpload(path, false);
+        return;
+    }
+    if (url.host() == QLatin1String("retrybatch")) {
+        const QString joined = QString::fromUtf8(raw);
+        QStringList paths = joined.split(QLatin1Char('\n'), QString::SkipEmptyParts);
+        QStringList exist;
+        for (int i = 0; i < paths.size(); ++i) {
+            const QString p = paths.at(i).trimmed();
+            if (p.isEmpty() || exist.contains(p))
+                continue;
+            if (QFileInfo::exists(p))
+                exist.append(p);
+        }
+        if (exist.isEmpty()) {
+            ChatMsg m;
+            m.type = ChatMsg::Fail;
+            m.text = QString::fromUtf8(u8"发送失败：文件不存在或已移动");
+            m.time = nowClock();
+            appendMsg(currentKey(), m);
+            return;
+        }
+        if (!m_uploading)
+            m_uploadQueue.clear();
+        enqueueMoreUploads(exist, false);
         return;
     }
     if (url.host() == QLatin1String("open") || url.host() == QLatin1String("reveal")) {
@@ -3492,11 +3559,30 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     m_uploadCurrentName = filename;
     m_uploadLastPct = -1;
     m_uploadLastUiMs = 0;
+    m_uploadBytesMark = 0;
+    m_uploadMsMark = 0;
+    m_uploadSpeedBps = 0;
     setUploadProgressText(filename);
     connect(rep, &QNetworkReply::uploadProgress, this, [this, key, msgIndex, filename](qint64 sent, qint64 total) {
         if (total <= 0)
             return;
         const int pct = int(sent * 100 / total);
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (m_uploadMsMark > 0 && now > m_uploadMsMark) {
+            const qint64 dt = now - m_uploadMsMark;
+            const qint64 db = sent - m_uploadBytesMark;
+            if (dt >= 300 && db >= 0) {
+                const double inst = double(db) * 1000.0 / double(dt);
+                m_uploadSpeedBps = (m_uploadSpeedBps > 0)
+                    ? (m_uploadSpeedBps * 0.7 + inst * 0.3)
+                    : inst;
+                m_uploadBytesMark = sent;
+                m_uploadMsMark = now;
+            }
+        } else {
+            m_uploadBytesMark = sent;
+            m_uploadMsMark = now;
+        }
         setUploadProgressText(filename, pct);
         updateUploadProgress(key, msgIndex, pct);
     });
@@ -3507,6 +3593,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             m_activeUploadReply.clear();
         const qint64 ms = clock->elapsed();
         delete clock;
+        m_uploadSpeedBps = 0;
         if (m_uploadCanceling) {
             m_uploadCanceling = false;
             dropUploadMsg(key, msgIndex);
@@ -3523,8 +3610,9 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             dropUploadMsg(key, msgIndex);
-            noteFail(key, rep, path);
+            const QStringList rest = m_uploadQueue;
             m_uploadQueue.clear();
+            noteFail(key, rep, path, rest);
             m_uploading = false;
             m_uploadCurrentName.clear();
             setProgress(QString());

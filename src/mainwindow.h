@@ -36,6 +36,7 @@ struct ChatMsg {
     QString face; // 头像取首字；空则用 who（发出侧 who=「我」时填本机设备名）
     QString text;
     QString path;
+    QStringList morePaths; // Fail：失败文件之外仍待重发的排队
     qint64 size = 0;
     qint64 rttMs = -1;
     QString sha256;
@@ -131,7 +132,8 @@ private:
     void noteBusyUpload(const QString &hint = QString());
     void maybeWarnOfflinePeer();
     bool currentPeerOnline() const;
-    void noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath = QString());
+    void noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath = QString(),
+                  const QStringList &morePaths = QStringList());
     void refreshShareBtn();
     void updateInputPlaceholder();
     void shakeWindow();
@@ -215,6 +217,9 @@ private:
     QString m_uploadCurrentName;
     int m_uploadLastPct = -1;
     qint64 m_uploadLastUiMs = 0;
+    qint64 m_uploadBytesMark = 0;
+    qint64 m_uploadMsMark = 0;
+    double m_uploadSpeedBps = 0;
     bool m_pingBusy = false;
     QString m_pingKey;
     QString m_pingText;
