@@ -684,6 +684,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-136 Composer 工具行分段槽
+- 对应验收：C1–C2（`docs/requirements/20260922-composer-tool-bar.md`）
+- 步骤：选对端，看输入区上方三按钮；悬停发送文件
+- 期望：三按钮同处灰底槽；悬停白底浮起
+- 类型：手测
+- 结果：待手测
+
+### TC-137 聊天空会话白卡
+- 对应验收：E1–E2（`docs/requirements/20260922-empty-chat-card.md`）
+- 步骤：选对端且无聊天记录；发一条文字后再看
+- 期望：空时居中白卡引导；有消息后消失
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

@@ -764,9 +764,12 @@ void MainWindow::buildUi()
     progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
-    QHBoxLayout *toolLay = new QHBoxLayout;
-    toolLay->setContentsMargins(0, 0, 0, 0);
-    toolLay->setSpacing(4);
+    QFrame *toolBar = new QFrame;
+    toolBar->setObjectName(QStringLiteral("composerToolBar"));
+    toolBar->setAttribute(Qt::WA_StyledBackground, true);
+    QHBoxLayout *toolLay = new QHBoxLayout(toolBar);
+    toolLay->setContentsMargins(3, 3, 3, 3);
+    toolLay->setSpacing(2);
     QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
                                        QString::fromUtf8(u8"发送文件"), QStringLiteral("toolBtn"));
     QPushButton *folderBtn = toolLinkBtn(QStringLiteral(":/icons/folder-plus.svg"),
@@ -779,7 +782,6 @@ void MainWindow::buildUi()
     toolLay->addWidget(fileBtn);
     toolLay->addWidget(folderBtn);
     toolLay->addWidget(nudgeBtn);
-    toolLay->addStretch(1);
 
     m_inputShell = new QWidget;
     m_inputShell->setObjectName(QStringLiteral("inputShell"));
@@ -813,7 +815,12 @@ void MainWindow::buildUi()
     shellLay->addLayout(sendRow);
 
     compCol->addWidget(progressHost);
-    compCol->addLayout(toolLay);
+    QHBoxLayout *toolRow = new QHBoxLayout;
+    toolRow->setContentsMargins(0, 0, 0, 0);
+    toolRow->setSpacing(0);
+    toolRow->addWidget(toolBar, 0, Qt::AlignLeft);
+    toolRow->addStretch(1);
+    compCol->addLayout(toolRow);
     compCol->addWidget(m_inputShell);
 
     chatBodyLay->addWidget(m_chatHost, 1);
@@ -1012,9 +1019,10 @@ void MainWindow::applyStyle()
         "#clearQueueBtn { background: transparent; border: none; color: #b45309; font-size: 12px;"
         " padding: 2px 8px; border-radius: 6px; }"
         "#clearQueueBtn:hover { background: #fffbeb; color: #92400e; }"
-        "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
-        " padding: 4px 8px; border-radius: 6px; }"
-        "#toolBtn:hover { background: #f1f5f9; color: #0f172a; }"
+        "#composerToolBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #475569; font-size: 12px;"
+        " padding: 5px 10px; font-weight: 600; }"
+        "#toolBtn:hover { background: #ffffff; color: #0f172a; }"
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
