@@ -2,6 +2,7 @@
 
 #include "files.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -32,6 +33,9 @@ struct HttpServer::Conn {
     bool isFile = false;
     QString fileName;
     qint64 fileSize = 0;
+    qint64 fileExpect = 0;
+    int fileLastPct = -1;
+    qint64 fileLastUiMs = 0;
     QByteArray jsonBody;
     bool replied = false;
     QString peerIp;
@@ -159,11 +163,15 @@ void HttpServer::onGone()
         return;
     if (c->file) {
         const QString path = c->file->fileName();
+        const QString ip = c->peerIp;
+        const bool incomplete = !c->replied;
         c->file->close();
-        if (!c->replied)
+        if (incomplete)
             QFile::remove(path);
         delete c->file;
         c->file = 0;
+        if (incomplete)
+            emit fileReceiveFailed(ip, path);
     }
     c->sock->setProperty("conn", QVariant());
     c->sock->deleteLater();
@@ -301,6 +309,15 @@ bool HttpServer::tryShare(Conn *c)
 
 void HttpServer::fail(Conn *c, int code, const QString &msg)
 {
+    if (c && c->file) {
+        const QString path = c->file->fileName();
+        const QString ip = c->peerIp;
+        c->file->close();
+        QFile::remove(path);
+        delete c->file;
+        c->file = 0;
+        emit fileReceiveFailed(ip, path);
+    }
     QJsonObject o;
     o.insert(QStringLiteral("error"), msg);
     finish(c, code, QJsonDocument(o).toJson(QJsonDocument::Compact));
@@ -481,6 +498,12 @@ void HttpServer::takeBytes(Conn *c)
                     fail(c, 500, QString::fromUtf8(u8"保存文件失败"));
                     return;
                 }
+                c->fileSize = 0;
+                c->fileExpect = qMax(qint64(1), c->contentLength - c->seen);
+                c->fileLastPct = -1;
+                c->fileLastUiMs = 0;
+                emit fileReceiving(c->peerIp, QFileInfo(c->file->fileName()).fileName(),
+                                   c->file->fileName(), c->fileExpect);
             }
             continue;
         }
@@ -498,6 +521,16 @@ void HttpServer::takeBytes(Conn *c)
                         return;
                     }
                     c->fileSize += chunk.size();
+                    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+                    int pct = int(c->fileSize * 100 / c->fileExpect);
+                    if (pct > 99)
+                        pct = 99;
+                    if (pct != c->fileLastPct
+                        && (pct - c->fileLastPct >= 2 || now - c->fileLastUiMs >= 300 || pct == 0)) {
+                        c->fileLastPct = pct;
+                        c->fileLastUiMs = now;
+                        emit fileProgress(c->peerIp, c->file->fileName(), c->fileSize, c->fileExpect);
+                    }
                 }
             }
             if (c->seen + c->buf.size() >= c->contentLength)

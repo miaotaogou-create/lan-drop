@@ -632,7 +632,7 @@ static QString renderTextBubble(const ChatMsg &m)
 static QString renderFileCard(const ChatMsg &m)
 {
     const bool out = (m.type == ChatMsg::OutFile);
-    const bool pending = out && m.progressPct >= 0;
+    const bool pending = (m.type == ChatMsg::OutFile || m.type == ChatMsg::InFile) && m.progressPct >= 0;
     const QString size = humanBytesChat(m.size);
     QString sha = m.sha256;
     if (!pending && sha.isEmpty() && !m.path.isEmpty())
@@ -692,7 +692,8 @@ static QString renderFileCard(const ChatMsg &m)
                  .arg(rest);
     }
     const QString status = pending
-        ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"2\">发送中 %1%</font>").arg(pct)
+        ? (out ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"2\">发送中 %1%</font>").arg(pct)
+               : QString::fromUtf8(u8"<font color=\"#ea580c\" size=\"2\">接收中 %1%</font>").arg(pct))
         : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>");
     const QString shaLine = (!pending && !sha.isEmpty())
         ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>").arg(htmlEsc(sha))
@@ -908,8 +909,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_disc, SIGNAL(changed()), this, SLOT(refreshPeers()));
     connect(m_http, SIGNAL(textArrived(QString,QString,QString,int,QString)),
             this, SLOT(onText(QString,QString,QString,int,QString)));
+    connect(m_http, SIGNAL(fileReceiving(QString,QString,QString,qint64)),
+            this, SLOT(onFileReceiving(QString,QString,QString,qint64)));
+    connect(m_http, SIGNAL(fileProgress(QString,QString,qint64,qint64)),
+            this, SLOT(onFileProgress(QString,QString,qint64,qint64)));
     connect(m_http, SIGNAL(fileArrived(QString,QString,QString,qint64)),
             this, SLOT(onFile(QString,QString,QString,qint64)));
+    connect(m_http, SIGNAL(fileReceiveFailed(QString,QString)),
+            this, SLOT(onFileReceiveFailed(QString,QString)));
 
     buildUi();
     applyStyle();
@@ -2313,8 +2320,8 @@ bool MainWindow::saveChatHistoryToFile(const QString &path, const QHash<QString,
         const QVector<ChatMsg> &msgs = it.value();
         for (int i = 0; i < msgs.size(); ++i) {
             const ChatMsg &m = msgs.at(i);
-            if (m.type == ChatMsg::OutFile && m.progressPct >= 0)
-                continue; // 不落盘进行中发送
+            if (m.progressPct >= 0)
+                continue; // 不落盘进行中的收/发文件卡
             QJsonObject o;
             o.insert(QStringLiteral("type"), m.type);
             o.insert(QStringLiteral("who"), m.who);
@@ -2445,9 +2452,10 @@ void MainWindow::clearSelectedPeerChat()
     const QString key = ip + QLatin1Char(':') + QString::number(port);
     const QVector<ChatMsg> lines = m_log.value(key);
     for (int i = 0; i < lines.size(); ++i) {
-        if (lines.at(i).type == ChatMsg::OutFile && lines.at(i).progressPct >= 0) {
+        if ((lines.at(i).type == ChatMsg::OutFile || lines.at(i).type == ChatMsg::InFile)
+            && lines.at(i).progressPct >= 0) {
             QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                     QString::fromUtf8(u8"正在向该对端发送文件，请等传完后再清空。"));
+                                     QString::fromUtf8(u8"该对端正在收发文件，请等传完后再清空。"));
             return;
         }
     }
@@ -2975,26 +2983,126 @@ void MainWindow::onText(const QString &ip, const QString &fromId, const QString 
     maybeTrayNotify(QString::fromUtf8(u8"新消息 · %1").arg(who), preview, key);
 }
 
-void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
+void MainWindow::onFileReceiving(const QString &ip, const QString &name, const QString &path,
+                                 qint64 expectBytes)
 {
+    const QString key = peerSessionKey(ip);
     Peer known;
-    int port = 8848;
-    if (m_disc->find(ip, 8848, &known))
-        port = known.port;
+    m_disc->find(ip, 8848, &known);
     ChatMsg m;
     m.type = ChatMsg::InFile;
     m.who = known.name.trimmed().isEmpty() ? ip : known.name.trimmed();
     m.text = name;
     m.path = path;
-    m.size = size;
-    m.sha256 = fileSha256Short(path);
+    m.size = qMax(qint64(0), expectBytes);
+    m.progressPct = 0;
     m.time = nowClock();
-    const QString key = ip + QLatin1Char(':') + QString::number(port);
     appendMsg(key, m);
+}
+
+void MainWindow::onFileProgress(const QString &ip, const QString &path, qint64 received,
+                                qint64 expectBytes)
+{
+    const QString key = peerSessionKey(ip);
+    const int idx = findPendingInFile(key, path);
+    if (idx < 0)
+        return;
+    QVector<ChatMsg> lines = m_log.value(key);
+    ChatMsg &m = lines[idx];
+    int pct = 0;
+    if (expectBytes > 0)
+        pct = int(received * 100 / expectBytes);
+    pct = qBound(0, 99, pct);
+    if (m.progressPct == pct)
+        return;
+    m.progressPct = pct;
+    if (expectBytes > 0)
+        m.size = expectBytes;
+    m_log.insert(key, lines);
+    if (key == currentKey()) {
+        refreshChatHtml();
+        refreshFilesView();
+    }
+}
+
+void MainWindow::onFile(const QString &ip, const QString &name, const QString &path, qint64 size)
+{
+    const QString key = peerSessionKey(ip);
+    Peer known;
+    m_disc->find(ip, 8848, &known);
+    const QString who = known.name.trimmed().isEmpty() ? ip : known.name.trimmed();
+    QVector<ChatMsg> lines = m_log.value(key);
+    int idx = findPendingInFile(key, path);
+    if (idx < 0) {
+        // 无进行中卡时兜底插入（极短文件可能跳过进度信号）
+        ChatMsg m;
+        m.type = ChatMsg::InFile;
+        m.who = who;
+        m.text = name;
+        m.path = path;
+        m.size = size;
+        m.sha256 = fileSha256Short(path);
+        m.progressPct = -1;
+        m.time = nowClock();
+        appendMsg(key, m);
+    } else {
+        ChatMsg &m = lines[idx];
+        m.who = who;
+        m.text = name;
+        m.path = path;
+        m.size = size;
+        m.sha256 = fileSha256Short(path);
+        m.progressPct = -1;
+        m.time = nowClock();
+        m_log.insert(key, lines);
+        if (key == currentKey()) {
+            markChatNewBelowIfAway();
+            refreshChatHtml();
+            refreshFilesView();
+        }
+        scheduleSaveChatHistory();
+    }
     playNotifySound();
-    maybeTrayNotify(QString::fromUtf8(u8"收到文件 · %1").arg(m.who),
+    maybeTrayNotify(QString::fromUtf8(u8"收到文件 · %1").arg(who),
                     QString::fromUtf8(u8"%1（%2）").arg(name).arg(humanBytesChat(size)),
                     key);
+}
+
+void MainWindow::onFileReceiveFailed(const QString &ip, const QString &path)
+{
+    const QString key = peerSessionKey(ip);
+    const int idx = findPendingInFile(key, path);
+    if (idx < 0)
+        return;
+    QVector<ChatMsg> lines = m_log.value(key);
+    lines.removeAt(idx);
+    m_log.insert(key, lines);
+    if (key == currentKey()) {
+        refreshChatHtml();
+        refreshFilesView();
+    }
+    scheduleSaveChatHistory();
+}
+
+QString MainWindow::peerSessionKey(const QString &ip) const
+{
+    Peer known;
+    int port = 8848;
+    if (m_disc && m_disc->find(ip, 8848, &known))
+        port = known.port;
+    return ip + QLatin1Char(':') + QString::number(port);
+}
+
+int MainWindow::findPendingInFile(const QString &key, const QString &path) const
+{
+    const QVector<ChatMsg> lines = m_log.value(key);
+    for (int i = lines.size() - 1; i >= 0; --i) {
+        if (lines.at(i).type != ChatMsg::InFile || lines.at(i).progressPct < 0)
+            continue;
+        if (path.isEmpty() || lines.at(i).path == path)
+            return i;
+    }
+    return -1;
 }
 
 void MainWindow::sendText()

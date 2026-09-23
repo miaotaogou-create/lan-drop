@@ -39,7 +39,7 @@ struct ChatMsg {
     qint64 rttMs = -1;
     QString sha256;
     QString time;
-    int progressPct = -1; // -1=完成/非传输；0..100=发送中
+    int progressPct = -1; // -1=完成/非传输；0..100=收发进行中
 };
 
 class MainWindow : public QMainWindow
@@ -69,7 +69,10 @@ private slots:
     void editSettings();
     void filterPeers(const QString &text);
     void onText(const QString &ip, const QString &fromId, const QString &fromName, int fromPort, const QString &text);
+    void onFileReceiving(const QString &ip, const QString &name, const QString &path, qint64 expectBytes);
+    void onFileProgress(const QString &ip, const QString &path, qint64 received, qint64 expectBytes);
     void onFile(const QString &ip, const QString &name, const QString &path, qint64 size);
+    void onFileReceiveFailed(const QString &ip, const QString &path);
     void minimizeWin();
     void toggleMax();
     void closeWin();
@@ -135,6 +138,8 @@ private:
     void updateUploadProgress(const QString &key, int msgIndex, int pct);
     void finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs, const QString &sha);
     void dropUploadMsg(const QString &key, int msgIndex);
+    QString peerSessionKey(const QString &ip) const;
+    int findPendingInFile(const QString &key, const QString &path) const;
     QString currentKey() const;
     bool currentPeer(QString *ip, int *port, QString *name) const;
     QString localIpText() const;

@@ -22,7 +22,10 @@ public:
 
 signals:
     void textArrived(const QString &ip, const QString &fromId, const QString &fromName, int fromPort, const QString &text);
+    void fileReceiving(const QString &ip, const QString &name, const QString &path, qint64 expectBytes);
+    void fileProgress(const QString &ip, const QString &path, qint64 received, qint64 expectBytes);
     void fileArrived(const QString &ip, const QString &name, const QString &path, qint64 size);
+    void fileReceiveFailed(const QString &ip, const QString &path);
 
 private slots:
     void onNew();

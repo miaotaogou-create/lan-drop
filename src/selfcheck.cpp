@@ -205,8 +205,16 @@ int runSelfCheck()
         c.size = 7;
         c.sha256 = QStringLiteral("abc");
         c.time = QStringLiteral("10:02:00");
+        ChatMsg d;
+        d.type = ChatMsg::InFile;
+        d.who = QStringLiteral("peer");
+        d.text = QStringLiteral("c.bin");
+        d.path = QStringLiteral("C:/dl/c.bin");
+        d.size = 99;
+        d.progressPct = 30; // 接收中也应跳过
+        d.time = QStringLiteral("10:03:00");
         QVector<ChatMsg> msgs;
-        msgs << a << b << c;
+        msgs << a << b << c << d;
         log.insert(QStringLiteral("10.0.0.9:8848"), msgs);
         if (!MainWindow::saveChatHistoryToFile(path, log))
             return fail("chat save");
