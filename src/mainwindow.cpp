@@ -748,6 +748,8 @@ void MainWindow::buildUi()
     m_sendBtn->setIconSize(QSize(18, 18));
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"取消当前发送并清空排队"));
+    connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
+    syncSendBtn();
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 0, 0);
     sendRow->addStretch(1);
@@ -889,7 +891,7 @@ void MainWindow::applyStyle()
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
         "#right { background: #f1f5f9; }"
-        "#emptyHint { color: #94a3b8; font-size: 14px; padding: 40px; background: #f1f5f9; }"
+        "#emptyHint { color: #64748b; font-size: 14px; padding: 48px 56px; background: #f1f5f9; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
         "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
@@ -934,6 +936,7 @@ void MainWindow::applyStyle()
         "#sendFab { background: #93c5fd; border: none; border-radius: 8px; padding: 0; }"
         "#sendFab:hover { background: #60a5fa; }"
         "#sendFab:pressed { background: #3b82f6; }"
+        "#sendFab:disabled { background: #e2e8f0; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
@@ -2264,16 +2267,22 @@ void MainWindow::updateEmpty()
     if (m_emptyHint) {
         if (!q.isEmpty() && visible == 0) {
             m_emptyHint->setText(
-                QString::fromUtf8(u8"没有匹配「%1」的设备。\n可清除搜索，或按名称 / IP / 标签再试。")
+                QString::fromUtf8(u8"没有匹配「%1」的设备。\n"
+                                  u8"可按 Esc 清除搜索，或改用名称 / IP / 标签再试。")
                     .arg(q));
         } else {
             m_emptyHint->setText(
-                QString::fromUtf8(u8"还没有对端。同一网段等待发现，或点左侧「加 IP」。"));
+                QString::fromUtf8(
+                    u8"还没有可聊的设备\n\n"
+                    u8"1. 同一网段等待自动发现\n"
+                    u8"2. 或点左侧「+ 加 IP」手动添加\n"
+                    u8"3. 选中后即可发消息或拖文件"));
         }
     }
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);
     updateInputPlaceholder();
+    syncSendBtn();
     if (hasPeer)
         updatePeerSession();
 }
@@ -2450,6 +2459,7 @@ void MainWindow::showChat()
         m_jumpBottomBtn->hide();
     m_pages->setCurrentIndex(1);
     m_composer->setEnabled(true);
+    syncSendBtn();
     refreshChatHtml(true);
     refreshFilesView();
     updatePeerSession();
@@ -2540,17 +2550,32 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
 
 void MainWindow::setRecvProgressText(const QString &filename, int pct)
 {
+    Q_UNUSED(pct);
     if (m_uploading)
         return;
-    QString text = pct < 0
-        ? QString::fromUtf8(u8"正在接收 %1").arg(filename)
-        : QString::fromUtf8(u8"正在接收 %1  %2%").arg(filename).arg(pct);
+    // 百分比以气泡为准；顶栏只补速率 / ETA
+    QString text = QString::fromUtf8(u8"接收中");
     if (m_recvSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_recvSpeedBps)));
     const QString eta = formatEta(m_recvRemainBytes, m_recvSpeedBps);
     if (!eta.isEmpty())
         text += QStringLiteral(" · ") + eta;
     setProgress(text);
+    if (m_progress)
+        m_progress->setToolTip(filename.isEmpty()
+                                   ? QString()
+                                   : QString::fromUtf8(u8"当前：%1").arg(filename));
+    if (m_fileLive)
+        m_fileLive->setToolTip(m_progress ? m_progress->toolTip() : QString());
+}
+
+void MainWindow::syncSendBtn()
+{
+    if (!m_sendBtn)
+        return;
+    const bool hasPeer = currentPeer(0, 0, 0);
+    const bool hasText = m_input && !m_input->toPlainText().trimmed().isEmpty();
+    m_sendBtn->setEnabled(hasPeer && hasText);
 }
 
 void MainWindow::syncCancelUploadBtn()

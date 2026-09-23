@@ -139,6 +139,7 @@ private:
                   const QStringList &morePaths = QStringList());
     void refreshShareBtn();
     void updateInputPlaceholder();
+    void syncSendBtn();
     void shakeWindow();
     void playNotifySound();
     void persistManualPeers();
