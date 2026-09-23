@@ -4142,8 +4142,11 @@ void MainWindow::editSettings()
     QVBoxLayout *thrCol = new QVBoxLayout;
     thrCol->setSpacing(4);
     QLineEdit *threads = fieldEdit(QString::number(m_settings.transferThreads));
+    threads->setEnabled(false);
+    threads->setToolTip(QString::fromUtf8(u8"当前为单文件顺序发送，此值暂不生效"));
     thrCol->addWidget(fieldLabel(QString::fromUtf8(u8"并发传输线程数")));
     thrCol->addWidget(threads);
+    thrCol->addWidget(fieldHint(QString::fromUtf8(u8"当前单文件顺序发送，此设置暂不生效")));
     rowPort->addLayout(portCol, 1);
     rowPort->addLayout(thrCol, 1);
 
@@ -4278,22 +4281,15 @@ void MainWindow::editSettings()
 
     connect(save, &QPushButton::clicked, &dlg, [&]() {
         bool okPort = false;
-        bool okThr = false;
         const int p = port->text().trimmed().toInt(&okPort);
-        const int thr = threads->text().trimmed().toInt(&okThr);
         if (name->text().trimmed().isEmpty() || !okPort || p < 1 || p > 65535) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
                                  QString::fromUtf8(u8"名称或端口无效"));
             return;
         }
-        if (!okThr || thr < 1 || thr > 32) {
-            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"并发线程数须在 1–32"));
-            return;
-        }
         m_settings.deviceName = name->text().trimmed();
         m_settings.port = p;
-        m_settings.transferThreads = thr;
+        // transferThreads：界面已禁用，保留原值（上传仍单队列）
         m_settings.downloadDir = dir->text().trimmed();
         m_settings.nudgeEnabled = nudgeBox->isChecked();
         m_settings.soundNotification = soundBox->isChecked();

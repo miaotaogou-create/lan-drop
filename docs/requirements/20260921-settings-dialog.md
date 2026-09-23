@@ -31,7 +31,7 @@
 |------|--------|------|
 | 本机设备名称 | `deviceName` | 保存后刷新发现身份 |
 | 本地 HTTP 监听端口 | `port` | 保存后 `boot()` 重监听 |
-| 并发传输线程数 | `transferThreads` | 入库，范围 1–32；本轮不改上传实现 |
+| 并发传输线程数 | `transferThreads` | 展示已存值；界面禁用并说明暂不生效（见 `20260922-threads-honest.md`） |
 | 下载目录 | `downloadDir` | 保存后应用到 HTTP 落盘 |
 | （界面不展示） | `discoverPort` | 保持文件中原值 |
 | Nudge | `nudgeEnabled` | 关则不发送/不响应抖动 |
@@ -69,4 +69,4 @@
 
 1. 软件工程师：按本文改对话框与 Settings。
 2. 测试工程师：按 S1–S6 手测。
-3. 后续：线程池、发现端口高级项。通知声已见 `20260922-sound-notification.md`。
+3. 后续：真并发上传线程池（大项）；线程数诚实化见 `20260922-threads-honest.md`。

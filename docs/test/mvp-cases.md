@@ -181,11 +181,18 @@
 - 结果：待目视确认
 
 ### TC-21 设置对话框布局
-- 对应验收：S1、S2、S3、S6、S8（`docs/requirements/20260921-settings-dialog.md`）；B1（`docs/requirements/20260922-settings-browse-dir.md`）
+- 对应验收：S1、S2、S3、S6、S8（`docs/requirements/20260921-settings-dialog.md`）；B1（`docs/requirements/20260922-settings-browse-dir.md`）；H1（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：点顶栏设置齿轮
-- 期望：标题「局域快传设置」、副标题、深色齿轮徽标；名称/端口|线程数/下载目录+「浏览…」及说明；两项右对齐开关；仅「保存并关闭」；四角无黑三角
+- 期望：标题「局域快传设置」、副标题、深色齿轮徽标；名称/端口|线程数（灰显+暂不生效说明）/下载目录+「浏览…」及说明；两项右对齐开关；仅「保存并关闭」；四角无黑三角
 - 类型：手测
 - 结果：待目视确认
+
+### TC-64 并发线程数诚实化
+- 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
+- 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
+- 期望：框禁用且有单队列说明；其它项可保存；上传仍单文件排队
+- 类型：手测
+- 结果：待手测
 
 ### TC-38 设置下载目录浏览
 - 对应验收：B1–B3（`docs/requirements/20260922-settings-browse-dir.md`）
@@ -469,10 +476,10 @@
 - 部门标签入库：见 `20260922-peer-tag.md`（本轮已落地）
 - 右键编辑手动节点别名/标签：见 `20260922-edit-manual-peer.md`（本轮已落地）
 - 自定义铃声：见 `20260922-custom-ringtone.md`（本轮已落地）
-- 并发线程数诚实化（灰显说明暂单队列）：待开需求
+- 并发线程数诚实化：见 `20260922-threads-honest.md`（本轮已落地）
 - 通知声（收件）：见 `20260922-sound-notification.md`
 - 发送完成通知声：见 `20260922-send-complete-sound.md`（本轮已落地）
-- 并发线程池：见 `20260921-settings-dialog.md` 仍非本轮
+- 真并发上传线程池：仍非本轮（大项）
 - 设置下载目录浏览按钮：见 `20260922-settings-browse-dir.md`（本轮已落地）
 - 系统托盘常驻：见 `20260922-system-tray.md`（本轮已落地）
 - 聊天区拖放发送：见 `20260922-chat-drop-send.md`（本轮已落地）
