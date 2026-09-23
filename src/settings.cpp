@@ -78,6 +78,7 @@ static QList<ManualPeerEntry> readManualPeers(const QJsonObject &o)
         e.port = clampPort(row.value(QStringLiteral("port")).toInt(), 8848);
         e.alias = row.value(QStringLiteral("alias")).toString().trimmed();
         e.os = row.value(QStringLiteral("os")).toString().trimmed();
+        e.tag = row.value(QStringLiteral("tag")).toString().trimmed();
         const QString key = e.ip + QLatin1Char(':') + QString::number(e.port);
         if (seen.contains(key))
             continue;
@@ -108,6 +109,8 @@ static QJsonArray writeManualPeers(const QList<ManualPeerEntry> &list)
             row.insert(QStringLiteral("alias"), e.alias.trimmed());
         if (!e.os.trimmed().isEmpty())
             row.insert(QStringLiteral("os"), e.os.trimmed());
+        if (!e.tag.trimmed().isEmpty())
+            row.insert(QStringLiteral("tag"), e.tag.trimmed());
         arr.append(row);
     }
     return arr;

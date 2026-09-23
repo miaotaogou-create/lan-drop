@@ -223,8 +223,10 @@ void Discovery::upsert(const Peer &in)
             old.hostname = in.hostname;
         if (!in.alias.isEmpty())
             old.alias = in.alias;
-        if (in.manual)
+        if (in.manual) {
             old.manual = true;
+            old.tag = in.tag.trimmed(); // 手动再添加可覆盖/清空标签
+        }
         if (in.lastSeen.isValid())
             old.lastSeen = in.lastSeen;
         emit changed();
@@ -237,7 +239,8 @@ void Discovery::upsert(const Peer &in)
     emit changed();
 }
 
-Peer Discovery::addManual(const QString &ip, int port, const QString &alias, const QString &osName)
+Peer Discovery::addManual(const QString &ip, int port, const QString &alias, const QString &osName,
+                          const QString &tag)
 {
     Peer p;
     p.ip = ip.trimmed();
@@ -245,6 +248,7 @@ Peer Discovery::addManual(const QString &ip, int port, const QString &alias, con
     p.alias = alias.trimmed();
     p.name = p.alias;
     p.osName = osName.trimmed();
+    p.tag = tag.trimmed();
     p.manual = true;
     p.id = p.key();
     upsert(p);

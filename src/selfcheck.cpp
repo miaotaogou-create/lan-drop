@@ -110,6 +110,7 @@ int runSelfCheck()
         a.port = 0; // 存盘夹到 8848
         a.alias = QString::fromUtf8(u8"跨网段");
         a.os = QStringLiteral("linux");
+        a.tag = QString::fromUtf8(u8"工控");
         ManualPeerEntry dup = a;
         dup.port = 8848; // 与夹紧后同键，应去重
         s.manualPeers << a << dup;
@@ -123,6 +124,8 @@ int runSelfCheck()
             return fail("manualPeers addr");
         if (e.alias != QString::fromUtf8(u8"跨网段") || e.os != QLatin1String("linux"))
             return fail("manualPeers meta");
+        if (e.tag != QString::fromUtf8(u8"工控"))
+            return fail("manualPeers tag");
         // 窗口几何往返
         {
             Settings g = Settings::defaults();
@@ -244,9 +247,12 @@ int runSelfCheck()
     {
         Discovery disc;
         const Peer p = disc.addManual(QStringLiteral("10.1.2.3"), 8848,
-                                      QString::fromUtf8(u8"别名"), QStringLiteral("linux"));
+                                      QString::fromUtf8(u8"别名"), QStringLiteral("linux"),
+                                      QString::fromUtf8(u8"财务"));
         if (!p.manual || p.ip != QLatin1String("10.1.2.3") || p.alias != QString::fromUtf8(u8"别名"))
             return fail("addManual");
+        if (p.tag != QString::fromUtf8(u8"财务"))
+            return fail("addManual tag");
         bool found = false;
         const QList<Peer> list = disc.peers();
         for (int i = 0; i < list.size(); ++i) {

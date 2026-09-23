@@ -2231,7 +2231,7 @@ void MainWindow::boot()
     const bool discOk = m_disc->start(m_settings.discoverPort);
     for (int i = 0; i < m_settings.manualPeers.size(); ++i) {
         const ManualPeerEntry &e = m_settings.manualPeers.at(i);
-        m_disc->addManual(e.ip, e.port, e.alias, e.os);
+        m_disc->addManual(e.ip, e.port, e.alias, e.os, e.tag);
     }
     updateHostPill();
     refreshShareBtn();
@@ -2416,6 +2416,7 @@ void MainWindow::persistManualPeers()
         e.port = p.port > 0 ? p.port : 8848;
         e.alias = p.alias.trimmed();
         e.os = p.osName.trimmed();
+        e.tag = p.tag.trimmed();
         list.append(e);
     }
     m_settings.manualPeers = list;
@@ -2549,7 +2550,9 @@ void MainWindow::filterPeers(const QString &text)
             it->setHidden(false);
             continue;
         }
-        const QString hay = (it->text() + QLatin1Char(' ') + it->data(Qt::UserRole).toString()).toLower();
+        const QString hay = (it->text() + QLatin1Char(' ') + it->data(Qt::UserRole).toString()
+                             + QLatin1Char(' ') + it->data(Qt::UserRole + 4).toString())
+                                .toLower();
         it->setHidden(!hay.contains(q));
     }
     updateEmpty();
@@ -2589,19 +2592,23 @@ void MainWindow::refreshPeers()
         const QString osTag = p.osName.trimmed().isEmpty()
             ? QString()
             : (QStringLiteral("  ·  ") + p.osName);
+        const QString dept = p.tag.trimmed().isEmpty()
+            ? QString()
+            : (QStringLiteral("  ·  ") + p.tag.trimmed());
         const int unread = m_unread.value(p.key(), 0);
         const QString unreadTag = (unread > 0)
             ? QString::fromUtf8(u8" · %1").arg(unread)
             : QString();
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1%2\n%3:%4  %5%6%7")
-                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, osTag));
+            QStringLiteral("%1%2\n%3:%4  %5%6%7%8")
+                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, osTag, dept));
         it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 44)));
         it->setSizeHint(QSize(0, 60));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
         it->setData(Qt::UserRole + 3, p.manual);
+        it->setData(Qt::UserRole + 4, p.tag);
         m_list->addItem(it);
         if (!want.isEmpty() && p.key() == want)
             row = m_list->count() - 1;
@@ -2676,12 +2683,15 @@ void MainWindow::updatePeerSession()
     const QString hostTag = !peer.hostname.trimmed().isEmpty()
         ? peer.hostname.trimmed()
         : (!label.isEmpty() ? label : ip);
+    const QString metaHead = peer.tag.trimmed().isEmpty()
+        ? hostTag
+        : (hostTag + QString::fromUtf8(u8"  ·  ") + peer.tag.trimmed());
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 44));
     m_peerName->setText(label);
     m_peerOnlineDot->setPixmap(makeStatusDot(found ? peer.online() : true, 8));
     m_peerAddr->setText(addr);
     m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping %2  ·  %3")
-                            .arg(hostTag)
+                            .arg(metaHead)
                             .arg(m_pingKey == addr && !m_pingText.isEmpty()
                                      ? m_pingText
                                      : QString::fromUtf8(u8"—"))
@@ -3707,7 +3717,7 @@ void MainWindow::addPeer()
     osCol->addWidget(osBox);
     QVBoxLayout *tagCol = new QVBoxLayout;
     tagCol->setSpacing(4);
-    QLineEdit *tag = fieldEdit(QString(), QString::fromUtf8(u8"可选，本轮不入库"));
+    QLineEdit *tag = fieldEdit(QString(), QString::fromUtf8(u8"可选，如：工控 / 财务"));
     tagCol->addWidget(fieldLabel(QString::fromUtf8(u8"部门 / 标签")));
     tagCol->addWidget(tag);
     rowOs->addLayout(osCol, 1);
@@ -3792,9 +3802,8 @@ void MainWindow::addPeer()
                                  QString::fromUtf8(u8"IP 或端口无效"));
             return;
         }
-        Q_UNUSED(tag);
         const QString osName = osBox->currentData().toString();
-        m_disc->addManual(host, p, alias->text(), osName);
+        m_disc->addManual(host, p, alias->text(), osName, tag->text());
         persistManualPeers();
         refreshPeers();
         for (int i = 0; i < m_list->count(); ++i) {

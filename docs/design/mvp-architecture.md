@@ -20,7 +20,7 @@
 
 - UDP 广播 JSON 心跳，默认端口 **8850**
 - 过滤明显虚拟网卡（名称含 VMware、VirtualBox、Hyper-V、vEthernet、WSL、Loopback 等）
-- 支持手动添加 IP:端口，并 `GET http://ip:port/api/info` 探测
+- 支持手动添加 IP:端口，并 `GET http://ip:port/api/info` 探测；手动节点可带部门/标签并写入 `settings.json`
 
 ## 线上协议
 

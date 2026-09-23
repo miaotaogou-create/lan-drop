@@ -10,6 +10,7 @@ struct ManualPeerEntry {
     int port = 8848;
     QString alias;
     QString os;
+    QString tag; // 部门 / 标签；空则不写盘
 };
 
 // deviceName、port、discoverPort、downloadDir 为既有字段；

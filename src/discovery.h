@@ -17,6 +17,7 @@ struct Peer {
     QString osName;
     QString hostname;
     QString alias;
+    QString tag; // 手动节点部门/标签
     bool manual = false;
     QDateTime lastSeen;
 
@@ -37,7 +38,7 @@ public:
 
     QList<Peer> peers() const;
     Peer addManual(const QString &ip, int port, const QString &alias,
-                   const QString &osName = QString());
+                   const QString &osName = QString(), const QString &tag = QString());
     bool removeManual(const QString &ip, int port);
     void touch(const QString &ip, int port, const QString &id, const QString &name,
                const QString &osName, const QString &hostname = QString());
