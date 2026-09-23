@@ -600,6 +600,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-124 会话顶栏打开下载目录
+- 对应验收：D1–D2（`docs/requirements/20260922-session-open-download.md`）
+- 步骤：选中对端，点会话顶栏「下载目录」
+- 期望：打开设置中的接收目录
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

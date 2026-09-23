@@ -622,10 +622,21 @@ void MainWindow::buildUi()
     connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
     connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
 
+    QPushButton *sessionDlBtn = new QPushButton(QString::fromUtf8(u8"下载目录"));
+    sessionDlBtn->setObjectName(QStringLiteral("sessionDlBtn"));
+    sessionDlBtn->setCursor(Qt::PointingHandCursor);
+    sessionDlBtn->setFocusPolicy(Qt::NoFocus);
+    sessionDlBtn->setFlat(true);
+    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 14)));
+    sessionDlBtn->setIconSize(QSize(14, 14));
+    sessionDlBtn->setToolTip(QString::fromUtf8(u8"打开本机文件接收目录"));
+    connect(sessionDlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
+
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
     peerHeadLay->addWidget(m_tabChat, 0, Qt::AlignVCenter);
     peerHeadLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
+    peerHeadLay->addWidget(sessionDlBtn, 0, Qt::AlignVCenter);
 
     m_connBannerHost = new QWidget;
     m_connBannerHost->setObjectName(QStringLiteral("connBannerHost"));
@@ -914,6 +925,9 @@ void MainWindow::applyStyle()
         "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
         " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #dbeafe; }"
+        "#sessionDlBtn { background: transparent; border: 1px solid transparent; border-radius: 10px;"
+        " color: #475569; padding: 6px 10px; font-size: 12px; font-weight: 600; }"
+        "#sessionDlBtn:hover { background: #f1f5f9; border-color: #e2e8f0; color: #0f172a; }"
         "#connBannerHost { background: #f1f5f9; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
