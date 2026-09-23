@@ -698,6 +698,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-138 空卡阴影与拖放遮罩图标
+- 对应验收：D1–D2（`docs/requirements/20260922-empty-shadow-drop-icon.md`）
+- 步骤：未选对端看空卡；向聊天区拖文件看遮罩
+- 期望：空卡有轻阴影；遮罩有图标与「松开即可发送」
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

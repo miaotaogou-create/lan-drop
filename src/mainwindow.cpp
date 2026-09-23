@@ -38,6 +38,7 @@
 #include <QFormLayout>
 #include <functional>
 #include <QFrame>
+#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
 #include <QImage>
@@ -561,11 +562,17 @@ void MainWindow::buildUi()
     QWidget *emptyPage = new QWidget;
     emptyPage->setObjectName(QStringLiteral("emptyHost"));
     QVBoxLayout *emptyLay = new QVBoxLayout(emptyPage);
-    emptyLay->setContentsMargins(24, 24, 24, 24);
+    emptyLay->setContentsMargins(32, 32, 32, 32);
     emptyLay->addStretch(1);
     QFrame *emptyCard = new QFrame;
     emptyCard->setObjectName(QStringLiteral("emptyCard"));
     emptyCard->setMaximumWidth(440);
+    emptyCard->setAttribute(Qt::WA_StyledBackground, true);
+    QGraphicsDropShadowEffect *emptyShadow = new QGraphicsDropShadowEffect(emptyCard);
+    emptyShadow->setBlurRadius(20);
+    emptyShadow->setOffset(0, 4);
+    emptyShadow->setColor(QColor(15, 23, 42, 36));
+    emptyCard->setGraphicsEffect(emptyShadow);
     QVBoxLayout *emptyCardLay = new QVBoxLayout(emptyCard);
     emptyCardLay->setContentsMargins(28, 28, 28, 28);
     emptyCardLay->setSpacing(0);
@@ -895,12 +902,22 @@ void MainWindow::buildUi()
     m_chatDropHint->hide();
     QVBoxLayout *dropHintLay = new QVBoxLayout(m_chatDropHint);
     dropHintLay->setContentsMargins(24, 24, 24, 24);
+    dropHintLay->setSpacing(10);
+    m_chatDropHintIcon = new QLabel;
+    m_chatDropHintIcon->setFixedSize(40, 40);
+    m_chatDropHintIcon->setAlignment(Qt::AlignCenter);
+    m_chatDropHintIcon->setPixmap(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 36));
     m_chatDropHintLabel = new QLabel;
     m_chatDropHintLabel->setObjectName(QStringLiteral("chatDropHintLabel"));
     m_chatDropHintLabel->setAlignment(Qt::AlignCenter);
     m_chatDropHintLabel->setWordWrap(true);
+    m_chatDropHintSub = new QLabel(QString::fromUtf8(u8"松开即可发送"));
+    m_chatDropHintSub->setObjectName(QStringLiteral("chatDropHintSub"));
+    m_chatDropHintSub->setAlignment(Qt::AlignCenter);
     dropHintLay->addStretch(1);
+    dropHintLay->addWidget(m_chatDropHintIcon, 0, Qt::AlignCenter);
     dropHintLay->addWidget(m_chatDropHintLabel, 0, Qt::AlignCenter);
+    dropHintLay->addWidget(m_chatDropHintSub, 0, Qt::AlignCenter);
     dropHintLay->addStretch(1);
 
     m_pages->addWidget(emptyPage);
@@ -1009,8 +1026,9 @@ void MainWindow::applyStyle()
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
         "#jumpBottomBtn:hover { background: #1d4ed8; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
-        "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
-        "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
+        "#chatDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 16px; }"
+        "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
+        "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
         "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
         "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
         "#cancelUploadBtn { background: transparent; border: none; color: #dc2626; font-size: 12px;"

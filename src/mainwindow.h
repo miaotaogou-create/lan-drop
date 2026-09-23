@@ -215,7 +215,9 @@ private:
     QWidget *m_inputShell = 0;
     QWidget *m_chatPage = 0;
     QFrame *m_chatDropHint = 0;
+    QLabel *m_chatDropHintIcon = 0;
     QLabel *m_chatDropHintLabel = 0;
+    QLabel *m_chatDropHintSub = 0;
 
     QHash<QString, QVector<ChatMsg> > m_log;
     QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
