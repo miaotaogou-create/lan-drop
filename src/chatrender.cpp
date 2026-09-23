@@ -626,7 +626,7 @@ int countFiles(const QVector<ChatMsg> &msgs)
 QString renderFilesHtml(const QVector<ChatMsg> &msgs)
 {
     QString html = QStringLiteral(
-        "<html><body style=\"margin:0;padding:8px;background:#f8fafc;\">");
+        "<html><body style=\"margin:0;padding:8px;background:#f1f5f9;\">");
     int n = 0;
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
@@ -638,8 +638,52 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
         ++n;
     }
     if (n == 0) {
+        // 空态白卡（位图圆角，与未选对端空态同一语言）
+        const int cardW = 360;
+        const int pad = 28;
+        const qreal radius = 16.0;
+        QFont titleFont = qApp->font();
+        titleFont.setPixelSize(17);
+        titleFont.setBold(true);
+        QFont bodyFont = qApp->font();
+        bodyFont.setPixelSize(13);
+        QFontMetrics titleFm(titleFont);
+        QFontMetrics bodyFm(bodyFont);
+        const QString title = QString::fromUtf8(u8"还没有文件传输");
+        const QString body = QString::fromUtf8(
+            u8"把文件拖到聊天区，或点左下角附件发送。\n传完后会在这里列出记录。");
+        const QRect bodyBound = bodyFm.boundingRect(QRect(0, 0, cardW - pad * 2, 10000),
+                                                   Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+                                                   body);
+        const int titleH = titleFm.height();
+        const int bodyH = qMax(bodyFm.height() * 2, bodyBound.height());
+        const int innerH = pad + titleH + 12 + bodyH + pad;
+        const int logicalW = cardW + kShadowPad * 2;
+        const int logicalH = innerH + kShadowPad * 2;
+        const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+        QPixmap pm(logicalW * dpr, logicalH * dpr);
+        pm.setDevicePixelRatio(dpr);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+        const QRectF box(kShadowPad + 1.0, kShadowPad + 1.0, cardW - 2.0, innerH - 2.0);
+        paintSoftShadow(p, box, radius);
+        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+        p.setBrush(Qt::white);
+        p.drawRoundedRect(box, radius, radius);
+        p.setFont(titleFont);
+        p.setPen(QColor(QStringLiteral("#0f172a")));
+        p.drawText(QRect(kShadowPad + pad, kShadowPad + pad, cardW - pad * 2, titleH),
+                   Qt::AlignLeft | Qt::AlignVCenter, title);
+        p.setFont(bodyFont);
+        p.setPen(QColor(QStringLiteral("#64748b")));
+        p.drawText(QRect(kShadowPad + pad, kShadowPad + pad + titleH + 12, cardW - pad * 2, bodyH),
+                   Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, body);
         html += QStringLiteral(
-            "<p align=\"center\"><font color=\"#94a3b8\">还没有与该对端的文件传输</font></p>");
+                    "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"48\"><tr>"
+                    "<td align=\"center\">%1</td></tr></table>")
+                    .arg(pixmapToImgHtml(pm));
     }
     html += QStringLiteral("</body></html>");
     return html;

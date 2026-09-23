@@ -724,6 +724,7 @@ void MainWindow::buildUi()
     compCol->setSpacing(8);
     m_progress = new QLabel;
     m_progress->setObjectName(QStringLiteral("progress"));
+    m_progress->setWordWrap(true);
     m_progress->hide();
     m_cancelUploadBtn = new QPushButton(QString::fromUtf8(u8"取消全部"));
     m_cancelUploadBtn->setObjectName(QStringLiteral("cancelUploadBtn"));
@@ -740,8 +741,13 @@ void MainWindow::buildUi()
     m_clearQueueBtn->setToolTip(QString::fromUtf8(u8"只清空排队，当前文件继续发送"));
     m_clearQueueBtn->hide();
     connect(m_clearQueueBtn, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
-    QHBoxLayout *progLay = new QHBoxLayout;
-    progLay->setContentsMargins(0, 0, 0, 0);
+    QFrame *progressHost = new QFrame;
+    progressHost->setObjectName(QStringLiteral("progressCapsule"));
+    progressHost->setAttribute(Qt::WA_StyledBackground, true);
+    progressHost->hide();
+    m_progressHost = progressHost;
+    QHBoxLayout *progLay = new QHBoxLayout(progressHost);
+    progLay->setContentsMargins(12, 8, 10, 8);
     progLay->setSpacing(8);
     progLay->addWidget(m_progress, 1);
     progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
@@ -795,7 +801,7 @@ void MainWindow::buildUi()
     shellLay->addWidget(m_input, 1);
     shellLay->addLayout(sendRow);
 
-    compCol->addLayout(progLay);
+    compCol->addWidget(progressHost);
     compCol->addLayout(toolLay);
     compCol->addWidget(m_inputShell);
 
@@ -808,6 +814,7 @@ void MainWindow::buildUi()
     filesLay->setSpacing(0);
     m_fileLive = new QLabel;
     m_fileLive->setObjectName(QStringLiteral("progress"));
+    m_fileLive->setWordWrap(true);
     m_fileLive->hide();
     m_cancelUploadBtnFiles = new QPushButton(QString::fromUtf8(u8"取消全部"));
     m_cancelUploadBtnFiles->setObjectName(QStringLiteral("cancelUploadBtn"));
@@ -825,15 +832,23 @@ void MainWindow::buildUi()
     m_clearQueueBtnFiles->setToolTip(QString::fromUtf8(u8"只清空排队，当前文件继续发送"));
     m_clearQueueBtnFiles->hide();
     connect(m_clearQueueBtnFiles, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
-    QWidget *fileLiveHost = new QWidget;
+    QFrame *fileLiveHost = new QFrame;
+    fileLiveHost->setObjectName(QStringLiteral("progressCapsule"));
+    fileLiveHost->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
-    fileLiveLay->setContentsMargins(16, 10, 16, 0);
+    fileLiveLay->setContentsMargins(12, 8, 10, 8);
     fileLiveLay->setSpacing(8);
     fileLiveLay->addWidget(m_fileLive, 1);
     fileLiveLay->addWidget(m_clearQueueBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveLay->addWidget(m_cancelUploadBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveHost->hide();
-    m_fileLiveHost = fileLiveHost;
+    QWidget *fileLiveWrap = new QWidget;
+    QHBoxLayout *fileLiveWrapLay = new QHBoxLayout(fileLiveWrap);
+    fileLiveWrapLay->setContentsMargins(16, 10, 16, 8);
+    fileLiveWrapLay->setSpacing(0);
+    fileLiveWrapLay->addWidget(fileLiveHost);
+    fileLiveWrap->hide();
+    m_fileLiveHost = fileLiveWrap;
     m_files = new QTextBrowser;
     m_files->setObjectName(QStringLiteral("filesView"));
     m_files->setReadOnly(true);
@@ -966,7 +981,8 @@ void MainWindow::applyStyle()
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
-        "#progress { color: #1d4ed8; font-size: 12px; }"
+        "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
+        "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
         "#cancelUploadBtn { background: transparent; border: none; color: #dc2626; font-size: 12px;"
         " padding: 2px 8px; border-radius: 6px; }"
         "#cancelUploadBtn:hover { background: #fef2f2; color: #b91c1c; }"
@@ -2599,8 +2615,6 @@ void MainWindow::setProgress(const QString &text)
             m_fileLive->setToolTip(QString());
             m_fileLive->hide();
         }
-        if (m_fileLiveHost)
-            m_fileLiveHost->hide();
         syncCancelUploadBtn();
         return;
     }
@@ -2610,8 +2624,6 @@ void MainWindow::setProgress(const QString &text)
         m_fileLive->setText(text);
         m_fileLive->show();
     }
-    if (m_fileLiveHost)
-        m_fileLiveHost->show();
     syncCancelUploadBtn();
 }
 
@@ -2704,6 +2716,12 @@ void MainWindow::syncCancelUploadBtn()
         m_clearQueueBtn->setVisible(hasQueue);
     if (m_clearQueueBtnFiles)
         m_clearQueueBtnFiles->setVisible(hasQueue);
+    const bool showChatProg = (m_progress && m_progress->isVisible()) || on;
+    if (m_progressHost)
+        m_progressHost->setVisible(showChatProg);
+    const bool showFilesProg = (m_fileLive && m_fileLive->isVisible()) || on;
+    if (m_fileLiveHost)
+        m_fileLiveHost->setVisible(showFilesProg);
 }
 
 void MainWindow::cancelUpload()
