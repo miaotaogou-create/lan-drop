@@ -262,7 +262,7 @@ QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unrea
         const int pillW = qMax(16, tw + 8);
         const int pillH = 16;
         const QRectF pill(logical - pillW + 2.0, -2.0, pillW, pillH);
-        p.setPen(Qt::NoPen);
+        p.setPen(QPen(Qt::white, 2.0));
         p.setBrush(QColor(QStringLiteral("#ef4444")));
         p.drawRoundedRect(pill, pillH / 2.0, pillH / 2.0);
         p.setPen(Qt::white);

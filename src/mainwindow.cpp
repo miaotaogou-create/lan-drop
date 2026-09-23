@@ -137,6 +137,13 @@ static QStringList topFilesInDir(const QString &dir)
     return out;
 }
 
+static QString filesTabLabel(int n)
+{
+    if (n <= 0)
+        return QString::fromUtf8(u8"文件");
+    return QString::fromUtf8(u8"文件 · %1").arg(n);
+}
+
 enum FolderSendChoice { FolderSendTop = 0, FolderSendZip, FolderSendCancel };
 
 static FolderSendChoice askNestedFolderChoice(QWidget *parent, int topFileCount)
@@ -707,7 +714,7 @@ void MainWindow::buildUi()
     m_tabChat->setFlat(true);
     m_tabChat->setIcon(QIcon(makeChatBubbleIcon(13)));
     m_tabChat->setIconSize(QSize(13, 13));
-    m_tabFiles = new QPushButton(QString::fromUtf8(u8"文件 (0)"));
+    m_tabFiles = new QPushButton(filesTabLabel(0));
     m_tabFiles->setObjectName(QStringLiteral("sessionTab"));
     m_tabFiles->setCursor(Qt::PointingHandCursor);
     m_tabFiles->setFocusPolicy(Qt::NoFocus);
@@ -2716,8 +2723,12 @@ void MainWindow::refreshPeers()
     int row = -1;
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
+        const QString fullAddr = p.ip + QLatin1Char(':') + QString::number(p.port);
         QStringList bits;
-        bits << (p.ip + QLatin1Char(':') + QString::number(p.port));
+        if (p.port == m_settings.port)
+            bits << p.ip;
+        else
+            bits << fullAddr;
         if (!p.online())
             bits << QString::fromUtf8(u8"离线");
         if (p.manual)
@@ -2734,6 +2745,9 @@ void MainWindow::refreshPeers()
             QStringLiteral("%1\n%2").arg(p.label(), bits.join(QString::fromUtf8(u8"  ·  "))));
         it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned)));
         it->setSizeHint(QSize(0, 66));
+        it->setToolTip(fullAddr + (bits.size() > 1
+                                       ? (QString::fromUtf8(u8"\n") + bits.mid(1).join(QString::fromUtf8(u8" · ")))
+                                       : QString()));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
@@ -2884,8 +2898,7 @@ void MainWindow::updatePeerSession()
         m_connBannerHost->show();
     }
     if (m_tabFiles)
-        m_tabFiles->setText(QString::fromUtf8(u8"文件 (%1)")
-                                .arg(countFiles(m_log.value(currentKey()))));
+        m_tabFiles->setText(filesTabLabel(countFiles(m_log.value(currentKey()))));
     updateHostPill();
 }
 
@@ -3266,7 +3279,7 @@ void MainWindow::refreshFilesView()
     if (m_files)
         m_files->setHtml(renderFilesHtml(msgs));
     if (m_tabFiles)
-        m_tabFiles->setText(QString::fromUtf8(u8"文件 (%1)").arg(countFiles(msgs)));
+        m_tabFiles->setText(filesTabLabel(countFiles(msgs)));
 }
 
 void MainWindow::measurePing()
