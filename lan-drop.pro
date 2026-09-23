@@ -6,6 +6,7 @@ TARGET = landrop
 SOURCES += \
     src/main.cpp \
     src/settings.cpp \
+    src/autostart.cpp \
     src/discovery.cpp \
     src/httpserver.cpp \
     src/files.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
 
 HEADERS += \
     src/settings.h \
+    src/autostart.h \
     src/discovery.h \
     src/httpserver.h \
     src/files.h \

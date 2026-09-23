@@ -421,6 +421,19 @@ int runSelfCheck()
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }
+    {
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-boot-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
+        Settings s = Settings::defaults();
+        s.runAtStartup = true;
+        if (!s.saveToFile(path))
+            return fail("runAtStartup save");
+        if (!Settings::loadFromFile(path).runAtStartup)
+            return fail("runAtStartup load");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
     std::printf("self-check ok\n");
     return 0;
 }

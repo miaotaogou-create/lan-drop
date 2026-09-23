@@ -48,6 +48,7 @@ Settings Settings::defaults()
     s.soundNotification = true;
     s.closeToTray = true;
     s.alwaysOnTop = false;
+    s.runAtStartup = false;
     return s;
 }
 
@@ -144,6 +145,8 @@ Settings Settings::loadFromFile(const QString &path)
         s.closeToTray = o.value(QStringLiteral("closeToTray")).toBool();
     if (o.contains(QStringLiteral("alwaysOnTop")))
         s.alwaysOnTop = o.value(QStringLiteral("alwaysOnTop")).toBool();
+    if (o.contains(QStringLiteral("runAtStartup")))
+        s.runAtStartup = o.value(QStringLiteral("runAtStartup")).toBool();
     s.soundFile = o.value(QStringLiteral("soundFile")).toString().trimmed();
     s.preferredLocalIp = o.value(QStringLiteral("preferredLocalIp")).toString().trimmed();
     s.manualPeers = readManualPeers(o);
@@ -193,6 +196,7 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("soundNotification"), soundNotification);
     o.insert(QStringLiteral("closeToTray"), closeToTray);
     o.insert(QStringLiteral("alwaysOnTop"), alwaysOnTop);
+    o.insert(QStringLiteral("runAtStartup"), runAtStartup);
     if (!soundFile.trimmed().isEmpty())
         o.insert(QStringLiteral("soundFile"), soundFile.trimmed());
     if (!preferredLocalIp.trimmed().isEmpty())

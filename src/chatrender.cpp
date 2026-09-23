@@ -401,25 +401,36 @@ static QString renderFileCard(const ChatMsg &m)
     const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
     const QString badgeBg = asImage ? QStringLiteral("#ecfdf5") : QStringLiteral("#ede9fe");
     const QString badgeFg = asImage ? QStringLiteral("#047857") : QStringLiteral("#7c3aed");
+    QString titleBlock;
+    if (!openHref.isEmpty()) {
+        titleBlock = QString::fromUtf8(
+                         u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                         u8"<font color=\"#0f172a\" size=\"4\"><b>%2</b></font><br/>"
+                         u8"<font color=\"#64748b\" size=\"3\">%3</font></a>")
+                         .arg(openHref, htmlEsc(m.text), size);
+    } else {
+        titleBlock = QString::fromUtf8(
+                         u8"<font color=\"#0f172a\" size=\"4\"><b>%1</b></font><br/>"
+                         u8"<font color=\"#94a3b8\" size=\"3\">%2</font>")
+                         .arg(htmlEsc(m.text), size);
+    }
     const QString card =
         QString::fromUtf8(
             u8"<table cellspacing=\"0\" cellpadding=\"14\" bgcolor=\"#ffffff\" width=\"100%\" "
             u8"style=\"border:1px solid #e2e8f0; max-width:360px;\">"
             u8"<tr><td>"
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            u8"<td width=\"40\" valign=\"top\"><table cellpadding=\"5\" bgcolor=\"%7\">"
-            u8"<tr><td><font color=\"%8\" size=\"3\"><b>%9</b></font></td></tr></table></td>"
+            u8"<td width=\"40\" valign=\"top\"><table cellpadding=\"5\" bgcolor=\"%6\">"
+            u8"<tr><td><font color=\"%7\" size=\"3\"><b>%8</b></font></td></tr></table></td>"
             u8"<td>"
-            u8"<font color=\"#0f172a\" size=\"4\"><b>%1</b></font><br/>"
-            u8"<font color=\"#94a3b8\" size=\"3\">%2</font>"
+            u8"%1"
             u8"</td></tr></table>"
+            u8"%2"
             u8"%3"
             u8"%4"
             u8"%5"
-            u8"%6"
             u8"</td></tr></table>")
-            .arg(htmlEsc(m.text),
-                 size,
+            .arg(titleBlock,
                  bar,
                  status,
                  shaLine,

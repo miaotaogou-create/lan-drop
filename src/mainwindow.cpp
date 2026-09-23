@@ -1,5 +1,6 @@
 ﻿#include "mainwindow.h"
 
+#include "autostart.h"
 #include "chatrender.h"
 #include "discovery.h"
 #include "files.h"
@@ -1825,6 +1826,7 @@ void MainWindow::boot()
     applyWindowGeometry();
     applySideWidth();
     applyAlwaysOnTop();
+    Autostart::setEnabled(m_settings.runAtStartup);
     cleanupLandropZipTempDir();
     if (m_traySoundAct) {
         const bool blocked = m_traySoundAct->blockSignals(true);
@@ -4588,14 +4590,18 @@ void MainWindow::editSettings()
                   m_settings.closeToTray);
     const QPair<QWidget *, QCheckBox *> topPair =
         switchRow(QString::fromUtf8(u8"窗口置顶"), m_settings.alwaysOnTop);
+    const QPair<QWidget *, QCheckBox *> bootPair =
+        switchRow(QString::fromUtf8(u8"开机自动启动"), m_settings.runAtStartup);
     QCheckBox *nudgeBox = nudgePair.second;
     QCheckBox *soundBox = soundPair.second;
     QCheckBox *trayBox = trayPair.second;
     QCheckBox *topBox = topPair.second;
+    QCheckBox *bootBox = bootPair.second;
     bodyLay->addWidget(nudgePair.first);
     bodyLay->addWidget(soundPair.first);
     bodyLay->addWidget(trayPair.first);
     bodyLay->addWidget(topPair.first);
+    bodyLay->addWidget(bootPair.first);
 
     QWidget *soundExtra = new QWidget;
     QVBoxLayout *soundExtraLay = new QVBoxLayout(soundExtra);
@@ -4691,12 +4697,17 @@ void MainWindow::editSettings()
         m_settings.soundNotification = soundBox->isChecked();
         m_settings.closeToTray = trayBox->isChecked();
         m_settings.alwaysOnTop = topBox->isChecked();
+        m_settings.runAtStartup = bootBox->isChecked();
         m_settings.soundFile = soundPath->text().trimmed();
         m_settings.preferredLocalIp = ipPick->currentData().toString().trimmed();
         if (!m_settings.save()) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
                                  QString::fromUtf8(u8"保存设置失败"));
             return;
+        }
+        if (!Autostart::setEnabled(m_settings.runAtStartup)) {
+            QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"开机启动项写入失败，设置已保存；请检查系统权限后重试。"));
         }
         if (m_traySoundAct) {
             const bool blocked = m_traySoundAct->blockSignals(true);
