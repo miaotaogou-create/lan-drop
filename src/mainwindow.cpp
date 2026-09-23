@@ -2423,13 +2423,54 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     m_list->setCurrentItem(it);
     const bool manual = it->data(Qt::UserRole + 3).toBool();
     QMenu menu(this);
+    QAction *clearChat = menu.addAction(QString::fromUtf8(u8"清空聊天记录"));
     QAction *del = menu.addAction(QString::fromUtf8(u8"删除手动节点"));
     del->setEnabled(manual);
     if (!manual)
         del->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可删除"));
     QAction *chosen = menu.exec(m_list->viewport()->mapToGlobal(pos));
-    if (chosen == del)
+    if (chosen == clearChat)
+        clearSelectedPeerChat();
+    else if (chosen == del)
         removeSelectedManualPeer();
+}
+
+void MainWindow::clearSelectedPeerChat()
+{
+    QString ip;
+    int port = 0;
+    QString name;
+    if (!currentPeer(&ip, &port, &name))
+        return;
+    const QString key = ip + QLatin1Char(':') + QString::number(port);
+    const QVector<ChatMsg> lines = m_log.value(key);
+    for (int i = 0; i < lines.size(); ++i) {
+        if (lines.at(i).type == ChatMsg::OutFile && lines.at(i).progressPct >= 0) {
+            QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                     QString::fromUtf8(u8"正在向该对端发送文件，请等传完后再清空。"));
+            return;
+        }
+    }
+    const QString label = name.isEmpty() ? key : name;
+    if (QMessageBox::question(this, QString::fromUtf8(u8"局域快传"),
+                              QString::fromUtf8(u8"清空与「%1」的聊天记录？\n"
+                                                  u8"不会删除对端节点，也不会删除已下载的文件。")
+                                  .arg(label),
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::No)
+        != QMessageBox::Yes) {
+        return;
+    }
+    m_log.remove(key);
+    clearUnread(key);
+    if (m_chatSaveTimer)
+        m_chatSaveTimer->stop();
+    flushChatHistory();
+    if (currentKey() == key) {
+        refreshChatHtml(true);
+        refreshFilesView();
+    }
+    updateChrome();
 }
 
 void MainWindow::removeSelectedManualPeer()

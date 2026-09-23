@@ -81,6 +81,7 @@ private slots:
     void measurePing();
     void peerListContextMenu(const QPoint &pos);
     void removeSelectedManualPeer();
+    void clearSelectedPeerChat();
     void showFromTray();
     void showFromTrayNotify();
     void quitApp();
