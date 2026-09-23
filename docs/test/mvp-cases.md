@@ -726,6 +726,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-142 离线条暖色与侧栏空态
+- 对应验收：O1–O4（`docs/requirements/20260922-offline-empty-list-hints.md`）
+- 步骤：选离线对端看连接条；侧栏 0 设备看列表空态与角标；悬停搜索/输入看 tooltip；再向侧栏拖文件
+- 期望：离线条琥珀底+警示三角；空态有引导且角标灰；tooltip 含 Esc/Ctrl+V；拖放遮罩有图标与副文案
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

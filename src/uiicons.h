@@ -27,6 +27,7 @@ QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unrea
                            int logical = 44);
 QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName);
 QPixmap makeStatusDot(bool ok, int logical = 7);
+QPixmap makeAlertTriangleIcon(int logical = 16);
 QPixmap makeChatBubbleIcon(int logical = 14);
 QPixmap makeFileDocIcon(int logical = 14);
 QPixmap makeCheckCircleIcon(int logical = 14);

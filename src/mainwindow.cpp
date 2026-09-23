@@ -536,10 +536,12 @@ void MainWindow::buildUi()
     sideLay->setSpacing(10);
 
     QHBoxLayout *sideHead = new QHBoxLayout;
-    QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近在线设备"));
+    QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近设备"));
     sideTitle->setObjectName(QStringLiteral("sideTitle"));
+    m_sideTitle = sideTitle;
     m_peerCount = new QLabel(QStringLiteral("0"));
     m_peerCount->setObjectName(QStringLiteral("peerCount"));
+    m_peerCount->setProperty("empty", true);
     QPushButton *addBtn = new QPushButton(QString::fromUtf8(u8"+ 加 IP"));
     addBtn->setObjectName(QStringLiteral("addBtn"));
     addBtn->setCursor(Qt::PointingHandCursor);
@@ -552,6 +554,7 @@ void MainWindow::buildUi()
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
     m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…（Ctrl+F）"));
+    m_search->setToolTip(QString::fromUtf8(u8"Ctrl+F 聚焦；Esc 清除搜索"));
     m_search->setClearButtonEnabled(true);
     m_search->installEventFilter(this);
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
@@ -590,13 +593,36 @@ void MainWindow::buildUi()
     m_listDropHint->hide();
     QVBoxLayout *listDropLay = new QVBoxLayout(m_listDropHint);
     listDropLay->setContentsMargins(16, 16, 16, 16);
-    QLabel *listDropLab = new QLabel(QString::fromUtf8(u8"拖到具体设备上松手发送"));
-    listDropLab->setObjectName(QStringLiteral("listDropHintLabel"));
-    listDropLab->setAlignment(Qt::AlignCenter);
-    listDropLab->setWordWrap(true);
+    listDropLay->setSpacing(6);
+    m_listDropHintIcon = new QLabel;
+    m_listDropHintIcon->setFixedSize(36, 36);
+    m_listDropHintIcon->setAlignment(Qt::AlignCenter);
+    m_listDropHintIcon->setPixmap(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 32));
+    m_listDropHintLabel = new QLabel(QString::fromUtf8(u8"拖到具体设备上"));
+    m_listDropHintLabel->setObjectName(QStringLiteral("listDropHintLabel"));
+    m_listDropHintLabel->setAlignment(Qt::AlignCenter);
+    m_listDropHintLabel->setWordWrap(true);
+    m_listDropHintSub = new QLabel(QString::fromUtf8(u8"对准一行松手发送"));
+    m_listDropHintSub->setObjectName(QStringLiteral("listDropHintSub"));
+    m_listDropHintSub->setAlignment(Qt::AlignCenter);
     listDropLay->addStretch(1);
-    listDropLay->addWidget(listDropLab, 0, Qt::AlignCenter);
+    listDropLay->addWidget(m_listDropHintIcon, 0, Qt::AlignCenter);
+    listDropLay->addWidget(m_listDropHintLabel, 0, Qt::AlignCenter);
+    listDropLay->addWidget(m_listDropHintSub, 0, Qt::AlignCenter);
     listDropLay->addStretch(1);
+    m_listEmptyHint = new QLabel(listHost);
+    m_listEmptyHint->setObjectName(QStringLiteral("listEmptyHint"));
+    m_listEmptyHint->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_listEmptyHint->setAlignment(Qt::AlignCenter);
+    m_listEmptyHint->setWordWrap(true);
+    m_listEmptyHint->setTextFormat(Qt::RichText);
+    m_listEmptyHint->setText(
+        QString::fromUtf8(
+            u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
+            u8"暂无设备</p>"
+            u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
+            u8"同一网段等待自动发现<br/>或点上方「+ 加 IP」</p>"));
+    m_listEmptyHint->hide();
     sideLay->addWidget(listHost, 1);
 
     QWidget *right = new QWidget;
@@ -736,7 +762,8 @@ void MainWindow::buildUi()
     bannerLay->setSpacing(8);
     QLabel *bannerIcon = new QLabel;
     bannerIcon->setFixedSize(16, 16);
-    bannerIcon->setPixmap(loadSvgPixmap(QStringLiteral(":/icons/shield-check.svg"), 16));
+    bannerIcon->setPixmap(makeAlertTriangleIcon(16));
+    m_connBannerIcon = bannerIcon;
     m_connBannerText = new QLabel;
     m_connBannerText->setObjectName(QStringLiteral("connBannerText"));
     m_connBannerText->setTextFormat(Qt::RichText);
@@ -843,7 +870,8 @@ void MainWindow::buildUi()
     m_input->setFrameShape(QFrame::NoFrame);
     m_input->setFixedHeight(72);
     m_input->setTabChangesFocus(true);
-    m_input->setToolTip(QString::fromUtf8(u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿"));
+    m_input->setToolTip(QString::fromUtf8(
+        u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿；Ctrl+V 粘贴文件/截图"));
     m_input->installEventFilter(this);
     m_sendBtn = new QPushButton;
     m_sendBtn->setObjectName(QStringLiteral("sendFab"));
@@ -1024,6 +1052,7 @@ void MainWindow::applyStyle()
         "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
         "#peerCount { background: #ecfdf5; color: #047857; border-radius: 8px; padding: 1px 7px;"
         " font-size: 11px; font-weight: 700; }"
+        "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; }"
         "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 4px 10px; font-size: 12px; font-weight: 600; }"
         "#addBtn:hover { background: #dbeafe; }"
@@ -1032,8 +1061,10 @@ void MainWindow::applyStyle()
         "#search:focus { background: #ffffff; border: 1px solid #3b82f6; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerListHost { background: transparent; }"
+        "#listEmptyHint { color: #94a3b8; background: transparent; padding: 24px 16px; }"
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
+        "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
         "#peerList::item { background: transparent; border: 1px solid transparent;"
         " border-left: 3px solid transparent; border-radius: 12px;"
         " padding: 8px 10px; margin: 3px 4px; color: #0f172a; }"
@@ -1064,6 +1095,7 @@ void MainWindow::applyStyle()
         "#connBannerHost { background: #f1f5f9; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
+        "#connBanner[offline=\"true\"] { background-color: #fffbeb; border: 1px solid #fbbf24; }"
         "#connBannerText { color: #64748b; font-size: 12px; background: transparent; }"
         "#filesView { background: #f1f5f9; border: none; }"
         "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
@@ -2466,8 +2498,37 @@ void MainWindow::updateEmpty()
             ++visible;
     }
     m_peerCount->setText(QString::number(visible));
-    const bool hasPeer = currentPeer(0, 0, 0);
+    m_peerCount->setProperty("empty", visible == 0);
+    m_peerCount->style()->unpolish(m_peerCount);
+    m_peerCount->style()->polish(m_peerCount);
     const QString q = m_search ? m_search->text().trimmed() : QString();
+    if (m_listEmptyHint && m_list) {
+        const bool showEmpty = visible == 0
+            && !(m_listDropHint && m_listDropHint->isVisible());
+        if (showEmpty) {
+            m_listEmptyHint->setGeometry(m_list->geometry());
+            if (!q.isEmpty()) {
+                m_listEmptyHint->setText(
+                    QString::fromUtf8(
+                        u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
+                        u8"没有匹配</p>"
+                        u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
+                        u8"可按 Esc 清除搜索</p>"));
+            } else {
+                m_listEmptyHint->setText(
+                    QString::fromUtf8(
+                        u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
+                        u8"暂无设备</p>"
+                        u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
+                        u8"同一网段等待自动发现<br/>或点上方「+ 加 IP」</p>"));
+            }
+            m_listEmptyHint->show();
+            m_listEmptyHint->raise();
+        } else {
+            m_listEmptyHint->hide();
+        }
+    }
+    const bool hasPeer = currentPeer(0, 0, 0);
     if (m_emptyHint) {
         if (!q.isEmpty() && visible == 0) {
             m_emptyHint->setText(
@@ -2670,7 +2731,19 @@ void MainWindow::updatePeerSession()
     m_peerOnlineKnown.insert(addr, online);
     if (online) {
         m_connBannerHost->hide();
+        if (m_connBanner) {
+            m_connBanner->setProperty("offline", false);
+            m_connBanner->style()->unpolish(m_connBanner);
+            m_connBanner->style()->polish(m_connBanner);
+        }
     } else {
+        if (m_connBannerIcon)
+            m_connBannerIcon->setPixmap(makeAlertTriangleIcon(16));
+        if (m_connBanner) {
+            m_connBanner->setProperty("offline", true);
+            m_connBanner->style()->unpolish(m_connBanner);
+            m_connBanner->style()->polish(m_connBanner);
+        }
         m_connBannerText->setText(
             QString::fromUtf8(
                 u8"<span style=\"color:#b45309;\">对方当前离线：</span>"
@@ -3827,8 +3900,11 @@ void MainWindow::setListDropHint(bool on)
         return;
     if (!on) {
         m_listDropHint->hide();
+        updateEmpty();
         return;
     }
+    if (m_listEmptyHint)
+        m_listEmptyHint->hide();
     m_listDropHint->setGeometry(m_list->geometry());
     m_listDropHint->show();
     m_listDropHint->raise();

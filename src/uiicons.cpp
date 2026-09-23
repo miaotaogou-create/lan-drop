@@ -300,6 +300,35 @@ QPixmap makeStatusDot(bool ok, int logical)
     return pm;
 }
 
+QPixmap makeAlertTriangleIcon(int logical)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const qreal s = logical;
+    QPainterPath tri;
+    tri.moveTo(s * 0.50, s * 0.12);
+    tri.lineTo(s * 0.90, s * 0.86);
+    tri.lineTo(s * 0.10, s * 0.86);
+    tri.closeSubpath();
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#d97706")));
+    p.drawPath(tri);
+    QPen bar(Qt::white, qMax(1.2, s * 0.10));
+    bar.setCapStyle(Qt::RoundCap);
+    p.setPen(bar);
+    p.setBrush(Qt::NoBrush);
+    p.drawLine(QPointF(s * 0.50, s * 0.36), QPointF(s * 0.50, s * 0.58));
+    p.setPen(Qt::NoPen);
+    p.setBrush(Qt::white);
+    p.drawEllipse(QPointF(s * 0.50, s * 0.72), s * 0.055, s * 0.055);
+    return pm;
+}
+
 QPixmap makeChatBubbleIcon(int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));

@@ -194,6 +194,9 @@ private:
     QWidget *m_connBannerHost = 0;
     QWidget *m_connBanner = 0;
     QLabel *m_connBannerText = 0;
+    QLabel *m_connBannerIcon = 0;
+    QLabel *m_listEmptyHint = 0;
+    QLabel *m_sideTitle = 0;
     QStackedWidget *m_sessionStack = 0;
     QTextBrowser *m_chat = 0;
     QWidget *m_chatHost = 0;
@@ -218,6 +221,9 @@ private:
     QWidget *m_chatPage = 0;
     QFrame *m_chatDropHint = 0;
     QFrame *m_listDropHint = 0;
+    QLabel *m_listDropHintIcon = 0;
+    QLabel *m_listDropHintLabel = 0;
+    QLabel *m_listDropHintSub = 0;
     QLabel *m_chatDropHintIcon = 0;
     QLabel *m_chatDropHintLabel = 0;
     QLabel *m_chatDropHintSub = 0;
