@@ -1118,7 +1118,7 @@ void MainWindow::buildUi()
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
-    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索设备名称或 IP..."));
+    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…"));
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
 
     m_list = new QListWidget;
@@ -2670,6 +2670,17 @@ void MainWindow::updateEmpty()
     }
     m_peerCount->setText(QString::number(visible));
     const bool hasPeer = currentPeer(0, 0, 0);
+    const QString q = m_search ? m_search->text().trimmed() : QString();
+    if (m_emptyHint) {
+        if (!q.isEmpty() && visible == 0) {
+            m_emptyHint->setText(
+                QString::fromUtf8(u8"没有匹配「%1」的设备。\n可清除搜索，或按名称 / IP / 标签再试。")
+                    .arg(q));
+        } else {
+            m_emptyHint->setText(
+                QString::fromUtf8(u8"还没有对端。同一网段等待发现，或点左侧「加 IP」。"));
+        }
+    }
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);
     updateInputPlaceholder();
@@ -4083,7 +4094,7 @@ void MainWindow::editSettings()
     titleCol->setSpacing(2);
     QLabel *title = new QLabel(QString::fromUtf8(u8"局域快传设置"));
     title->setObjectName(QStringLiteral("settingsTitle"));
-    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载存储与接收提示"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载目录与通知偏好"));
     sub->setObjectName(QStringLiteral("settingsSub"));
     titleCol->addWidget(title);
     titleCol->addWidget(sub);

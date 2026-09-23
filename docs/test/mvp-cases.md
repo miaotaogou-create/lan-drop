@@ -181,11 +181,18 @@
 - 结果：待目视确认
 
 ### TC-21 设置对话框布局
-- 对应验收：S1、S2、S3、S6、S8（`docs/requirements/20260921-settings-dialog.md`）；B1（`docs/requirements/20260922-settings-browse-dir.md`）；H1（`docs/requirements/20260922-threads-honest.md`）
+- 对应验收：S1、S2、S3、S6、S8（`docs/requirements/20260921-settings-dialog.md`）；B1（`docs/requirements/20260922-settings-browse-dir.md`）；H1（`docs/requirements/20260922-threads-honest.md`）；A1（`docs/requirements/20260922-copy-honest-search.md`）
 - 步骤：点顶栏设置齿轮
-- 期望：标题「局域快传设置」、副标题、深色齿轮徽标；名称/端口|线程数（灰显+暂不生效说明）/下载目录+「浏览…」及说明；两项右对齐开关；仅「保存并关闭」；四角无黑三角
+- 期望：标题「局域快传设置」、副标题含「通知偏好」（非仅「接收提示」）、深色齿轮徽标；名称/端口|线程数（灰显+暂不生效说明）/下载目录+「浏览…」及说明；两项右对齐开关；仅「保存并关闭」；四角无黑三角
 - 类型：手测
 - 结果：待目视确认
+
+### TC-65 搜索占位与无匹配空态
+- 对应验收：A2–A4（`docs/requirements/20260922-copy-honest-search.md`）
+- 步骤：看搜索占位；有对端时输入不可能匹配的关键字；再清空搜索
+- 期望：占位含标签；无匹配时右侧有说明；清空后列表恢复
+- 类型：手测
+- 结果：待手测
 
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
@@ -500,5 +507,6 @@
 - 接收方气泡进度：见 `20260922-recv-progress.md`（本轮已落地）
 - 接收失败可见提示：见 `20260922-recv-fail-notice.md`（本轮已落地）
 - 发文件夹仅顶层说明：见 `20260922-folder-top-only-hint.md`（本轮已落地）
-- 自定义铃声：待开需求
+- 设置副标题与搜索空态：见 `20260922-copy-honest-search.md`（本轮已落地）
+- 上传中非打断提示：待开需求
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端
