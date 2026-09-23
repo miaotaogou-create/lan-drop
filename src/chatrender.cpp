@@ -158,7 +158,8 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
     return QStringLiteral(
-               "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"420\">"
+               "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"100%\" "
+               "style=\"max-width:320px;\">"
                "<tr><td>"
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
                "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
@@ -366,8 +367,8 @@ static QString renderFileCard(const ChatMsg &m)
     const QString badgeFg = asImage ? QStringLiteral("#047857") : QStringLiteral("#7c3aed");
     const QString card =
         QString::fromUtf8(
-            u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
-            u8"style=\"border:1px solid #e2e8f0;\">"
+            u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"100%\" "
+            u8"style=\"border:1px solid #e2e8f0; max-width:300px;\">"
             u8"<tr><td>"
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
             u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"%7\">"

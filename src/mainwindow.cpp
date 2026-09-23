@@ -301,8 +301,8 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle(QString::fromUtf8(u8"局域快传"));
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground, false);
-    resize(1180, 720);
-    setMinimumSize(900, 560);
+    resize(960, 640);
+    setMinimumSize(760, 480);
     statusBar()->hide();
 
     m_disc = new Discovery(this);
@@ -662,6 +662,8 @@ void MainWindow::buildUi()
     m_chat->setFrameShape(QFrame::NoFrame);
     m_chat->setOpenExternalLinks(false);
     m_chat->setOpenLinks(false);
+    m_chat->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_chat->setLineWrapMode(QTextEdit::WidgetWidth);
     connect(m_chat, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
     chatHostLay->addWidget(m_chat);
     m_jumpBottomBtn = new QPushButton(m_chatHost);
@@ -812,6 +814,8 @@ void MainWindow::buildUi()
     m_files->setFrameShape(QFrame::NoFrame);
     m_files->setOpenExternalLinks(false);
     m_files->setOpenLinks(false);
+    m_files->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_files->setLineWrapMode(QTextEdit::WidgetWidth);
     connect(m_files, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
     filesLay->addWidget(m_fileLiveHost);
     filesLay->addWidget(m_files, 1);
@@ -1814,22 +1818,57 @@ void MainWindow::persistWindowGeometry()
 
 void MainWindow::applyWindowGeometry()
 {
-    const int w = m_settings.windowW;
-    const int h = m_settings.windowH;
-    if (w >= minimumWidth() && h >= minimumHeight()) {
-        const QRect want(m_settings.windowX, m_settings.windowY, w, h);
-        bool onScreen = false;
-        const QList<QScreen *> screens = QGuiApplication::screens();
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    QRect avail;
+    if (!screens.isEmpty()) {
+        // 优先用记忆坐标所在屏，否则主屏
+        const QPoint anchor(m_settings.windowX + 40, m_settings.windowY + 40);
+        avail = QGuiApplication::screenAt(anchor)
+            ? QGuiApplication::screenAt(anchor)->availableGeometry()
+            : QGuiApplication::primaryScreen()->availableGeometry();
+    }
+    int w = m_settings.windowW;
+    int h = m_settings.windowH;
+    const bool remembered = (w >= minimumWidth() && h >= minimumHeight());
+    if (!remembered) {
+        w = 960;
+        h = 640;
+    }
+    if (!avail.isNull()) {
+        w = qMin(w, qMax(minimumWidth(), int(avail.width() * 0.92)));
+        h = qMin(h, qMax(minimumHeight(), int(avail.height() * 0.92)));
+        w = qMax(w, minimumWidth());
+        h = qMax(h, minimumHeight());
+    }
+    if (remembered) {
+        QRect want(m_settings.windowX, m_settings.windowY, w, h);
+        if (!avail.isNull()) {
+            if (want.right() > avail.right())
+                want.moveRight(avail.right());
+            if (want.bottom() > avail.bottom())
+                want.moveBottom(avail.bottom());
+            if (want.left() < avail.left())
+                want.moveLeft(avail.left());
+            if (want.top() < avail.top())
+                want.moveTop(avail.top());
+        }
+        bool onScreen = avail.isNull();
         for (int i = 0; i < screens.size(); ++i) {
             if (screens.at(i)->availableGeometry().intersects(want.adjusted(32, 32, -32, -32))) {
                 onScreen = true;
                 break;
             }
         }
-        if (onScreen || screens.isEmpty())
+        if (onScreen)
             setGeometry(want);
         else
             resize(w, h);
+    } else {
+        resize(w, h);
+        if (!avail.isNull()) {
+            move(avail.x() + (avail.width() - w) / 2,
+                 avail.y() + (avail.height() - h) / 2);
+        }
     }
     if (m_settings.windowMaximized)
         setWindowState(windowState() | Qt::WindowMaximized);
