@@ -85,6 +85,7 @@ private slots:
     void peerListContextMenu(const QPoint &pos);
     void removeSelectedManualPeer();
     void clearSelectedPeerChat();
+    void editSelectedManualPeer();
     void showFromTray();
     void showFromTrayNotify();
     void quitApp();

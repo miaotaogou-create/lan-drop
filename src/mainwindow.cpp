@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -2432,6 +2433,10 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     const bool manual = it->data(Qt::UserRole + 3).toBool();
     QMenu menu(this);
     QAction *clearChat = menu.addAction(QString::fromUtf8(u8"清空聊天记录"));
+    QAction *edit = menu.addAction(QString::fromUtf8(u8"编辑别名 / 标签…"));
+    edit->setEnabled(manual);
+    if (!manual)
+        edit->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可编辑"));
     QAction *del = menu.addAction(QString::fromUtf8(u8"删除手动节点"));
     del->setEnabled(manual);
     if (!manual)
@@ -2439,6 +2444,8 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     QAction *chosen = menu.exec(m_list->viewport()->mapToGlobal(pos));
     if (chosen == clearChat)
         clearSelectedPeerChat();
+    else if (chosen == edit)
+        editSelectedManualPeer();
     else if (chosen == del)
         removeSelectedManualPeer();
 }
@@ -2480,6 +2487,86 @@ void MainWindow::clearSelectedPeerChat()
         refreshFilesView();
     }
     updateChrome();
+}
+
+void MainWindow::editSelectedManualPeer()
+{
+    QListWidgetItem *it = m_list ? m_list->currentItem() : 0;
+    if (!it || !m_disc)
+        return;
+    if (!it->data(Qt::UserRole + 3).toBool()) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"自动发现的节点不能从这里编辑。"));
+        return;
+    }
+    const QString ip = it->data(Qt::UserRole).toString();
+    const int port = it->data(Qt::UserRole + 1).toInt();
+    Peer peer;
+    if (!m_disc->find(ip, port, &peer)) {
+        peer.ip = ip;
+        peer.port = port;
+        peer.alias = it->data(Qt::UserRole + 2).toString();
+        peer.tag = it->data(Qt::UserRole + 4).toString();
+        peer.manual = true;
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(QString::fromUtf8(u8"编辑手动节点"));
+    dlg.setModal(true);
+    QVBoxLayout *root = new QVBoxLayout(&dlg);
+    root->setContentsMargins(16, 14, 16, 14);
+    root->setSpacing(10);
+    QLabel *addr = new QLabel(QString::fromUtf8(u8"地址：%1:%2（不可改）").arg(ip).arg(port));
+    addr->setStyleSheet(QStringLiteral("color:#64748b;"));
+    root->addWidget(addr);
+
+    QFormLayout *form = new QFormLayout;
+    form->setSpacing(8);
+    QLineEdit *alias = new QLineEdit(peer.alias);
+    alias->setPlaceholderText(QString::fromUtf8(u8"例如：跨网段工控机"));
+    QLineEdit *tag = new QLineEdit(peer.tag);
+    tag->setPlaceholderText(QString::fromUtf8(u8"可选，如：工控 / 财务"));
+    QComboBox *osBox = new QComboBox;
+    osBox->setEditable(false);
+    osBox->addItem(QStringLiteral("Windows PC"), QStringLiteral("windows"));
+    osBox->addItem(QString::fromUtf8(u8"Linux (Ubuntu / 麒麟)"), QStringLiteral("linux"));
+    osBox->addItem(QString::fromUtf8(u8"ARM64 Linux (工控/树莓派)"), QStringLiteral("arm-linux"));
+    osBox->addItem(QString::fromUtf8(u8"iOS / Android 手机"), QStringLiteral("ios"));
+    int osIdx = 2;
+    for (int i = 0; i < osBox->count(); ++i) {
+        if (osBox->itemData(i).toString() == peer.osName) {
+            osIdx = i;
+            break;
+        }
+    }
+    osBox->setCurrentIndex(osIdx);
+    form->addRow(QString::fromUtf8(u8"设备别名"), alias);
+    form->addRow(QString::fromUtf8(u8"部门 / 标签"), tag);
+    form->addRow(QString::fromUtf8(u8"系统类型"), osBox);
+    root->addLayout(form);
+
+    QDialogButtonBox *box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    box->button(QDialogButtonBox::Ok)->setText(QString::fromUtf8(u8"保存"));
+    box->button(QDialogButtonBox::Cancel)->setText(QString::fromUtf8(u8"取消"));
+    root->addWidget(box);
+    connect(box, SIGNAL(accepted()), &dlg, SLOT(accept()));
+    connect(box, SIGNAL(rejected()), &dlg, SLOT(reject()));
+    alias->setFocus();
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    m_disc->addManual(ip, port, alias->text(), osBox->currentData().toString(), tag->text());
+    persistManualPeers();
+    refreshPeers();
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem *row = m_list->item(i);
+        if (row->data(Qt::UserRole).toString() == ip
+            && row->data(Qt::UserRole + 1).toInt() == port) {
+            m_list->setCurrentRow(i);
+            break;
+        }
+    }
+    updatePeerSession();
 }
 
 void MainWindow::removeSelectedManualPeer()

@@ -253,16 +253,16 @@ int runSelfCheck()
             return fail("addManual");
         if (p.tag != QString::fromUtf8(u8"财务"))
             return fail("addManual tag");
-        bool found = false;
-        const QList<Peer> list = disc.peers();
-        for (int i = 0; i < list.size(); ++i) {
-            if (list.at(i).manual && list.at(i).ip == QLatin1String("10.1.2.3")) {
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-            return fail("addManual list");
+        const Peer updated = disc.addManual(QStringLiteral("10.1.2.3"), 8848,
+                                            QString::fromUtf8(u8"别名2"), QStringLiteral("windows"),
+                                            QString::fromUtf8(u8"工控"));
+        if (updated.alias != QString::fromUtf8(u8"别名2") || updated.tag != QString::fromUtf8(u8"工控")
+            || updated.osName != QLatin1String("windows"))
+            return fail("addManual overwrite");
+        Peer found;
+        if (!disc.find(QStringLiteral("10.1.2.3"), 8848, &found)
+            || found.tag != QString::fromUtf8(u8"工控"))
+            return fail("addManual overwrite find");
         // 非手动节点不可删
         disc.touch(QStringLiteral("10.1.2.4"), 8848, QStringLiteral("id-auto"),
                    QStringLiteral("auto"), QStringLiteral("windows"));

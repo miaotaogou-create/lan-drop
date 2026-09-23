@@ -221,11 +221,16 @@ void Discovery::upsert(const Peer &in)
             old.osName = in.osName;
         if (!in.hostname.isEmpty())
             old.hostname = in.hostname;
-        if (!in.alias.isEmpty())
-            old.alias = in.alias;
         if (in.manual) {
             old.manual = true;
-            old.tag = in.tag.trimmed(); // 手动再添加可覆盖/清空标签
+            old.alias = in.alias.trimmed();
+            old.tag = in.tag.trimmed();
+            if (!old.alias.isEmpty())
+                old.name = old.alias;
+            if (!in.osName.isEmpty())
+                old.osName = in.osName;
+        } else if (!in.alias.isEmpty()) {
+            old.alias = in.alias;
         }
         if (in.lastSeen.isValid())
             old.lastSeen = in.lastSeen;
