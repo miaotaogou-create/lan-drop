@@ -62,6 +62,7 @@
 #include <QScrollArea>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QSplitter>
@@ -845,11 +846,14 @@ void MainWindow::buildUi()
     toolLay->setContentsMargins(3, 3, 3, 3);
     toolLay->setSpacing(2);
     QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
-                                       QString::fromUtf8(u8"发送文件"), QStringLiteral("toolBtn"));
+                                       QString::fromUtf8(u8"文件"), QStringLiteral("toolBtn"));
     QPushButton *folderBtn = toolLinkBtn(QStringLiteral(":/icons/folder-plus.svg"),
-                                         QString::fromUtf8(u8"发送文件夹"), QStringLiteral("toolBtn"));
+                                         QString::fromUtf8(u8"文件夹"), QStringLiteral("toolBtn"));
     QPushButton *nudgeBtn = toolLinkBtn(QStringLiteral(":/icons/zap.svg"),
-                                        QString::fromUtf8(u8"抖动窗口"), QStringLiteral("toolBtn"));
+                                        QString::fromUtf8(u8"抖动"), QStringLiteral("toolBtn"));
+    fileBtn->setToolTip(QString::fromUtf8(u8"发送文件（可多选）"));
+    folderBtn->setToolTip(QString::fromUtf8(u8"发送文件夹（可打 zip）"));
+    nudgeBtn->setToolTip(QString::fromUtf8(u8"让对方窗口轻颤一下"));
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
     connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
@@ -1115,10 +1119,11 @@ void MainWindow::applyStyle()
         "#clearQueueBtn { background: transparent; border: none; color: #b45309; font-size: 12px;"
         " padding: 2px 8px; border-radius: 6px; }"
         "#clearQueueBtn:hover { background: #fffbeb; color: #92400e; }"
-        "#composerToolBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
-        "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #475569; font-size: 12px;"
-        " padding: 5px 10px; font-weight: 600; }"
+        "#composerToolBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#toolBtn { background: transparent; border: none; border-radius: 9px; color: #64748b; font-size: 12px;"
+        " padding: 6px 10px; font-weight: 600; }"
         "#toolBtn:hover { background: #ffffff; color: #0f172a; }"
+        "#toolBtn:pressed { background: #ffffff; color: #1d4ed8; }"
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
@@ -4793,12 +4798,19 @@ void MainWindow::editSettings()
         " color: #334155; padding: 8px 12px; font-size: 12px; font-weight: 600; }"
         "#settingsBrowse:hover { background: #f8fafc; }"
         "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
-        "#settingsSwitchRow { border-top: 1px solid #e2e8f0; }"
-        "#settingsCheck { spacing: 0; }"
-        "#settingsCheck::indicator { width: 16px; height: 16px; border-radius: 4px;"
-        " border: 1px solid #cbd5e1; background: #ffffff; }"
-        "#settingsCheck::indicator:checked { background: #2563eb; border-color: #2563eb;"
-        " image: url(:/icons/check.svg); }"
+        "#settingsSwitchRow { border-top: 1px solid #eef2f7; }"
+        "#settingsToggle { spacing: 0; }"
+        "#settingsToggle::indicator { width: 40px; height: 22px; border-radius: 11px;"
+        " border: none; background: #cbd5e1; }"
+        "#settingsToggle::indicator:checked { background: #2563eb; }"
+        "#settingsToggle::indicator:unchecked { background: #cbd5e1; }"
+        "#settingsSoundNest { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#settingsScroll { background: transparent; border: none; }"
+        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+        "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
+        "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
         "#settingsFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
         " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
         "#settingsSave { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
@@ -4975,16 +4987,19 @@ void MainWindow::editSettings()
         lay->setSpacing(8);
         QLabel *lab = new QLabel(text);
         lab->setObjectName(QStringLiteral("settingsSwitchLabel"));
+        lab->setWordWrap(true);
         QCheckBox *box = new QCheckBox;
-        box->setObjectName(QStringLiteral("settingsCheck"));
+        box->setObjectName(QStringLiteral("settingsToggle"));
         box->setChecked(checked);
         box->setCursor(Qt::PointingHandCursor);
+        box->setText(QString());
+        box->setFixedSize(40, 22);
         lay->addWidget(lab, 1);
         lay->addWidget(box, 0, Qt::AlignVCenter);
         return qMakePair(row, box);
     };
     const QPair<QWidget *, QCheckBox *> nudgePair =
-        switchRow(QString::fromUtf8(u8"窗口轻颤与抖动提醒 (Nudge)"), m_settings.nudgeEnabled);
+        switchRow(QString::fromUtf8(u8"窗口轻颤与抖动提醒"), m_settings.nudgeEnabled);
     const QPair<QWidget *, QCheckBox *> soundPair =
         switchRow(QString::fromUtf8(u8"新消息与传输完成通知声"), m_settings.soundNotification);
     const QPair<QWidget *, QCheckBox *> trayPair =
@@ -5001,13 +5016,11 @@ void MainWindow::editSettings()
     QCheckBox *bootBox = bootPair.second;
     bodyLay->addWidget(nudgePair.first);
     bodyLay->addWidget(soundPair.first);
-    bodyLay->addWidget(trayPair.first);
-    bodyLay->addWidget(topPair.first);
-    bodyLay->addWidget(bootPair.first);
 
     QWidget *soundExtra = new QWidget;
+    soundExtra->setObjectName(QStringLiteral("settingsSoundNest"));
     QVBoxLayout *soundExtraLay = new QVBoxLayout(soundExtra);
-    soundExtraLay->setContentsMargins(0, 0, 0, 8);
+    soundExtraLay->setContentsMargins(12, 10, 12, 10);
     soundExtraLay->setSpacing(6);
     QLineEdit *soundPath = fieldEdit(m_settings.soundFile,
                                      QString::fromUtf8(u8"留空则使用系统提示音"));
@@ -5064,6 +5077,19 @@ void MainWindow::editSettings()
         soundPath->clear();
     });
 
+    bodyLay->addWidget(trayPair.first);
+    bodyLay->addWidget(topPair.first);
+    bodyLay->addWidget(bootPair.first);
+
+    QScrollArea *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("settingsScroll"));
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setWidget(body);
+    scroll->setMinimumHeight(360);
+    scroll->setMaximumHeight(480);
+
     QWidget *foot = new QWidget;
     foot->setObjectName(QStringLiteral("settingsFoot"));
     QHBoxLayout *footLay = new QHBoxLayout(foot);
@@ -5076,7 +5102,7 @@ void MainWindow::editSettings()
     footLay->addWidget(save);
 
     rootLay->addWidget(head);
-    rootLay->addWidget(body);
+    rootLay->addWidget(scroll, 1);
     rootLay->addWidget(foot);
 
     name->setFocus(Qt::OtherFocusReason);

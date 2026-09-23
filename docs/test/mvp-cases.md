@@ -768,6 +768,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-148 设置 Toggle 与 Composer 收紧
+- 对应验收：U1–U3（`docs/requirements/20260922-settings-toggle-composer.md`）
+- 步骤：打开设置看开关与铃声位置；关掉通知声看铃声区；看输入区工具钮文案与悬停
+- 期望：胶囊 Toggle；铃声在通知声下且关后灰显；工具钮为「文件/文件夹/抖动」且有 tooltip
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
