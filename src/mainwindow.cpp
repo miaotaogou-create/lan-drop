@@ -537,20 +537,28 @@ void MainWindow::buildUi()
     sideLay->setSpacing(10);
 
     QHBoxLayout *sideHead = new QHBoxLayout;
+    sideHead->setContentsMargins(0, 0, 0, 0);
+    sideHead->setSpacing(8);
     QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近设备"));
     sideTitle->setObjectName(QStringLiteral("sideTitle"));
     m_sideTitle = sideTitle;
     m_peerCount = new QLabel(QStringLiteral("0"));
     m_peerCount->setObjectName(QStringLiteral("peerCount"));
+    m_peerCount->setAlignment(Qt::AlignCenter);
     m_peerCount->setProperty("empty", true);
     QPushButton *addBtn = new QPushButton(QString::fromUtf8(u8"+ 加 IP"));
     addBtn->setObjectName(QStringLiteral("addBtn"));
     addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setFocusPolicy(Qt::NoFocus);
     connect(addBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
-    sideHead->addWidget(sideTitle);
-    sideHead->addWidget(m_peerCount);
+    QHBoxLayout *titleGroup = new QHBoxLayout;
+    titleGroup->setContentsMargins(0, 0, 0, 0);
+    titleGroup->setSpacing(6);
+    titleGroup->addWidget(sideTitle, 0, Qt::AlignVCenter);
+    titleGroup->addWidget(m_peerCount, 0, Qt::AlignVCenter);
+    sideHead->addLayout(titleGroup, 0);
     sideHead->addStretch(1);
-    sideHead->addWidget(addBtn);
+    sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
@@ -1057,12 +1065,12 @@ void MainWindow::applyStyle()
         "#side { background: #ffffff; border-right: 1px solid #e8eef5; }"
         "#bodySplit::handle:horizontal { background: #e2e8f0; width: 4px; }"
         "#bodySplit::handle:horizontal:hover { background: #93c5fd; }"
-        "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
-        "#peerCount { background: #ecfdf5; color: #047857; border-radius: 8px; padding: 1px 7px;"
-        " font-size: 11px; font-weight: 700; }"
+        "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
+        "#peerCount { background: #eff6ff; color: #1d4ed8; border-radius: 9px; padding: 2px 8px;"
+        " font-size: 11px; font-weight: 700; min-width: 16px; }"
         "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; }"
         "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
-        " padding: 6px 12px; font-size: 12px; font-weight: 600; min-height: 32px; }"
+        " padding: 4px 10px; font-size: 12px; font-weight: 600; min-height: 26px; }"
         "#addBtn:hover { background: #dbeafe; }"
         "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#searchShell[focused=\"true\"] { border: 1px solid #3b82f6; }"

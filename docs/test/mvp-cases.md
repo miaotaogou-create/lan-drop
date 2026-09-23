@@ -838,6 +838,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-158 侧栏「附近设备」标题行
+- 对应验收：H1–H4（`docs/requirements/20260922-sidehead-align.md`）
+- 步骤：看标题与数字、加 IP 对齐与色系；清到 0 台再看灰角标
+- 期望：标题+数字紧凑居中；有数蓝胶囊、零灰胶囊；加 IP 同高不抢戏
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
