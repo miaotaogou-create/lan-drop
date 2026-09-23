@@ -730,6 +730,7 @@ void MainWindow::buildUi()
     m_chat->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_chat->setLineWrapMode(QTextEdit::WidgetWidth);
     connect(m_chat, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
+    connect(m_chat, SIGNAL(highlighted(QUrl)), this, SLOT(onChatLinkHovered(QUrl)));
     chatHostLay->addWidget(m_chat);
     m_jumpBottomBtn = new QPushButton(m_chatHost);
     m_jumpBottomBtn->setObjectName(QStringLiteral("jumpBottomBtn"));
@@ -3056,6 +3057,22 @@ void MainWindow::measurePing()
         if (key == currentKey())
             updatePeerSession();
     });
+}
+
+void MainWindow::onChatLinkHovered(const QUrl &url)
+{
+    if (url.scheme() != QLatin1String("landrop")) {
+        QToolTip::hideText();
+        return;
+    }
+    if (url.host() == QLatin1String("copy"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制"), m_chat);
+    else if (url.host() == QLatin1String("copypath"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制路径"), m_chat);
+    else if (url.host() == QLatin1String("open"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击打开"), m_chat);
+    else
+        QToolTip::hideText();
 }
 
 void MainWindow::onChatAnchor(const QUrl &url)

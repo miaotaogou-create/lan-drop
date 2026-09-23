@@ -75,6 +75,7 @@ private slots:
     void showChatTab();
     void showFilesTab();
     void onChatAnchor(const QUrl &url);
+    void onChatLinkHovered(const QUrl &url);
     void measurePing();
     void peerListContextMenu(const QPoint &pos);
     void removeSelectedManualPeer();
