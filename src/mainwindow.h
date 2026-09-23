@@ -125,6 +125,7 @@ private:
     void setSessionTab(int index);
     void setStatusOnline(const QString &text, bool ok);
     void setProgress(const QString &text);
+    void setUploadProgressText(const QString &filename, int pct = -1);
     void noteBusyUpload(const QString &hint = QString());
     void noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath = QString());
     void refreshShareBtn();
@@ -207,6 +208,7 @@ private:
     bool m_uploading = false;
     bool m_uploadCanceling = false;
     QPointer<QNetworkReply> m_activeUploadReply;
+    QString m_uploadCurrentName;
     int m_uploadLastPct = -1;
     qint64 m_uploadLastUiMs = 0;
     bool m_pingBusy = false;

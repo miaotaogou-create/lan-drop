@@ -2903,6 +2903,16 @@ void MainWindow::setProgress(const QString &text)
     syncCancelUploadBtn();
 }
 
+void MainWindow::setUploadProgressText(const QString &filename, int pct)
+{
+    QString text = pct < 0
+        ? QString::fromUtf8(u8"正在发送 %1").arg(filename)
+        : QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct);
+    if (!m_uploadQueue.isEmpty())
+        text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
+    setProgress(text);
+}
+
 void MainWindow::syncCancelUploadBtn()
 {
     const bool on = m_uploading;
@@ -2924,6 +2934,7 @@ void MainWindow::cancelUpload()
     }
     m_uploadCanceling = false;
     m_uploading = false;
+    m_uploadCurrentName.clear();
     setProgress(QString());
 }
 
@@ -3407,14 +3418,15 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     const int msgIndex = m_log.value(key).size() - 1;
     m_uploading = true;
     m_uploadCanceling = false;
+    m_uploadCurrentName = filename;
     m_uploadLastPct = -1;
     m_uploadLastUiMs = 0;
-    setProgress(QString::fromUtf8(u8"正在发送 %1").arg(filename));
+    setUploadProgressText(filename);
     connect(rep, &QNetworkReply::uploadProgress, this, [this, key, msgIndex, filename](qint64 sent, qint64 total) {
         if (total <= 0)
             return;
         const int pct = int(sent * 100 / total);
-        setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
+        setUploadProgressText(filename, pct);
         updateUploadProgress(key, msgIndex, pct);
     });
     Q_UNUSED(fromQueue);
@@ -3433,6 +3445,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             m.time = nowClock();
             appendMsg(key, m);
             m_uploading = false;
+            m_uploadCurrentName.clear();
             setProgress(QString());
             return;
         }
@@ -3442,6 +3455,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             noteFail(key, rep, path);
             m_uploadQueue.clear();
             m_uploading = false;
+            m_uploadCurrentName.clear();
             setProgress(QString());
             return;
         }
@@ -3548,6 +3562,7 @@ void MainWindow::pumpUploadQueue()
 {
     if (m_uploadQueue.isEmpty()) {
         m_uploading = false;
+        m_uploadCurrentName.clear();
         setProgress(QString());
         return;
     }
@@ -3594,6 +3609,8 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
         }
         appendMsg(currentKey(), m);
     }
+    if (wasBusy && !m_uploadCurrentName.isEmpty())
+        setUploadProgressText(m_uploadCurrentName, m_uploadLastPct >= 0 ? m_uploadLastPct : -1);
     if (!m_uploading)
         pumpUploadQueue();
 }

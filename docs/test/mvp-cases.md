@@ -215,6 +215,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-69 进度显示排队剩余
+- 对应验收：R1–R3（`docs/requirements/20260922-upload-queue-remain.md`）
+- 步骤：发大文件过程中再入队 2 个看进度文案；等传完一个再看剩余数；取消一次看进度是否清空
+- 期望：入队后出现「排队还剩 N 个」；N 随完成递减；最后一项无排队后缀；取消后无残留
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -532,4 +539,5 @@
 - 上传中非打断提示：见 `20260922-busy-upload-soft.md`（本轮已落地）
 - 发送中自动入队：见 `20260922-upload-queue-append.md`（本轮已落地）
 - 取消当前发送：见 `20260922-cancel-upload.md`（本轮已落地）
+- 进度显示排队剩余：见 `20260922-upload-queue-remain.md`（本轮已落地）
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端
