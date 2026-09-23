@@ -2868,6 +2868,14 @@ void MainWindow::setProgress(const QString &text)
     }
 }
 
+void MainWindow::noteBusyUpload(const QString &hint)
+{
+    // 不弹模态，避免打断看进度；随后 uploadProgress 会覆盖回百分比
+    setProgress(hint.isEmpty()
+                    ? QString::fromUtf8(u8"正在发送中，请稍候再添加")
+                    : hint);
+}
+
 void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath)
 {
     const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -3051,8 +3059,7 @@ void MainWindow::onChatAnchor(const QUrl &url)
         if (path.isEmpty())
             return;
         if (m_uploading) {
-            QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                     QString::fromUtf8(u8"请等待当前文件传完后再重试"));
+            noteBusyUpload(QString::fromUtf8(u8"请等待当前文件传完后再重试"));
             return;
         }
         if (!QFileInfo::exists(path)) {
@@ -3545,8 +3552,7 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
         return;
     }
     if (m_uploading) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"正在发送中，请稍候。"));
+        noteBusyUpload();
         return;
     }
     QStringList unique;
@@ -3581,8 +3587,7 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
 void MainWindow::sendFile()
 {
     if (m_uploading) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"正在发送中，请稍候。"));
+        noteBusyUpload();
         return;
     }
     if (!currentPeer(0, 0, 0))
@@ -3596,8 +3601,7 @@ void MainWindow::sendFile()
 void MainWindow::sendFolder()
 {
     if (m_uploading) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"正在发送中，请稍候。"));
+        noteBusyUpload();
         return;
     }
     if (!currentPeer(0, 0, 0))
