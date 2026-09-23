@@ -610,12 +610,7 @@ void MainWindow::buildUi()
     m_listEmptyHint->setAlignment(Qt::AlignCenter);
     m_listEmptyHint->setWordWrap(true);
     m_listEmptyHint->setTextFormat(Qt::RichText);
-    m_listEmptyHint->setText(
-        QString::fromUtf8(
-            u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
-            u8"暂无设备</p>"
-            u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
-            u8"同一网段等待自动发现<br/>或点上方「+ 加 IP」</p>"));
+    m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false));
     m_listEmptyHint->hide();
     sideLay->addWidget(listHost, 1);
 
@@ -1066,7 +1061,7 @@ void MainWindow::applyStyle()
         "#search:focus { background: #ffffff; border: 1px solid #3b82f6; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerListHost { background: transparent; }"
-        "#listEmptyHint { color: #94a3b8; background: transparent; padding: 24px 16px; }"
+        "#listEmptyHint { color: #94a3b8; background: transparent; padding: 16px 8px; }"
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
@@ -1075,8 +1070,10 @@ void MainWindow::applyStyle()
         " padding: 8px 10px; margin: 4px 2px; color: #0f172a; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0;"
         " border-left: 3px solid #cbd5e1; }"
-        "#peerList::item:selected { background: #ffffff; border-color: #93c5fd;"
+        "#peerList::item:selected { background: #eff6ff; border-color: #93c5fd;"
         " border-left: 3px solid #2563eb; color: #0f172a; }"
+        "#peerList::item:selected:hover { background: #dbeafe; border-color: #60a5fa;"
+        " border-left: 3px solid #2563eb; }"
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
@@ -1113,12 +1110,12 @@ void MainWindow::applyStyle()
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
         "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
         "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
-        "#cancelUploadBtn { background: transparent; border: none; color: #dc2626; font-size: 12px;"
-        " padding: 2px 8px; border-radius: 6px; }"
-        "#cancelUploadBtn:hover { background: #fef2f2; color: #b91c1c; }"
-        "#clearQueueBtn { background: transparent; border: none; color: #b45309; font-size: 12px;"
-        " padding: 2px 8px; border-radius: 6px; }"
-        "#clearQueueBtn:hover { background: #fffbeb; color: #92400e; }"
+        "#cancelUploadBtn { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 12px;"
+        " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
+        "#cancelUploadBtn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }"
+        "#clearQueueBtn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 12px;"
+        " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
+        "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
         "#composerToolBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#toolBtn { background: transparent; border: none; border-radius: 9px; color: #64748b; font-size: 12px;"
         " padding: 6px 10px; font-weight: 600; }"
@@ -2632,19 +2629,9 @@ void MainWindow::updateEmpty()
         if (showEmpty) {
             m_listEmptyHint->setGeometry(m_list->geometry());
             if (!q.isEmpty()) {
-                m_listEmptyHint->setText(
-                    QString::fromUtf8(
-                        u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
-                        u8"没有匹配</p>"
-                        u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
-                        u8"可按 Esc 清除搜索</p>"));
+                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(true));
             } else {
-                m_listEmptyHint->setText(
-                    QString::fromUtf8(
-                        u8"<p style=\"margin:0 0 8px 0;font-size:13px;font-weight:700;color:#475569;\">"
-                        u8"暂无设备</p>"
-                        u8"<p style=\"margin:0;font-size:12px;color:#94a3b8;line-height:1.7;\">"
-                        u8"同一网段等待自动发现<br/>或点上方「+ 加 IP」</p>"));
+                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false));
             }
             m_listEmptyHint->show();
             m_listEmptyHint->raise();

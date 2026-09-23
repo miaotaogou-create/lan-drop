@@ -435,17 +435,39 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     return pixmapToImgHtml(pm);
 }
 
+// Qt 富文本 border-radius 不可靠，操作胶囊绘成位图再嵌 <a>
 static QString actionChipHtml(const QString &href, const QString &label, const QString &title,
                               bool primary)
 {
-    const QString bg = primary ? QStringLiteral("#eff6ff") : QStringLiteral("#f1f5f9");
-    const QString fg = primary ? QStringLiteral("#1d4ed8") : QStringLiteral("#475569");
-    const QString border = primary ? QStringLiteral("#bfdbfe") : QStringLiteral("#e2e8f0");
-    return QStringLiteral(
-               "<td bgcolor=\"%1\" style=\"padding:5px 11px;border:1px solid %2;border-radius:8px;\">"
-               "<a href=\"%3\" title=\"%4\" style=\"text-decoration:none;\">"
-               "<font color=\"%5\" size=\"2\"><b>%6</b></font></a></td>")
-        .arg(bg, border, href, title, fg, label);
+    QFont font = qApp->font();
+    font.setPixelSize(12);
+    font.setBold(true);
+    QFontMetrics fm(font);
+    const int padX = 11;
+    const int padY = 5;
+    const int innerH = qMax(26, fm.height() + padY * 2);
+    const int innerW = fm.horizontalAdvance(label) + padX * 2;
+    const qreal radius = 8.0;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(innerW * dpr, innerH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(0.5, 0.5, innerW - 1.0, innerH - 1.0);
+    const QColor bg = primary ? QColor(QStringLiteral("#eff6ff")) : QColor(QStringLiteral("#f1f5f9"));
+    const QColor border = primary ? QColor(QStringLiteral("#bfdbfe")) : QColor(QStringLiteral("#e2e8f0"));
+    const QColor fg = primary ? QColor(QStringLiteral("#1d4ed8")) : QColor(QStringLiteral("#475569"));
+    p.setPen(QPen(border, 1.0));
+    p.setBrush(bg);
+    p.drawRoundedRect(box, radius, radius);
+    p.setFont(font);
+    p.setPen(fg);
+    p.drawText(QRect(0, 0, innerW, innerH), Qt::AlignCenter, label);
+    return QStringLiteral("<td style=\"padding:0;\">"
+                          "<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a></td>")
+        .arg(href, title, pixmapToImgHtml(pm));
 }
 
 static QString renderFileCard(const ChatMsg &m)
@@ -610,22 +632,22 @@ static void paintKeycap(QPainter &p, const QRectF &r, const QString &label)
 }
 
 static QString emptyGuideCardImgHtml(const QString &title, const QStringList &keycaps,
-                                     const QString &footer)
+                                     const QString &footer, int cardW = 360)
 {
-    const int cardW = 360;
-    const int pad = 28;
-    const qreal radius = 16.0;
+    const bool compact = cardW < 280;
+    const int pad = compact ? 16 : 28;
+    const qreal radius = compact ? 12.0 : 16.0;
     QFont titleFont = qApp->font();
-    titleFont.setPixelSize(17);
+    titleFont.setPixelSize(compact ? 14 : 17);
     titleFont.setBold(true);
     QFont footFont = qApp->font();
-    footFont.setPixelSize(12);
+    footFont.setPixelSize(compact ? 11 : 12);
     QFontMetrics titleFm(titleFont);
     QFontMetrics footFm(footFont);
     const int titleH = titleFm.height();
-    const int capH = 24;
-    const int footH = footer.isEmpty() ? 0 : (footFm.height() + 10);
-    const int capsBlock = keycaps.isEmpty() ? 0 : (12 + capH);
+    const int capH = compact ? 22 : 24;
+    const int footH = footer.isEmpty() ? 0 : (footFm.height() + (compact ? 8 : 10));
+    const int capsBlock = keycaps.isEmpty() ? 0 : (compact ? 10 : 12) + capH;
     const int innerH = pad + titleH + capsBlock + footH + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
@@ -749,4 +771,20 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
     }
     html += QStringLiteral("</body></html>");
     return html;
+}
+
+QString renderSidebarEmptyHintHtml(bool noMatch)
+{
+    if (noMatch) {
+        return emptyGuideCardImgHtml(
+            QString::fromUtf8(u8"没有匹配"),
+            QStringList() << QString::fromUtf8(u8"Esc"),
+            QString::fromUtf8(u8"清除搜索后再试"),
+            200);
+    }
+    return emptyGuideCardImgHtml(
+        QString::fromUtf8(u8"暂无设备"),
+        QStringList() << QString::fromUtf8(u8"+ 加 IP"),
+        QString::fromUtf8(u8"同一网段等待自动发现"),
+        200);
 }
