@@ -435,6 +435,19 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     return pixmapToImgHtml(pm);
 }
 
+static QString actionChipHtml(const QString &href, const QString &label, const QString &title,
+                              bool primary)
+{
+    const QString bg = primary ? QStringLiteral("#eff6ff") : QStringLiteral("#f1f5f9");
+    const QString fg = primary ? QStringLiteral("#1d4ed8") : QStringLiteral("#475569");
+    const QString border = primary ? QStringLiteral("#bfdbfe") : QStringLiteral("#e2e8f0");
+    return QStringLiteral(
+               "<td bgcolor=\"%1\" style=\"padding:5px 11px;border:1px solid %2;border-radius:8px;\">"
+               "<a href=\"%3\" title=\"%4\" style=\"text-decoration:none;\">"
+               "<font color=\"%5\" size=\"2\"><b>%6</b></font></a></td>")
+        .arg(bg, border, href, title, fg, label);
+}
+
 static QString renderFileCard(const ChatMsg &m)
 {
     const bool out = (m.type == ChatMsg::OutFile);
@@ -452,22 +465,19 @@ static QString renderFileCard(const ChatMsg &m)
         openHref = QStringLiteral("landrop://open/") + pathB64;
         const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
         const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
-        actions = QString::fromUtf8(
-                      u8"<a href=\"%1\" title=\"%4\" style=\"text-decoration:none;\">"
-                      u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
-                      u8"&nbsp;&nbsp;"
-                      u8"<a href=\"%2\" title=\"%5\" style=\"text-decoration:none;\">"
-                      u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
-                      u8"&nbsp;&nbsp;"
-                      u8"<a href=\"%3\" title=\"%6\" style=\"text-decoration:none;\">"
-                      u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>")
-                      .arg(openHref, revealHref, copyPathHref,
-                           QString::fromUtf8(u8"点击打开"),
-                           QString::fromUtf8(u8"打开所在目录"),
-                           QString::fromUtf8(u8"点击复制路径"));
+        actions = QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\"><tr>")
+            + actionChipHtml(openHref, QString::fromUtf8(u8"打开"),
+                             QString::fromUtf8(u8"点击打开"), true)
+            + QStringLiteral("<td width=\"6\"></td>")
+            + actionChipHtml(revealHref, QString::fromUtf8(u8"目录"),
+                             QString::fromUtf8(u8"打开所在目录"), false)
+            + QStringLiteral("<td width=\"6\"></td>")
+            + actionChipHtml(copyPathHref, QString::fromUtf8(u8"复制路径"),
+                             QString::fromUtf8(u8"点击复制路径"), false)
+            + QStringLiteral("</tr></table>");
         if (!out) {
             actions += QString::fromUtf8(
-                u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>");
+                u8"<br/><font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>");
         }
     } else {
         actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");

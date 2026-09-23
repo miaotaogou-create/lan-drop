@@ -266,6 +266,7 @@ private:
     QFrame *m_trayToast = 0;
     QLabel *m_trayToastTitle = 0;
     QLabel *m_trayToastBody = 0;
+    QLabel *m_trayToastHint = 0;
     QTimer *m_trayToastTimer = 0;
     QTimer *m_chatSaveTimer = 0;
     QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转

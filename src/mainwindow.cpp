@@ -1437,25 +1437,47 @@ void MainWindow::showTrayToast(const QString &title, const QString &body)
         m_trayToast = new QFrame(0, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         m_trayToast->setObjectName(QStringLiteral("trayToast"));
         m_trayToast->setAttribute(Qt::WA_ShowWithoutActivating);
-        m_trayToast->setFixedWidth(320);
+        m_trayToast->setAttribute(Qt::WA_TranslucentBackground, true);
+        m_trayToast->setFixedWidth(340);
         m_trayToast->setCursor(Qt::PointingHandCursor);
-        QVBoxLayout *lay = new QVBoxLayout(m_trayToast);
-        lay->setContentsMargins(14, 12, 14, 12);
-        lay->setSpacing(4);
-        m_trayToastTitle = new QLabel(m_trayToast);
+        QVBoxLayout *outer = new QVBoxLayout(m_trayToast);
+        outer->setContentsMargins(10, 10, 10, 10);
+        QFrame *card = new QFrame(m_trayToast);
+        card->setObjectName(QStringLiteral("trayToastCard"));
+        applyFloatingShadow(card);
+        QHBoxLayout *row = new QHBoxLayout(card);
+        row->setContentsMargins(14, 12, 14, 12);
+        row->setSpacing(12);
+        QLabel *icon = new QLabel(card);
+        icon->setFixedSize(28, 28);
+        icon->setPixmap(makeRadioLogo(28));
+        icon->setAttribute(Qt::WA_TransparentForMouseEvents);
+        QVBoxLayout *textCol = new QVBoxLayout;
+        textCol->setContentsMargins(0, 0, 0, 0);
+        textCol->setSpacing(3);
+        m_trayToastTitle = new QLabel(card);
         m_trayToastTitle->setObjectName(QStringLiteral("trayToastTitle"));
         m_trayToastTitle->setWordWrap(true);
         m_trayToastTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
-        m_trayToastBody = new QLabel(m_trayToast);
+        m_trayToastBody = new QLabel(card);
         m_trayToastBody->setObjectName(QStringLiteral("trayToastBody"));
         m_trayToastBody->setWordWrap(true);
         m_trayToastBody->setAttribute(Qt::WA_TransparentForMouseEvents);
-        lay->addWidget(m_trayToastTitle);
-        lay->addWidget(m_trayToastBody);
+        m_trayToastHint = new QLabel(QString::fromUtf8(u8"点击打开"), card);
+        m_trayToastHint->setObjectName(QStringLiteral("trayToastHint"));
+        m_trayToastHint->setAttribute(Qt::WA_TransparentForMouseEvents);
+        textCol->addWidget(m_trayToastTitle);
+        textCol->addWidget(m_trayToastBody);
+        textCol->addWidget(m_trayToastHint);
+        row->addWidget(icon, 0, Qt::AlignTop);
+        row->addLayout(textCol, 1);
+        outer->addWidget(card);
         m_trayToast->setStyleSheet(QStringLiteral(
-            "#trayToast { background: #0f172a; border: 1px solid #334155; border-radius: 10px; }"
-            "#trayToastTitle { color: #f8fafc; font-size: 13px; font-weight: 600; }"
-            "#trayToastBody { color: #cbd5e1; font-size: 12px; }"));
+            "#trayToast { background: transparent; }"
+            "#trayToastCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
+            "#trayToastTitle { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
+            "#trayToastBody { color: #475569; font-size: 12px; background: transparent; }"
+            "#trayToastHint { color: #2563eb; font-size: 11px; font-weight: 600; background: transparent; }"));
         m_trayToast->installEventFilter(this);
         m_trayToastTimer = new QTimer(this);
         m_trayToastTimer->setSingleShot(true);
@@ -2799,10 +2821,13 @@ void MainWindow::setProgress(const QString &text)
 
 void MainWindow::setUploadProgressText(const QString &filename, int pct)
 {
-    Q_UNUSED(filename);
     Q_UNUSED(pct);
-    // 百分比以气泡为准；顶栏只补速率 / ETA / 排队，避免同一 N% 刷两遍
-    QString text = QString::fromUtf8(u8"发送中");
+    // 百分比以气泡为准；胶囊前置文件名，再补速率 / ETA / 排队
+    QString name = filename.trimmed().isEmpty() ? m_uploadCurrentName : filename;
+    name = QFileInfo(name).fileName();
+    if (name.size() > 22)
+        name = name.left(20) + QString::fromUtf8(u8"…");
+    QString text = name.isEmpty() ? QString::fromUtf8(u8"发送中") : name;
     if (m_uploadSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_uploadSpeedBps)));
     const QString eta = formatEta(m_uploadRemainBytes, m_uploadSpeedBps);
@@ -2812,7 +2837,7 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
         ? QString()
         : QString::fromUtf8(u8"当前：%1").arg(m_uploadCurrentName);
     if (!m_uploadQueue.isEmpty()) {
-        text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
+        text += QString::fromUtf8(u8" · 排队 %1").arg(m_uploadQueue.size());
         QStringList preview;
         for (int i = 0; i < m_uploadQueue.size() && i < 2; ++i) {
             QString n = QFileInfo(m_uploadQueue.at(i)).fileName();
@@ -2820,9 +2845,10 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
                 n = n.left(16) + QStringLiteral("…");
             preview.append(n);
         }
-        text += QString::fromUtf8(u8"（%1%2）")
-                    .arg(preview.join(QString::fromUtf8(u8"、")))
-                    .arg(m_uploadQueue.size() > 2 ? QString::fromUtf8(u8"…") : QString());
+        if (!preview.isEmpty())
+            text += QString::fromUtf8(u8"（%1%2）")
+                        .arg(preview.join(QString::fromUtf8(u8"、")))
+                        .arg(m_uploadQueue.size() > 2 ? QString::fromUtf8(u8"…") : QString());
         if (!tip.isEmpty())
             tip += QLatin1Char('\n');
         tip += QString::fromUtf8(u8"排队：\n");
@@ -2848,8 +2874,10 @@ void MainWindow::setRecvProgressText(const QString &filename, int pct)
     Q_UNUSED(pct);
     if (m_uploading)
         return;
-    // 百分比以气泡为准；顶栏只补速率 / ETA
-    QString text = QString::fromUtf8(u8"接收中");
+    QString name = QFileInfo(filename).fileName();
+    if (name.size() > 22)
+        name = name.left(20) + QString::fromUtf8(u8"…");
+    QString text = name.isEmpty() ? QString::fromUtf8(u8"接收中") : name;
     if (m_recvSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_recvSpeedBps)));
     const QString eta = formatEta(m_recvRemainBytes, m_recvSpeedBps);

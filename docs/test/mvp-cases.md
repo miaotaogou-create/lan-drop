@@ -754,6 +754,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-146 托盘白卡 Toast 与文件 chip、进度文件名
+- 对应验收：T1–T3（`docs/requirements/20260922-toast-filechips-progress-name.md`）
+- 步骤：最小化到托盘后触发通知；看完成文件卡操作区；发送/接收文件看进度胶囊
+- 期望：Toast 白卡+「点击打开」；操作为 chip；进度文案含当前文件名
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
