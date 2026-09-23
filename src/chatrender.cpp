@@ -748,7 +748,7 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
     bool hasUserContent = false;
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
-        html += QStringLiteral("<div style=\"margin:14px 0;\">");
+        html += QStringLiteral("<div style=\"margin:18px 0;\">");
         switch (m.type) {
         case ChatMsg::OutText:
         case ChatMsg::InText:
@@ -803,7 +803,7 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
         const ChatMsg &m = msgs.at(i);
         if (m.type != ChatMsg::InFile && m.type != ChatMsg::OutFile)
             continue;
-        html += QStringLiteral("<div style=\"margin:14px 0;\">");
+        html += QStringLiteral("<div style=\"margin:18px 0;\">");
         html += renderFileCard(m);
         html += QStringLiteral("</div>");
         ++n;

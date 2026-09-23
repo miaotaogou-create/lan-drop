@@ -852,6 +852,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-160 跳底白卡、离线条与顶栏地址
+- 对应验收：J1–J4（`docs/requirements/20260922-jump-banner-addr-gap.md`）
+- 步骤：上翻触发「有新消息」；选离线对端看连接条；对比顶栏 IP 与本机 pill；看消息间距
+- 期望：跳底白卡蓝字；离线无灰带；IP chip 同系白卡；消息更透气
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
