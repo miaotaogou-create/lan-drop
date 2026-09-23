@@ -16,6 +16,7 @@
 
 class Discovery;
 class HttpServer;
+class WindowChrome;
 class QAction;
 class QCloseEvent;
 class QFrame;
@@ -45,6 +46,7 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, long *result) override;
     void changeEvent(QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
@@ -242,6 +244,7 @@ private:
     QString m_pingText;
     QPoint m_dragOrigin;
     bool m_dragging = false;
+    WindowChrome *m_chrome = 0;
     QSystemTrayIcon *m_tray = 0;
     QAction *m_traySoundAct = 0;
     bool m_forceQuit = false;

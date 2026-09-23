@@ -14,6 +14,7 @@ SOURCES += \
     src/chatrender.cpp \
     src/ziputil.cpp \
     src/qrcodegen.cpp \
+    src/windowchrome.cpp \
     src/mainwindow.cpp \
     src/selfcheck.cpp
 
@@ -28,6 +29,7 @@ HEADERS += \
     src/chatrender.h \
     src/ziputil.h \
     src/qrcodegen.hpp \
+    src/windowchrome.h \
     src/mainwindow.h \
     src/selfcheck.h
 

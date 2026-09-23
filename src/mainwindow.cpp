@@ -7,6 +7,7 @@
 #include "httpserver.h"
 #include "qrcodegen.hpp"
 #include "uiicons.h"
+#include "windowchrome.h"
 #include "ziputil.h"
 
 #include <algorithm>
@@ -301,8 +302,9 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle(QString::fromUtf8(u8"局域快传"));
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground, false);
-    resize(960, 640);
-    setMinimumSize(760, 480);
+    resize(880, 560);
+    setMinimumSize(680, 440);
+    m_chrome = new WindowChrome(this, this);
     statusBar()->hide();
 
     m_disc = new Discovery(this);
@@ -1042,6 +1044,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QMainWindow::eventFilter(watched, event);
+}
+
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result)
+{
+    if (m_chrome && m_chrome->handleNativeEvent(eventType, message, result))
+        return true;
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 void MainWindow::changeEvent(QEvent *event)
@@ -1831,12 +1840,12 @@ void MainWindow::applyWindowGeometry()
     int h = m_settings.windowH;
     const bool remembered = (w >= minimumWidth() && h >= minimumHeight());
     if (!remembered) {
-        w = 960;
-        h = 640;
+        w = 880;
+        h = 560;
     }
     if (!avail.isNull()) {
-        w = qMin(w, qMax(minimumWidth(), int(avail.width() * 0.92)));
-        h = qMin(h, qMax(minimumHeight(), int(avail.height() * 0.92)));
+        w = qMin(w, qMax(minimumWidth(), int(avail.width() * 0.85)));
+        h = qMin(h, qMax(minimumHeight(), int(avail.height() * 0.85)));
         w = qMax(w, minimumWidth());
         h = qMax(h, minimumHeight());
     }
