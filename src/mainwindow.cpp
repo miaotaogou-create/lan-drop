@@ -433,14 +433,14 @@ void MainWindow::buildUi()
 
     QPushButton *dlBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"),
                                    QString::fromUtf8(u8"打开下载目录"));
-    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 20)));
-    dlBtn->setIconSize(QSize(20, 20));
+    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 18)));
+    dlBtn->setIconSize(QSize(18, 18));
     dlBtn->setCursor(Qt::PointingHandCursor);
     connect(dlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
 
     QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
-    setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 20)));
-    setBtn->setIconSize(QSize(20, 20));
+    setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 18)));
+    setBtn->setIconSize(QSize(18, 18));
     setBtn->setCursor(Qt::PointingHandCursor);
     connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
 
@@ -451,7 +451,7 @@ void MainWindow::buildUi()
     m_pinBtn->setFlat(true);
     m_pinBtn->setCheckable(true);
     m_pinBtn->setCursor(Qt::PointingHandCursor);
-    m_pinBtn->setIconSize(QSize(16, 16));
+    m_pinBtn->setIconSize(QSize(18, 18));
     connect(m_pinBtn, SIGNAL(clicked(bool)), this, SLOT(toggleAlwaysOnTop(bool)));
     syncPinBtn();
 

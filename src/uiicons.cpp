@@ -22,49 +22,50 @@ enum DeviceKind {
 
 QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
 {
+    // 与顶栏 SVG（folder/settings）统一为 18 逻辑像素，线重接近 Lucide stroke-2
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int logical = 16;
+    const int logical = 18;
     const int px = logical * dpr;
     QPixmap pm(px, px);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(color, 1.6);
+    QPen pen(color, 1.8);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     p.setPen(pen);
     p.setBrush(Qt::NoBrush);
-    const QRectF r(2.5, 2.5, 11.0, 11.0);
     switch (kind) {
     case IconMinimize:
-        p.drawLine(QPointF(3.5, 8.0), QPointF(12.5, 8.0));
+        // 横线略加长，避免在同行里显得过轻过小
+        p.drawLine(QPointF(4.0, 9.0), QPointF(14.0, 9.0));
         break;
     case IconMaximize:
-        p.drawRect(QRectF(3.5, 3.5, 9.0, 9.0));
+        p.drawRect(QRectF(4.0, 4.0, 10.0, 10.0));
         break;
     case IconRestore:
-        p.drawRect(QRectF(5.0, 3.0, 7.5, 7.5));
-        p.fillRect(QRectF(3.0, 5.5, 7.5, 7.5), Qt::white);
-        p.drawRect(QRectF(3.0, 5.5, 7.5, 7.5));
+        p.drawRect(QRectF(6.0, 3.5, 8.0, 8.0));
+        p.fillRect(QRectF(3.5, 6.5, 8.0, 8.0), Qt::white);
+        p.drawRect(QRectF(3.5, 6.5, 8.0, 8.0));
         break;
     case IconClose:
-        p.drawLine(QPointF(4.0, 4.0), QPointF(12.0, 12.0));
-        p.drawLine(QPointF(12.0, 4.0), QPointF(4.0, 12.0));
+        p.drawLine(QPointF(4.5, 4.5), QPointF(13.5, 13.5));
+        p.drawLine(QPointF(13.5, 4.5), QPointF(4.5, 13.5));
         break;
     case IconSettings: {
         p.setBrush(color);
         p.setPen(Qt::NoPen);
-        p.drawEllipse(QPointF(8.0, 8.0), 2.2, 2.2);
+        p.drawEllipse(QPointF(9.0, 9.0), 2.4, 2.4);
         p.setPen(pen);
         p.setBrush(Qt::NoBrush);
-        p.drawEllipse(QPointF(8.0, 8.0), 4.6, 4.6);
+        p.drawEllipse(QPointF(9.0, 9.0), 5.0, 5.0);
         for (int i = 0; i < 6; ++i) {
             const qreal a = i * 3.14159265 / 3.0;
             const qreal c = qCos(a);
             const qreal s = qSin(a);
-            p.drawLine(QPointF(8.0 + c * 5.2, 8.0 + s * 5.2),
-                       QPointF(8.0 + c * 7.0, 8.0 + s * 7.0));
+            p.drawLine(QPointF(9.0 + c * 5.6, 9.0 + s * 5.6),
+                       QPointF(9.0 + c * 7.6, 9.0 + s * 7.6));
         }
         break;
     }
@@ -361,25 +362,25 @@ QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString
     b->setCursor(Qt::ArrowCursor);
     b->setToolTip(tip);
     b->setIcon(makeChromeIcon(kind, QColor(QStringLiteral("#475569"))));
-    b->setIconSize(QSize(16, 16));
+    b->setIconSize(QSize(18, 18));
     return b;
 }
 
 QIcon makePinIcon(bool pinned, const QColor &color)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int s = 16;
+    const int s = 18;
     QPixmap pm(s * dpr, s * dpr);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(color, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     if (pinned)
         p.setBrush(color);
     else
         p.setBrush(Qt::NoBrush);
-    p.drawEllipse(QRectF(4.5, 2.5, 7, 7));
-    p.drawLine(QPointF(8, 9.5), QPointF(8, 13.5));
+    p.drawEllipse(QRectF(5.0, 2.5, 8.0, 8.0));
+    p.drawLine(QPointF(9.0, 10.5), QPointF(9.0, 15.0));
     return QIcon(pm);
 }
