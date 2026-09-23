@@ -481,6 +481,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-107 气泡「复制」链接可读
+- 对应验收：V1–V2（`docs/requirements/20260922-copy-link-contrast.md`）
+- 步骤：发一条短文字，看气泡下「复制」；点击一次
+- 期望：浅蓝底上「复制」清楚可读；剪贴板为原文
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

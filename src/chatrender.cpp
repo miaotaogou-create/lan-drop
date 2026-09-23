@@ -262,7 +262,7 @@ static QString renderTextBubble(const ChatMsg &m)
             + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
         body += QString::fromUtf8(
                     u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#64748b\" size=\"2\">复制</font></a>")
+                    u8"<font color=\"#2563eb\" size=\"3\">复制</font></a>")
                     .arg(href);
     }
     return renderMsgRow(out, head, body, avatar);
