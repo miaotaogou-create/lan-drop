@@ -444,7 +444,7 @@ static QString renderSystem(const ChatMsg &m)
             + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
         body += QString::fromUtf8(
                     u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#2563eb\" size=\"2\">重试</font></a>")
+                    u8"<font color=\"#2563eb\" size=\"3\">重试</font></a>")
                     .arg(href);
         if (!m.morePaths.isEmpty()) {
             QStringList all;
@@ -458,7 +458,7 @@ static QString renderSystem(const ChatMsg &m)
                 + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
             body += QString::fromUtf8(
                         u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                        u8"<font color=\"#2563eb\" size=\"2\">重发剩余 %2</font></a>")
+                        u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
                         .arg(batchHref)
                         .arg(all.size());
         }
@@ -475,16 +475,19 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
 {
     QString html = QStringLiteral(
         "<html><body style=\"margin:0;padding:8px;background:#f1f5f9;\">");
+    bool hasUserContent = false;
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
         html += QStringLiteral("<div style=\"margin:14px 0;\">");
         switch (m.type) {
         case ChatMsg::OutText:
         case ChatMsg::InText:
+            hasUserContent = true;
             html += renderTextBubble(m);
             break;
         case ChatMsg::OutFile:
         case ChatMsg::InFile:
+            hasUserContent = true;
             html += renderFileCard(m);
             break;
         case ChatMsg::System:
@@ -493,6 +496,11 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
             break;
         }
         html += QStringLiteral("</div>");
+    }
+    if (!hasUserContent) {
+        html += QString::fromUtf8(
+            u8"<p align=\"center\" style=\"margin:48px 16px;\">"
+            u8"<font color=\"#94a3b8\" size=\"3\">发消息，或把文件拖到这里</font></p>");
     }
     html += QStringLiteral("</body></html>");
     return html;

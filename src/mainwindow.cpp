@@ -3128,6 +3128,18 @@ void MainWindow::sendText()
     if (!currentPeer(&ip, &port, 0))
         return;
     maybeWarnOfflinePeer();
+    // 乐观发送：立刻出气泡并清空输入，避免慢网连按重复发
+    const QString key = currentKey();
+    ChatMsg pending;
+    pending.type = ChatMsg::OutText;
+    pending.who = QString::fromUtf8(u8"我");
+    pending.face = m_settings.deviceName;
+    pending.text = text;
+    pending.rttMs = -1;
+    pending.time = nowClock();
+    appendMsg(key, pending);
+    m_input->clear();
+
     QJsonObject o;
     o.insert(QStringLiteral("fromId"), m_id);
     o.insert(QStringLiteral("fromName"), m_settings.deviceName);
@@ -3139,25 +3151,37 @@ void MainWindow::sendText()
     QElapsedTimer *clock = new QElapsedTimer;
     clock->start();
     QNetworkReply *rep = m_nam->post(req, body);
-    const QString key = currentKey();
     const QString sent = text;
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, sent, clock]() {
         rep->deleteLater();
         const qint64 ms = clock->elapsed();
         delete clock;
+        // 按「最早一条未送达且正文相同」匹配，避免并发时下标错位
+        int slot = -1;
+        QVector<ChatMsg> &lines = m_log[key];
+        for (int i = 0; i < lines.size(); ++i) {
+            if (lines.at(i).type == ChatMsg::OutText && lines.at(i).rttMs < 0
+                && lines.at(i).text == sent) {
+                slot = i;
+                break;
+            }
+        }
         if (rep->error() != QNetworkReply::NoError) {
+            if (slot >= 0) {
+                lines.removeAt(slot);
+                if (currentKey() == key)
+                    refreshChatHtml(true);
+                scheduleSaveChatHistory();
+            }
             noteFail(key, rep);
             return;
         }
-        ChatMsg m;
-        m.type = ChatMsg::OutText;
-        m.who = QString::fromUtf8(u8"我");
-        m.face = m_settings.deviceName;
-        m.text = sent;
-        m.rttMs = ms;
-        m.time = nowClock();
-        appendMsg(key, m);
-        m_input->clear();
+        if (slot >= 0) {
+            lines[slot].rttMs = ms;
+            if (currentKey() == key)
+                refreshChatHtml();
+            scheduleSaveChatHistory();
+        }
     });
 }
 
