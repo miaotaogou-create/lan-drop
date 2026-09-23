@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
         <file alias="paperclip.svg">paperclip.svg</file>
+        <file alias="folder.svg">folder.svg</file>
         <file alias="folder-plus.svg">folder-plus.svg</file>
         <file alias="zap.svg">zap.svg</file>
         <file alias="send.svg">send.svg</file>

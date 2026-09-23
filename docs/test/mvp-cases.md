@@ -601,11 +601,11 @@
 - 结果：待手测
 
 ### TC-124 会话顶栏打开下载目录
-- 对应验收：D1–D2（`docs/requirements/20260922-session-open-download.md`）
-- 步骤：选中对端，点会话顶栏「下载目录」
-- 期望：打开设置中的接收目录
+- 对应验收：D1–D2（`docs/requirements/20260922-session-open-download.md`）→ 已废弃，见 TC-152
+- 步骤：—
+- 期望：会话顶栏不再提供下载目录钮；改用顶栏/托盘
 - 类型：手测
-- 结果：待手测
+- 结果：废弃（入口收敛）
 
 ### TC-125 文件卡点文件名打开
 - 对应验收：F1–F3（`docs/requirements/20260922-file-card-open-by-name.md`）
@@ -796,6 +796,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-152 下载目录与发送文件夹图标分家
+- 对应验收：F1–F4（`docs/requirements/20260922-folder-icon-dedupe.md`）
+- 步骤：对比顶栏下载图标与输入栏「文件夹」；确认会话 Tab 旁无第三枚；分别点击两入口
+- 期望：顶栏无「+」；会话旁无重复钮；输入栏加号文件夹仍发文件夹；顶栏仍打开接收目录
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -832,9 +839,9 @@
 - 结果：待手测
 
 ### TC-41 打开下载目录
-- 对应验收：O1–O4（`docs/requirements/20260922-open-download-dir.md`）
-- 步骤：点顶栏文件夹图标；再托盘右键「打开下载目录」
-- 期望：均打开当前设置中的下载目录；目录不存在时会先创建
+- 对应验收：O1–O4（`docs/requirements/20260922-open-download-dir.md`）；F1/F4（`docs/requirements/20260922-folder-icon-dedupe.md`）
+- 步骤：点顶栏无加号文件夹图标；再托盘右键「打开下载目录」
+- 期望：均打开当前设置中的下载目录；目录不存在时会先创建；图标无「+」
 - 类型：手测
 - 结果：待手测
 

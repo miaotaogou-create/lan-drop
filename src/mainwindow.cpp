@@ -452,7 +452,7 @@ void MainWindow::buildUi()
 
     QPushButton *dlBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"),
                                    QString::fromUtf8(u8"打开下载目录"));
-    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 18)));
+    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder.svg"), 18)));
     dlBtn->setIconSize(QSize(18, 18));
     dlBtn->setCursor(Qt::PointingHandCursor);
     connect(dlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
@@ -718,21 +718,9 @@ void MainWindow::buildUi()
     tabBarLay->addWidget(m_tabChat);
     tabBarLay->addWidget(m_tabFiles);
 
-    QPushButton *sessionDlBtn = new QPushButton;
-    sessionDlBtn->setObjectName(QStringLiteral("sessionIconBtn"));
-    sessionDlBtn->setFixedSize(32, 32);
-    sessionDlBtn->setCursor(Qt::PointingHandCursor);
-    sessionDlBtn->setFocusPolicy(Qt::NoFocus);
-    sessionDlBtn->setFlat(true);
-    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 15)));
-    sessionDlBtn->setIconSize(QSize(15, 15));
-    sessionDlBtn->setToolTip(QString::fromUtf8(u8"打开本机文件接收目录"));
-    connect(sessionDlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
-
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
     peerHeadLay->addWidget(tabBar, 0, Qt::AlignVCenter);
-    peerHeadLay->addWidget(sessionDlBtn, 0, Qt::AlignVCenter);
 
     m_connBannerHost = new QWidget;
     m_connBannerHost->setObjectName(QStringLiteral("connBannerHost"));
