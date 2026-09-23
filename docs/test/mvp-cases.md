@@ -817,6 +817,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-155 Composer 工具栏并入输入浮卡
+- 对应验收：U1–U4（`docs/requirements/20260922-composer-unified-card.md`）
+- 步骤：看输入区结构；点附件/文件夹/抖动；聚焦输入框看边框
+- 期望：工具与输入同一张浮卡；卡外无独立灰槽；聚焦整卡蓝边；三钮行为不变
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

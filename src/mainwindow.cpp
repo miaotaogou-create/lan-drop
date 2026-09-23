@@ -830,11 +830,18 @@ void MainWindow::buildUi()
     progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
+    m_inputShell = new QWidget;
+    m_inputShell->setObjectName(QStringLiteral("inputShell"));
+    applyFloatingShadow(m_inputShell);
+    QVBoxLayout *shellLay = new QVBoxLayout(m_inputShell);
+    shellLay->setContentsMargins(0, 0, 0, 0);
+    shellLay->setSpacing(0);
+
     QFrame *toolBar = new QFrame;
     toolBar->setObjectName(QStringLiteral("composerToolBar"));
     toolBar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *toolLay = new QHBoxLayout(toolBar);
-    toolLay->setContentsMargins(3, 3, 3, 3);
+    toolLay->setContentsMargins(6, 4, 6, 4);
     toolLay->setSpacing(2);
     QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
                                        QString::fromUtf8(u8"文件"), QStringLiteral("toolBtn"));
@@ -851,13 +858,13 @@ void MainWindow::buildUi()
     toolLay->addWidget(fileBtn);
     toolLay->addWidget(folderBtn);
     toolLay->addWidget(nudgeBtn);
+    toolLay->addStretch(1);
 
-    m_inputShell = new QWidget;
-    m_inputShell->setObjectName(QStringLiteral("inputShell"));
-    applyFloatingShadow(m_inputShell);
-    QVBoxLayout *shellLay = new QVBoxLayout(m_inputShell);
-    shellLay->setContentsMargins(12, 10, 10, 10);
-    shellLay->setSpacing(4);
+    QWidget *inputPad = new QWidget;
+    inputPad->setObjectName(QStringLiteral("inputPad"));
+    QVBoxLayout *padLay = new QVBoxLayout(inputPad);
+    padLay->setContentsMargins(12, 8, 10, 10);
+    padLay->setSpacing(4);
     m_input = new QPlainTextEdit;
     m_input->setObjectName(QStringLiteral("input"));
     m_input->setFrameShape(QFrame::NoFrame);
@@ -883,16 +890,13 @@ void MainWindow::buildUi()
     sendRow->setContentsMargins(0, 0, 0, 0);
     sendRow->addStretch(1);
     sendRow->addWidget(m_sendBtn);
-    shellLay->addWidget(m_input, 1);
-    shellLay->addLayout(sendRow);
+    padLay->addWidget(m_input, 1);
+    padLay->addLayout(sendRow);
+
+    shellLay->addWidget(toolBar);
+    shellLay->addWidget(inputPad, 1);
 
     compCol->addWidget(progressHost);
-    QHBoxLayout *toolRow = new QHBoxLayout;
-    toolRow->setContentsMargins(0, 0, 0, 0);
-    toolRow->setSpacing(0);
-    toolRow->addWidget(toolBar, 0, Qt::AlignLeft);
-    toolRow->addStretch(1);
-    compCol->addLayout(toolRow);
     compCol->addWidget(m_inputShell);
 
     chatBodyLay->addWidget(m_chatHost, 1);
@@ -1115,11 +1119,13 @@ void MainWindow::applyStyle()
         "#clearQueueBtn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 12px;"
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
-        "#composerToolBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
-        "#toolBtn { background: transparent; border: none; border-radius: 9px; color: #64748b; font-size: 12px;"
-        " padding: 6px 10px; font-weight: 600; }"
+        "#composerToolBar { background: #f8fafc; border: none; border-bottom: 1px solid #eef2f7;"
+        " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
+        "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
+        " padding: 5px 9px; font-weight: 600; }"
         "#toolBtn:hover { background: #ffffff; color: #0f172a; }"
-        "#toolBtn:pressed { background: #ffffff; color: #1d4ed8; }"
+        "#toolBtn:pressed { background: #eff6ff; color: #1d4ed8; }"
+        "#inputPad { background: transparent; }"
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
@@ -1130,7 +1136,7 @@ void MainWindow::applyStyle()
         "#sendFab { background: #2563eb; border: none; border-radius: 18px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"
         "#sendFab:pressed { background: #1e40af; }"
-        "#sendFab:disabled { background: #cbd5e1; }"
+        "#sendFab:disabled { background: #e2e8f0; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
