@@ -1324,10 +1324,18 @@ void MainWindow::buildUi()
     m_cancelUploadBtn->setFlat(true);
     m_cancelUploadBtn->hide();
     connect(m_cancelUploadBtn, SIGNAL(clicked()), this, SLOT(cancelUpload()));
+    m_clearQueueBtn = new QPushButton(QString::fromUtf8(u8"清空排队"));
+    m_clearQueueBtn->setObjectName(QStringLiteral("clearQueueBtn"));
+    m_clearQueueBtn->setCursor(Qt::PointingHandCursor);
+    m_clearQueueBtn->setFocusPolicy(Qt::NoFocus);
+    m_clearQueueBtn->setFlat(true);
+    m_clearQueueBtn->hide();
+    connect(m_clearQueueBtn, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QHBoxLayout *progLay = new QHBoxLayout;
     progLay->setContentsMargins(0, 0, 0, 0);
     progLay->setSpacing(8);
     progLay->addWidget(m_progress, 1);
+    progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
     QHBoxLayout *toolLay = new QHBoxLayout;
@@ -1415,11 +1423,19 @@ void MainWindow::buildUi()
     m_cancelUploadBtnFiles->setFlat(true);
     m_cancelUploadBtnFiles->hide();
     connect(m_cancelUploadBtnFiles, SIGNAL(clicked()), this, SLOT(cancelUpload()));
+    m_clearQueueBtnFiles = new QPushButton(QString::fromUtf8(u8"清空排队"));
+    m_clearQueueBtnFiles->setObjectName(QStringLiteral("clearQueueBtn"));
+    m_clearQueueBtnFiles->setCursor(Qt::PointingHandCursor);
+    m_clearQueueBtnFiles->setFocusPolicy(Qt::NoFocus);
+    m_clearQueueBtnFiles->setFlat(true);
+    m_clearQueueBtnFiles->hide();
+    connect(m_clearQueueBtnFiles, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QWidget *fileLiveHost = new QWidget;
     QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
     fileLiveLay->setContentsMargins(16, 10, 16, 0);
     fileLiveLay->setSpacing(8);
     fileLiveLay->addWidget(m_fileLive, 1);
+    fileLiveLay->addWidget(m_clearQueueBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveLay->addWidget(m_cancelUploadBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveHost->hide();
     m_fileLiveHost = fileLiveHost;
@@ -1546,6 +1562,9 @@ void MainWindow::applyStyle()
         "#cancelUploadBtn { background: transparent; border: none; color: #dc2626; font-size: 12px;"
         " padding: 2px 8px; border-radius: 6px; }"
         "#cancelUploadBtn:hover { background: #fef2f2; color: #b91c1c; }"
+        "#clearQueueBtn { background: transparent; border: none; color: #b45309; font-size: 12px;"
+        " padding: 2px 8px; border-radius: 6px; }"
+        "#clearQueueBtn:hover { background: #fffbeb; color: #92400e; }"
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
         " padding: 4px 8px; border-radius: 6px; }"
         "#toolBtn:hover { background: #f1f5f9; color: #0f172a; }"
@@ -2986,13 +3005,30 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
     setProgress(text);
 }
 
+void MainWindow::setRecvProgressText(const QString &filename, int pct)
+{
+    if (m_uploading)
+        return;
+    QString text = pct < 0
+        ? QString::fromUtf8(u8"正在接收 %1").arg(filename)
+        : QString::fromUtf8(u8"正在接收 %1  %2%").arg(filename).arg(pct);
+    if (m_recvSpeedBps >= 1024)
+        text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_recvSpeedBps)));
+    setProgress(text);
+}
+
 void MainWindow::syncCancelUploadBtn()
 {
     const bool on = m_uploading;
+    const bool hasQueue = on && !m_uploadQueue.isEmpty();
     if (m_cancelUploadBtn)
         m_cancelUploadBtn->setVisible(on);
     if (m_cancelUploadBtnFiles)
         m_cancelUploadBtnFiles->setVisible(on);
+    if (m_clearQueueBtn)
+        m_clearQueueBtn->setVisible(hasQueue);
+    if (m_clearQueueBtnFiles)
+        m_clearQueueBtnFiles->setVisible(hasQueue);
 }
 
 void MainWindow::cancelUpload()
@@ -3001,6 +3037,7 @@ void MainWindow::cancelUpload()
         return;
     m_uploadCanceling = true;
     m_uploadQueue.clear();
+    syncCancelUploadBtn();
     if (m_activeUploadReply) {
         m_activeUploadReply->abort();
         return;
@@ -3009,6 +3046,23 @@ void MainWindow::cancelUpload()
     m_uploading = false;
     m_uploadCurrentName.clear();
     setProgress(QString());
+}
+
+void MainWindow::clearUploadQueue()
+{
+    if (!m_uploading || m_uploadQueue.isEmpty())
+        return;
+    const int n = m_uploadQueue.size();
+    m_uploadQueue.clear();
+    ChatMsg m;
+    m.type = ChatMsg::System;
+    m.text = QString::fromUtf8(u8"已清空发送排队（%1 个）").arg(n);
+    m.time = nowClock();
+    appendMsg(currentKey(), m);
+    if (!m_uploadCurrentName.isEmpty())
+        setUploadProgressText(m_uploadCurrentName, m_uploadLastPct >= 0 ? m_uploadLastPct : -1);
+    else
+        syncCancelUploadBtn();
 }
 
 void MainWindow::noteBusyUpload(const QString &hint)
@@ -3345,6 +3399,11 @@ void MainWindow::onFileReceiving(const QString &ip, const QString &name, const Q
     m.progressPct = 0;
     m.time = nowClock();
     appendMsg(key, m);
+    m_recvCurrentName = name;
+    m_recvBytesMark = 0;
+    m_recvMsMark = 0;
+    m_recvSpeedBps = 0;
+    setRecvProgressText(name, 0);
 }
 
 void MainWindow::onFileProgress(const QString &ip, const QString &path, qint64 received,
@@ -3360,6 +3419,24 @@ void MainWindow::onFileProgress(const QString &ip, const QString &path, qint64 r
     if (expectBytes > 0)
         pct = int(received * 100 / expectBytes);
     pct = qBound(0, 99, pct);
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (m_recvMsMark > 0 && now > m_recvMsMark) {
+        const qint64 dt = now - m_recvMsMark;
+        const qint64 db = received - m_recvBytesMark;
+        if (dt >= 300 && db >= 0) {
+            const double inst = double(db) * 1000.0 / double(dt);
+            m_recvSpeedBps = (m_recvSpeedBps > 0)
+                ? (m_recvSpeedBps * 0.7 + inst * 0.3)
+                : inst;
+            m_recvBytesMark = received;
+            m_recvMsMark = now;
+        }
+    } else {
+        m_recvBytesMark = received;
+        m_recvMsMark = now;
+    }
+    m_recvCurrentName = m.text;
+    setRecvProgressText(m.text, pct);
     if (m.progressPct == pct)
         return;
     m.progressPct = pct;
@@ -3409,6 +3486,10 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
         }
         scheduleSaveChatHistory();
     }
+    m_recvCurrentName.clear();
+    m_recvSpeedBps = 0;
+    if (!m_uploading)
+        setProgress(QString());
     playNotifySound();
     maybeTrayNotify(QString::fromUtf8(u8"收到文件 · %1").arg(who),
                     QString::fromUtf8(u8"%1（%2）").arg(name).arg(humanBytesChat(size)),
@@ -3438,6 +3519,10 @@ void MainWindow::onFileReceiveFailed(const QString &ip, const QString &path)
     m.text = QString::fromUtf8(u8"接收失败：%1（对端中断或写盘失败）").arg(name);
     m.time = nowClock();
     appendMsg(key, m);
+    m_recvCurrentName.clear();
+    m_recvSpeedBps = 0;
+    if (!m_uploading)
+        setProgress(QString());
     playNotifySound();
     maybeTrayNotify(QString::fromUtf8(u8"接收失败 · %1").arg(who), name, key);
 }
