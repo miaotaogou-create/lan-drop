@@ -135,6 +135,15 @@ int runSelfCheck()
                 || !gl.windowMaximized)
                 return fail("window geom load");
         }
+        // 侧栏宽度往返
+        {
+            Settings s2 = Settings::defaults();
+            s2.sideWidth = 360;
+            if (!s2.saveToFile(path))
+                return fail("sideWidth save");
+            if (Settings::loadFromFile(path).sideWidth != 360)
+                return fail("sideWidth load");
+        }
         // 缺字段也能加载
         {
             QFile f(path);
@@ -147,6 +156,8 @@ int runSelfCheck()
             return fail("manualPeers missing");
         if (Settings::loadFromFile(path).windowW != 0)
             return fail("window geom missing");
+        if (Settings::loadFromFile(path).sideWidth != 0)
+            return fail("sideWidth missing");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }

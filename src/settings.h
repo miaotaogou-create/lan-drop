@@ -29,6 +29,7 @@ struct Settings {
     int windowW = 0;
     int windowH = 0;
     bool windowMaximized = false;
+    int sideWidth = 0; // ≤0 表示未记忆，启动用 300
 
     static QString filePath();
     static Settings defaults();

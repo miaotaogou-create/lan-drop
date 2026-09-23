@@ -21,6 +21,7 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class QPlainTextEdit;
 class QPushButton;
+class QSplitter;
 class QStackedWidget;
 class QTextBrowser;
 class QTimer;
@@ -119,6 +120,7 @@ private:
     void persistManualPeers();
     void persistWindowGeometry();
     void applyWindowGeometry();
+    void applySideWidth();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     void updateUploadProgress(const QString &key, int msgIndex, int pct);
@@ -145,6 +147,8 @@ private:
     QLineEdit *m_search = 0;
     QListWidget *m_list = 0;
     QStackedWidget *m_pages = 0;
+    QSplitter *m_bodySplit = 0;
+    QWidget *m_side = 0;
     QWidget *m_peerHeader = 0;
     QLabel *m_peerAvatar = 0;
     QLabel *m_peerName = 0;

@@ -53,6 +53,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QScrollBar>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
@@ -1066,8 +1067,10 @@ void MainWindow::buildUi()
     bodyLay->setSpacing(0);
 
     QWidget *side = new QWidget;
+    m_side = side;
     side->setObjectName(QStringLiteral("side"));
-    side->setFixedWidth(300);
+    side->setMinimumWidth(220);
+    side->setMaximumWidth(480);
     QVBoxLayout *sideLay = new QVBoxLayout(side);
     sideLay->setContentsMargins(16, 14, 16, 14);
     sideLay->setSpacing(10);
@@ -1360,8 +1363,15 @@ void MainWindow::buildUi()
     m_pages->addWidget(chatPage);
     rightLay->addWidget(m_pages, 1);
 
-    bodyLay->addWidget(side);
-    bodyLay->addWidget(right, 1);
+    m_bodySplit = new QSplitter(Qt::Horizontal);
+    m_bodySplit->setObjectName(QStringLiteral("bodySplit"));
+    m_bodySplit->setHandleWidth(4);
+    m_bodySplit->setChildrenCollapsible(false);
+    m_bodySplit->addWidget(side);
+    m_bodySplit->addWidget(right);
+    m_bodySplit->setStretchFactor(0, 0);
+    m_bodySplit->setStretchFactor(1, 1);
+    bodyLay->addWidget(m_bodySplit);
 
     rootLay->addWidget(m_titleBar);
     rootLay->addWidget(body, 1);
@@ -1391,7 +1401,9 @@ void MainWindow::applyStyle()
         "#minBtn, #maxBtn, #closeBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
         "#minBtn:hover, #maxBtn:hover { background: #f1f5f9; }"
         "#closeBtn:hover { background: #ef4444; }"
-        "#side { background: #ffffff; border-right: 1px solid #e2e8f0; }"
+        "#side { background: #ffffff; border-right: none; }"
+        "#bodySplit::handle:horizontal { background: #e2e8f0; width: 4px; }"
+        "#bodySplit::handle:horizontal:hover { background: #93c5fd; }"
         "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
         "#peerCount { background: #ecfdf5; color: #047857; border-radius: 8px; padding: 1px 7px;"
         " font-size: 11px; font-weight: 700; }"
@@ -2194,6 +2206,7 @@ void MainWindow::boot()
     showChat();
     updateChrome();
     applyWindowGeometry();
+    applySideWidth();
 }
 
 void MainWindow::persistWindowGeometry()
@@ -2205,6 +2218,11 @@ void MainWindow::persistWindowGeometry()
     m_settings.windowW = geo.width();
     m_settings.windowH = geo.height();
     m_settings.windowMaximized = isMaximized();
+    if (m_bodySplit && m_bodySplit->count() >= 1) {
+        const QList<int> sizes = m_bodySplit->sizes();
+        if (!sizes.isEmpty())
+            m_settings.sideWidth = qBound(220, 480, sizes.at(0));
+    }
     m_settings.save();
 }
 
@@ -2229,6 +2247,18 @@ void MainWindow::applyWindowGeometry()
     }
     if (m_settings.windowMaximized)
         setWindowState(windowState() | Qt::WindowMaximized);
+}
+
+void MainWindow::applySideWidth()
+{
+    if (!m_bodySplit)
+        return;
+    int w = m_settings.sideWidth > 0 ? m_settings.sideWidth : 300;
+    w = qBound(220, 480, w);
+    const int total = qMax(m_bodySplit->width(), w + 400);
+    QList<int> sizes;
+    sizes << w << qMax(400, total - w);
+    m_bodySplit->setSizes(sizes);
 }
 
 void MainWindow::persistManualPeers()
