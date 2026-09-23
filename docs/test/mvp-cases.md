@@ -775,6 +775,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-149 会话顶栏减负与共享头脚对齐
+- 对应验收：P1–P3（`docs/requirements/20260922-peerheader-share-token.md`）
+- 步骤：选中设备看顶栏高度与 Tab 文案；打开设置与共享对比抬头/脚栏
+- 期望：顶栏更紧、「聊天/文件」；共享与设置同为灰头灰脚、14px 标题
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

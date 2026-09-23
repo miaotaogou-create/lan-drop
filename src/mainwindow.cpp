@@ -663,25 +663,25 @@ void MainWindow::buildUi()
 
     m_peerHeader = new QWidget;
     m_peerHeader->setObjectName(QStringLiteral("peerHeader"));
-    m_peerHeader->setFixedHeight(64);
+    m_peerHeader->setFixedHeight(52);
     QHBoxLayout *peerHeadLay = new QHBoxLayout(m_peerHeader);
-    peerHeadLay->setContentsMargins(16, 8, 16, 8);
-    peerHeadLay->setSpacing(12);
+    peerHeadLay->setContentsMargins(14, 6, 14, 6);
+    peerHeadLay->setSpacing(10);
 
     m_peerAvatar = new QLabel;
     m_peerAvatar->setObjectName(QStringLiteral("peerAvatar"));
-    m_peerAvatar->setFixedSize(44, 44);
+    m_peerAvatar->setFixedSize(36, 36);
 
     QVBoxLayout *peerInfoCol = new QVBoxLayout;
     peerInfoCol->setContentsMargins(0, 0, 0, 0);
-    peerInfoCol->setSpacing(3);
+    peerInfoCol->setSpacing(1);
     QHBoxLayout *peerTitleRow = new QHBoxLayout;
     peerTitleRow->setContentsMargins(0, 0, 0, 0);
-    peerTitleRow->setSpacing(8);
+    peerTitleRow->setSpacing(6);
     m_peerName = new QLabel;
     m_peerName->setObjectName(QStringLiteral("peerName"));
     m_peerOnlineDot = new QLabel;
-    m_peerOnlineDot->setFixedSize(8, 8);
+    m_peerOnlineDot->setFixedSize(7, 7);
     m_peerAddr = new QLabel;
     m_peerAddr->setObjectName(QStringLiteral("peerAddr"));
     m_peerAddr->setCursor(Qt::PointingHandCursor);
@@ -697,20 +697,20 @@ void MainWindow::buildUi()
     peerInfoCol->addLayout(peerTitleRow);
     peerInfoCol->addWidget(m_peerMeta);
 
-    m_tabChat = new QPushButton(QString::fromUtf8(u8"即时聊天"));
+    m_tabChat = new QPushButton(QString::fromUtf8(u8"聊天"));
     m_tabChat->setObjectName(QStringLiteral("sessionTabActive"));
     m_tabChat->setCursor(Qt::PointingHandCursor);
     m_tabChat->setFocusPolicy(Qt::NoFocus);
     m_tabChat->setFlat(true);
-    m_tabChat->setIcon(QIcon(makeChatBubbleIcon(14)));
-    m_tabChat->setIconSize(QSize(14, 14));
-    m_tabFiles = new QPushButton(QString::fromUtf8(u8"文件传输 (0)"));
+    m_tabChat->setIcon(QIcon(makeChatBubbleIcon(13)));
+    m_tabChat->setIconSize(QSize(13, 13));
+    m_tabFiles = new QPushButton(QString::fromUtf8(u8"文件 (0)"));
     m_tabFiles->setObjectName(QStringLiteral("sessionTab"));
     m_tabFiles->setCursor(Qt::PointingHandCursor);
     m_tabFiles->setFocusPolicy(Qt::NoFocus);
     m_tabFiles->setFlat(true);
-    m_tabFiles->setIcon(QIcon(makeFileDocIcon(14)));
-    m_tabFiles->setIconSize(QSize(14, 14));
+    m_tabFiles->setIcon(QIcon(makeFileDocIcon(13)));
+    m_tabFiles->setIconSize(QSize(13, 13));
     connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
     connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
 
@@ -718,19 +718,19 @@ void MainWindow::buildUi()
     tabBar->setObjectName(QStringLiteral("sessionTabBar"));
     tabBar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *tabBarLay = new QHBoxLayout(tabBar);
-    tabBarLay->setContentsMargins(3, 3, 3, 3);
+    tabBarLay->setContentsMargins(2, 2, 2, 2);
     tabBarLay->setSpacing(2);
     tabBarLay->addWidget(m_tabChat);
     tabBarLay->addWidget(m_tabFiles);
 
     QPushButton *sessionDlBtn = new QPushButton;
     sessionDlBtn->setObjectName(QStringLiteral("sessionIconBtn"));
-    sessionDlBtn->setFixedSize(36, 36);
+    sessionDlBtn->setFixedSize(32, 32);
     sessionDlBtn->setCursor(Qt::PointingHandCursor);
     sessionDlBtn->setFocusPolicy(Qt::NoFocus);
     sessionDlBtn->setFlat(true);
-    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 16)));
-    sessionDlBtn->setIconSize(QSize(16, 16));
+    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 15)));
+    sessionDlBtn->setIconSize(QSize(15, 15));
     sessionDlBtn->setToolTip(QString::fromUtf8(u8"打开本机文件接收目录"));
     connect(sessionDlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
 
@@ -1082,19 +1082,19 @@ void MainWindow::applyStyle()
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
         "#emptyHint { color: #64748b; background: transparent; padding: 0; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
-        "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#peerName { color: #0f172a; font-size: 13px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
-        " background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }"
+        " background: #f1f5f9; border-radius: 6px; padding: 1px 7px; }"
         "#peerAddr:hover { color: #1d4ed8; background: #dbeafe; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
-        "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
-        "#sessionTab { background: transparent; border: none; border-radius: 9px;"
-        " color: #64748b; padding: 6px 10px; font-size: 12px; font-weight: 600; }"
+        "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#sessionTab { background: transparent; border: none; border-radius: 8px;"
+        " color: #64748b; padding: 5px 9px; font-size: 12px; font-weight: 600; }"
         "#sessionTab:hover { background: rgba(255,255,255,0.65); color: #334155; }"
-        "#sessionTabActive { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 9px;"
-        " color: #1d4ed8; padding: 6px 10px; font-size: 12px; font-weight: 700; }"
+        "#sessionTabActive { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #1d4ed8; padding: 5px 9px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #ffffff; color: #1e40af; }"
-        "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 0; }"
+        "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0; }"
         "#sessionIconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
         "#connBannerHost { background: #f1f5f9; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
@@ -1609,10 +1609,10 @@ void MainWindow::openShare()
         "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
         "#shareDlg { background: transparent; }"
         "#shareRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
-        "#shareHead { background: #ffffff; border-bottom: 1px solid #e2e8f0;"
+        "#shareHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
         " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
-        "#shareTitle { color: #0f172a; font-size: 16px; font-weight: 700; }"
-        "#shareSub { color: #64748b; font-size: 12px; }"
+        "#shareTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#shareSub { color: #64748b; font-size: 11px; }"
         "#shareClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
         "#shareClose:hover { background: #e2e8f0; }"
         "#shareStatus { border-radius: 11px; padding: 2px 10px; font-size: 12px; font-weight: 600; }"
@@ -1638,7 +1638,7 @@ void MainWindow::openShare()
         "#shareDel:hover { background: #fee2e2; }"
         "#shareDrop { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #94a3b8; }"
         "#shareDrop:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }"
-        "#shareFoot { border-top: 1px solid #e2e8f0; background: #ffffff;"
+        "#shareFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
         " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
         "#sharePause { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #334155; padding: 8px 14px; font-weight: 600; }"
@@ -2818,7 +2818,7 @@ void MainWindow::updatePeerSession()
     const QString metaHead = peer.tag.trimmed().isEmpty()
         ? hostTag
         : (hostTag + QString::fromUtf8(u8"  ·  ") + peer.tag.trimmed());
-    m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 44));
+    m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 36));
     m_peerName->setText(label);
     m_peerName->setStyleSheet(online
                                   ? QStringLiteral("color:#0f172a;")
@@ -2877,7 +2877,7 @@ void MainWindow::updatePeerSession()
         m_connBannerHost->show();
     }
     if (m_tabFiles)
-        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
+        m_tabFiles->setText(QString::fromUtf8(u8"文件 (%1)")
                                 .arg(countFiles(m_log.value(currentKey()))));
     updateHostPill();
 }
@@ -3257,7 +3257,7 @@ void MainWindow::refreshFilesView()
     if (m_files)
         m_files->setHtml(renderFilesHtml(msgs));
     if (m_tabFiles)
-        m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)").arg(countFiles(msgs)));
+        m_tabFiles->setText(QString::fromUtf8(u8"文件 (%1)").arg(countFiles(msgs)));
 }
 
 void MainWindow::measurePing()
