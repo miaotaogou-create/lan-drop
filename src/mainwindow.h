@@ -54,6 +54,7 @@ private slots:
     void refreshPeers();
     void showChat();
     void sendText();
+    void postOutgoingText(const QString &text);
     void sendFile();
     void sendFolder();
     void nudgePeer();
@@ -257,6 +258,7 @@ private:
     QTimer *m_chatSaveTimer = 0;
     QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转
     QString m_offlineWarnedKey; // 本轮离线提示已发过的对端 key
+    QHash<QString, bool> m_peerOnlineKnown; // 当前会话曾见过的在线状态，用于上线/离线切换提示
 };
 
 #endif

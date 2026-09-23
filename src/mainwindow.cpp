@@ -2475,6 +2475,21 @@ void MainWindow::updatePeerSession()
                                      ? m_pingText
                                      : QString::fromUtf8(u8"—"))
                             .arg(localLinkLabel()));
+    if (m_peerOnlineKnown.contains(addr)) {
+        const bool wasOnline = m_peerOnlineKnown.value(addr);
+        if (wasOnline != online) {
+            ChatMsg tip;
+            tip.type = ChatMsg::System;
+            tip.text = online
+                ? QString::fromUtf8(u8"对方已重新上线，可以继续发送。")
+                : QString::fromUtf8(u8"对方已离线。");
+            tip.time = nowClock();
+            appendMsg(addr, tip);
+            if (online && m_offlineWarnedKey == addr)
+                m_offlineWarnedKey.clear();
+        }
+    }
+    m_peerOnlineKnown.insert(addr, online);
     if (online) {
         m_connBannerText->setText(
             QString::fromUtf8(
@@ -2928,6 +2943,13 @@ void MainWindow::onChatAnchor(const QUrl &url)
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制路径"), this);
         return;
     }
+    if (url.host() == QLatin1String("retrytext")) {
+        const QString text = QString::fromUtf8(raw);
+        if (text.trimmed().isEmpty())
+            return;
+        postOutgoingText(text);
+        return;
+    }
     if (url.host() == QLatin1String("retry")) {
         const QString path = QString::fromUtf8(raw);
         if (path.isEmpty())
@@ -3198,12 +3220,22 @@ void MainWindow::sendText()
     const QString text = m_input->toPlainText();
     if (text.trimmed().isEmpty())
         return;
+    if (!currentPeer(0, 0, 0))
+        return;
+    m_input->clear();
+    postOutgoingText(text);
+}
+
+void MainWindow::postOutgoingText(const QString &text)
+{
+    if (text.trimmed().isEmpty())
+        return;
     QString ip;
     int port = 0;
     if (!currentPeer(&ip, &port, 0))
         return;
     maybeWarnOfflinePeer();
-    // 乐观发送：立刻出气泡并清空输入，避免慢网连按重复发
+    // 乐观发送：立刻出气泡；重发时不碰输入框草稿
     const QString key = currentKey();
     ChatMsg pending;
     pending.type = ChatMsg::OutText;
@@ -3213,7 +3245,6 @@ void MainWindow::sendText()
     pending.rttMs = -1;
     pending.time = nowClock();
     appendMsg(key, pending);
-    m_input->clear();
 
     QJsonObject o;
     o.insert(QStringLiteral("fromId"), m_id);
@@ -3248,7 +3279,7 @@ void MainWindow::sendText()
                     refreshChatHtml(true);
                 scheduleSaveChatHistory();
             }
-            noteFail(key, rep);
+            noteFail(key, rep, QStringLiteral("text:") + sent);
             return;
         }
         if (slot >= 0) {

@@ -440,27 +440,37 @@ static QString renderSystem(const ChatMsg &m)
     const QString fg = fail ? QStringLiteral("#b91c1c") : QStringLiteral("#b45309");
     QString body = htmlEsc(m.text);
     if (fail && !m.path.isEmpty()) {
-        const QString href = QStringLiteral("landrop://retry/")
-            + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-        body += QString::fromUtf8(
-                    u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#2563eb\" size=\"3\">重试</font></a>")
-                    .arg(href);
-        if (!m.morePaths.isEmpty()) {
-            QStringList all;
-            all << m.path;
-            for (int i = 0; i < m.morePaths.size(); ++i) {
-                if (!m.morePaths.at(i).isEmpty() && !all.contains(m.morePaths.at(i)))
-                    all.append(m.morePaths.at(i));
-            }
-            const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
-            const QString batchHref = QStringLiteral("landrop://retrybatch/")
-                + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
+        if (m.path.startsWith(QLatin1String("text:"))) {
+            const QString rawText = m.path.mid(5);
+            const QString href = QStringLiteral("landrop://retrytext/")
+                + QString::fromLatin1(rawText.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
             body += QString::fromUtf8(
                         u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                        u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
-                        .arg(batchHref)
-                        .arg(all.size());
+                        u8"<font color=\"#2563eb\" size=\"3\">重发</font></a>")
+                        .arg(href);
+        } else {
+            const QString href = QStringLiteral("landrop://retry/")
+                + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
+            body += QString::fromUtf8(
+                        u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+                        u8"<font color=\"#2563eb\" size=\"3\">重试</font></a>")
+                        .arg(href);
+            if (!m.morePaths.isEmpty()) {
+                QStringList all;
+                all << m.path;
+                for (int i = 0; i < m.morePaths.size(); ++i) {
+                    if (!m.morePaths.at(i).isEmpty() && !all.contains(m.morePaths.at(i)))
+                        all.append(m.morePaths.at(i));
+                }
+                const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
+                const QString batchHref = QStringLiteral("landrop://retrybatch/")
+                    + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
+                body += QString::fromUtf8(
+                            u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+                            u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
+                            .arg(batchHref)
+                            .arg(all.size());
+            }
         }
     }
     return QStringLiteral(
