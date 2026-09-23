@@ -502,6 +502,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-110 输入区快捷键改悬停且 Esc 清空
+- 对应验收：H1–H3（`docs/requirements/20260922-composer-hint-esc.md`）
+- 步骤：看工具行无常驻键帽；悬停输入框；输入框打字后按 Esc；再试 Enter / Shift+Enter
+- 期望：无键帽条；悬停有说明；Esc 清空草稿；发送/换行行为不变
+- 类型：手测
+- 结果：待手测
+
+### TC-111 发送进度与气泡去重
+- 对应验收：D1–D3（`docs/requirements/20260922-progress-dedupe.md`）
+- 步骤：发一个大文件看气泡与顶栏；再排队 2 个文件看顶栏
+- 期望：气泡有 N%，顶栏无重复「文件名 N%」；有排队时仍见剩余数；取消可用
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

@@ -721,31 +721,10 @@ void MainWindow::buildUi()
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
     connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
-    // Qt 富文本不画 span 边框，键帽用独立标签才能看出描边
-    auto hintBit = [](const QString &text) {
-        QLabel *l = new QLabel(text);
-        l->setObjectName(QStringLiteral("inputHint"));
-        return l;
-    };
-    auto keycap = [](const QString &text) {
-        QLabel *k = new QLabel(text);
-        k->setObjectName(QStringLiteral("keycap"));
-        return k;
-    };
-    QWidget *hintRow = new QWidget;
-    QHBoxLayout *hintLay = new QHBoxLayout(hintRow);
-    hintLay->setContentsMargins(0, 0, 0, 0);
-    hintLay->setSpacing(4);
-    hintLay->addWidget(hintBit(QString::fromUtf8(u8"按")));
-    hintLay->addWidget(keycap(QStringLiteral("Enter")));
-    hintLay->addWidget(hintBit(QString::fromUtf8(u8"发送，")));
-    hintLay->addWidget(keycap(QStringLiteral("Shift+Enter")));
-    hintLay->addWidget(hintBit(QString::fromUtf8(u8"换行")));
     toolLay->addWidget(fileBtn);
     toolLay->addWidget(folderBtn);
     toolLay->addWidget(nudgeBtn);
     toolLay->addStretch(1);
-    toolLay->addWidget(hintRow);
 
     m_inputShell = new QWidget;
     m_inputShell->setObjectName(QStringLiteral("inputShell"));
@@ -757,15 +736,18 @@ void MainWindow::buildUi()
     m_input->setFrameShape(QFrame::NoFrame);
     m_input->setFixedHeight(72);
     m_input->setTabChangesFocus(true);
+    m_input->setToolTip(QString::fromUtf8(u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿"));
     m_input->installEventFilter(this);
     m_sendBtn = new QPushButton;
     m_sendBtn->setObjectName(QStringLiteral("sendFab"));
     m_sendBtn->setFixedSize(34, 34);
     m_sendBtn->setCursor(Qt::PointingHandCursor);
     m_sendBtn->setFocusPolicy(Qt::NoFocus);
+    m_sendBtn->setToolTip(QString::fromUtf8(u8"发送（Enter）"));
     m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
     m_sendBtn->setIconSize(QSize(18, 18));
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
+    m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"取消当前发送并清空排队"));
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 0, 0);
     sendRow->addStretch(1);
@@ -792,6 +774,7 @@ void MainWindow::buildUi()
     m_cancelUploadBtnFiles->setCursor(Qt::PointingHandCursor);
     m_cancelUploadBtnFiles->setFocusPolicy(Qt::NoFocus);
     m_cancelUploadBtnFiles->setFlat(true);
+    m_cancelUploadBtnFiles->setToolTip(QString::fromUtf8(u8"取消当前发送并清空排队"));
     m_cancelUploadBtnFiles->hide();
     connect(m_cancelUploadBtnFiles, SIGNAL(clicked()), this, SLOT(cancelUpload()));
     m_clearQueueBtnFiles = new QPushButton(QString::fromUtf8(u8"清空排队"));
@@ -999,6 +982,12 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     }
     if ((watched == m_input || watched == m_chat) && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+        if (watched == m_input && ke->key() == Qt::Key_Escape) {
+            if (!m_input->toPlainText().isEmpty()) {
+                m_input->clear();
+                return true;
+            }
+        }
         const bool pasteMod = (ke->modifiers() & Qt::ControlModifier)
             || (ke->modifiers() & Qt::MetaModifier);
         if (pasteMod && ke->key() == Qt::Key_V) {
@@ -2505,15 +2494,18 @@ void MainWindow::setProgress(const QString &text)
 
 void MainWindow::setUploadProgressText(const QString &filename, int pct)
 {
-    QString text = pct < 0
-        ? QString::fromUtf8(u8"正在发送 %1").arg(filename)
-        : QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct);
+    Q_UNUSED(filename);
+    Q_UNUSED(pct);
+    // 百分比以气泡为准；顶栏只补速率 / ETA / 排队，避免同一 N% 刷两遍
+    QString text = QString::fromUtf8(u8"发送中");
     if (m_uploadSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_uploadSpeedBps)));
     const QString eta = formatEta(m_uploadRemainBytes, m_uploadSpeedBps);
     if (!eta.isEmpty())
         text += QStringLiteral(" · ") + eta;
-    QString tip;
+    QString tip = m_uploadCurrentName.isEmpty()
+        ? QString()
+        : QString::fromUtf8(u8"当前：%1").arg(m_uploadCurrentName);
     if (!m_uploadQueue.isEmpty()) {
         text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
         QStringList preview;
@@ -2526,7 +2518,9 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
         text += QString::fromUtf8(u8"（%1%2）")
                     .arg(preview.join(QString::fromUtf8(u8"、")))
                     .arg(m_uploadQueue.size() > 2 ? QString::fromUtf8(u8"…") : QString());
-        tip = QString::fromUtf8(u8"排队：\n");
+        if (!tip.isEmpty())
+            tip += QLatin1Char('\n');
+        tip += QString::fromUtf8(u8"排队：\n");
         const int maxTip = qMin(12, m_uploadQueue.size());
         for (int i = 0; i < maxTip; ++i) {
             QString n = QFileInfo(m_uploadQueue.at(i)).fileName();
