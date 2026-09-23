@@ -35,7 +35,7 @@
 | 下载目录 | `downloadDir` | 保存后应用到 HTTP 落盘 |
 | （界面不展示） | `discoverPort` | 保持文件中原值 |
 | Nudge | `nudgeEnabled` | 关则不发送/不响应抖动 |
-| 通知声 | `soundNotification` | 开则收文字/文件播系统提示音；见 `20260922-sound-notification.md` |
+| 通知声 | `soundNotification` | 开则收文字/文件、本机发文件完成播系统提示音；见 sound 相关需求 |
 
 ## 验收标准
 

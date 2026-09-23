@@ -404,6 +404,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-59 发送文件完成通知声
+- 对应验收：S1–S4（`docs/requirements/20260922-send-complete-sound.md`）
+- 步骤：通知声开 → 本机发文件至完成听一声；关开关保存后再发完成；另发一条文字确认无额外声
+- 期望：开时发文件完成有一声；关后无声；发文字成功不因本功能多播；收件行为不变
+- 类型：手测
+- 结果：待手测
+
 ### TC-34 会话顶栏主机名
 - 对应验收：H1–H3（`docs/requirements/20260922-peer-hostname.md`）
 - 步骤：本机 `landrop --self-check`；选中对端看副行首段；可用浏览器打开 `http://本机IP:端口/api/info` 看 `hostname`
@@ -433,7 +440,9 @@
 - 手动节点删除：见 `20260922-remove-manual-peer.md`（本轮已落地）
 - 部门标签入库：见 `20260922-peer-tag.md`（本轮已落地）
 - 自定义铃声：待开需求
-- 通知声：见 `20260922-sound-notification.md`
+- 通知声（收件）：见 `20260922-sound-notification.md`
+- 发送完成通知声：见 `20260922-send-complete-sound.md`（本轮已落地）
+- 右键编辑手动节点别名/标签：待开需求
 - 并发线程池：见 `20260921-settings-dialog.md` 仍非本轮
 - 设置下载目录浏览按钮：见 `20260922-settings-browse-dir.md`（本轮已落地）
 - 系统托盘常驻：见 `20260922-system-tray.md`（本轮已落地）

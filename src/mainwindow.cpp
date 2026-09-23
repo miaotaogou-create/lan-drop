@@ -3314,6 +3314,7 @@ void MainWindow::finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs,
         refreshFilesView();
     }
     scheduleSaveChatHistory();
+    playNotifySound();
 }
 
 void MainWindow::dropUploadMsg(const QString &key, int msgIndex)
