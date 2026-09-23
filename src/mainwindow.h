@@ -84,6 +84,7 @@ private slots:
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void jumpChatToBottom();
     void copyLocalAddr();
+    void copyPeerAddr();
 
 private:
     void boot();

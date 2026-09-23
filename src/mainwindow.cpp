@@ -1151,6 +1151,9 @@ void MainWindow::buildUi()
     m_peerOnlineDot->setFixedSize(8, 8);
     m_peerAddr = new QLabel;
     m_peerAddr->setObjectName(QStringLiteral("peerAddr"));
+    m_peerAddr->setCursor(Qt::PointingHandCursor);
+    m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口"));
+    m_peerAddr->installEventFilter(this);
     peerTitleRow->addWidget(m_peerName, 0, Qt::AlignVCenter);
     peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
     peerTitleRow->addWidget(m_peerAddr, 0, Qt::AlignVCenter);
@@ -1423,6 +1426,7 @@ void MainWindow::applyStyle()
         "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
         " background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }"
+        "#peerAddr:hover { color: #1d4ed8; background: #dbeafe; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
         "#sessionTab { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 10px;"
         " color: #1d4ed8; padding: 6px 12px; font-size: 12px; font-weight: 600; }"
@@ -1479,6 +1483,14 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         QMouseEvent *me = static_cast<QMouseEvent *>(event);
         if (me->button() == Qt::LeftButton) {
             copyLocalAddr();
+            return true;
+        }
+    }
+    if (m_peerAddr && watched == m_peerAddr
+        && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton) {
+            copyPeerAddr();
             return true;
         }
     }
@@ -2159,6 +2171,21 @@ void MainWindow::copyLocalAddr()
         return;
     }
     const QString addr = ip + QLatin1Char(':') + QString::number(m_settings.port);
+    QApplication::clipboard()->setText(addr);
+    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
+}
+
+void MainWindow::copyPeerAddr()
+{
+    QString ip;
+    int port = 0;
+    if (!currentPeer(&ip, &port, 0) || ip.trimmed().isEmpty()) {
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"请先选择对端"), this);
+        return;
+    }
+    if (port <= 0)
+        port = 8848;
+    const QString addr = ip.trimmed() + QLatin1Char(':') + QString::number(port);
     QApplication::clipboard()->setText(addr);
     QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
 }
