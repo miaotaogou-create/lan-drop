@@ -137,6 +137,7 @@ private:
     void scheduleSaveChatHistory();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
+    void enqueueMoreUploads(const QStringList &paths, bool announceFolder = false);
     void updateUploadProgress(const QString &key, int msgIndex, int pct);
     void finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs, const QString &sha);
     void dropUploadMsg(const QString &key, int msgIndex);

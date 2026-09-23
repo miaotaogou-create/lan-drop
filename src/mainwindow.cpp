@@ -3059,7 +3059,10 @@ void MainWindow::onChatAnchor(const QUrl &url)
         if (path.isEmpty())
             return;
         if (m_uploading) {
-            noteBusyUpload(QString::fromUtf8(u8"请等待当前文件传完后再重试"));
+            if (!m_uploadQueue.contains(path))
+                enqueueMoreUploads(QStringList() << path, false);
+            else
+                noteBusyUpload(QString::fromUtf8(u8"所选文件已在发送队列中"));
             return;
         }
         if (!QFileInfo::exists(path)) {
@@ -3310,12 +3313,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         m.path = path;
         m.time = nowClock();
         appendMsg(currentKey(), m);
-        if (fromQueue)
-            pumpUploadQueue();
-        else {
-            m_uploading = false;
-            setProgress(QString());
-        }
+        pumpUploadQueue();
         return;
     }
     const QString filename = QFileInfo(path).fileName();
@@ -3358,7 +3356,8 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         setProgress(QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct));
         updateUploadProgress(key, msgIndex, pct);
     });
-    connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, fromQueue, path, clock]() {
+    Q_UNUSED(fromQueue);
+    connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, path, clock]() {
         rep->deleteLater();
         const qint64 ms = clock->elapsed();
         delete clock;
@@ -3368,6 +3367,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
             noteFail(key, rep, path);
             m_uploadQueue.clear();
             m_uploading = false;
+            setProgress(QString());
             return;
         }
         QString sha;
@@ -3375,12 +3375,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         if (msgIndex >= 0 && msgIndex < lines.size())
             sha = lines.at(msgIndex).sha256;
         finishUploadMsg(key, msgIndex, ms, sha);
-        if (fromQueue)
-            pumpUploadQueue();
-        else {
-            m_uploading = false;
-            setProgress(QString());
-        }
+        pumpUploadQueue();
     });
 }
 
@@ -3485,6 +3480,49 @@ void MainWindow::pumpUploadQueue()
     startUpload(path, true);
 }
 
+void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolder)
+{
+    if (paths.isEmpty())
+        return;
+    if (!currentPeer(0, 0, 0)) {
+        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
+                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
+        return;
+    }
+    const bool wasBusy = m_uploading;
+    QStringList added;
+    for (int i = 0; i < paths.size(); ++i) {
+        const QString p = paths.at(i);
+        if (p.isEmpty() || added.contains(p) || m_uploadQueue.contains(p))
+            continue;
+        m_uploadQueue.append(p);
+        added.append(p);
+    }
+    if (added.isEmpty()) {
+        if (wasBusy)
+            noteBusyUpload(QString::fromUtf8(u8"所选文件已在发送队列中"));
+        return;
+    }
+    if (wasBusy || announceFolder || added.size() > 1) {
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.time = nowClock();
+        if (wasBusy) {
+            m.text = QString::fromUtf8(u8"已加入发送队列（%1 个，排队共 %2 个）")
+                         .arg(added.size())
+                         .arg(m_uploadQueue.size());
+        } else if (announceFolder) {
+            m.text = QString::fromUtf8(u8"开始发送文件夹顶层文件（%1 个，不含子目录）")
+                         .arg(added.size());
+        } else {
+            m.text = QString::fromUtf8(u8"开始发送文件（%1 个）").arg(added.size());
+        }
+        appendMsg(currentKey(), m);
+    }
+    if (!m_uploading)
+        pumpUploadQueue();
+}
+
 void MainWindow::setupChatDrop()
 {
     ShareDropFilter *filter = new ShareDropFilter(this);
@@ -3546,15 +3584,6 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
 {
     if (paths.isEmpty())
         return;
-    if (!currentPeer(0, 0, 0)) {
-        QMessageBox::information(this, QString::fromUtf8(u8"局域快传"),
-                                 QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
-        return;
-    }
-    if (m_uploading) {
-        noteBusyUpload();
-        return;
-    }
     QStringList unique;
     for (int i = 0; i < paths.size(); ++i) {
         const QString p = paths.at(i);
@@ -3564,46 +3593,25 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
     }
     if (unique.isEmpty())
         return;
-    if (unique.size() == 1 && !fromFolder) {
-        startUpload(unique.first(), false);
-        return;
-    }
-    m_uploadQueue = unique;
-    {
-        ChatMsg m;
-        m.type = ChatMsg::System;
-        if (fromFolder) {
-            m.text = QString::fromUtf8(u8"开始发送文件夹顶层文件（%1 个，不含子目录）")
-                         .arg(m_uploadQueue.size());
-        } else {
-            m.text = QString::fromUtf8(u8"开始发送文件（%1 个）").arg(m_uploadQueue.size());
-        }
-        m.time = nowClock();
-        appendMsg(currentKey(), m);
-    }
-    pumpUploadQueue();
+    if (!m_uploading)
+        m_uploadQueue.clear();
+    enqueueMoreUploads(unique, fromFolder);
 }
 
 void MainWindow::sendFile()
 {
-    if (m_uploading) {
-        noteBusyUpload();
-        return;
-    }
     if (!currentPeer(0, 0, 0))
         return;
     const QString path = QFileDialog::getOpenFileName(this, QString::fromUtf8(u8"选择要发送的文件"));
     if (path.isEmpty())
         return;
-    startUpload(path, false);
+    if (!m_uploading)
+        m_uploadQueue.clear();
+    enqueueMoreUploads(QStringList() << path, false);
 }
 
 void MainWindow::sendFolder()
 {
-    if (m_uploading) {
-        noteBusyUpload();
-        return;
-    }
     if (!currentPeer(0, 0, 0))
         return;
     const QString dir = QFileDialog::getExistingDirectory(
@@ -3633,18 +3641,12 @@ void MainWindow::sendFolder()
             return;
         }
     }
-    m_uploadQueue.clear();
+    QStringList paths;
     for (int i = 0; i < files.size(); ++i)
-        m_uploadQueue.append(files.at(i).absoluteFilePath());
-    {
-        ChatMsg m;
-        m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"开始发送文件夹顶层文件（%1 个，不含子目录）")
-                     .arg(m_uploadQueue.size());
-        m.time = nowClock();
-        appendMsg(currentKey(), m);
-    }
-    pumpUploadQueue();
+        paths.append(files.at(i).absoluteFilePath());
+    if (!m_uploading)
+        m_uploadQueue.clear();
+    enqueueMoreUploads(paths, true);
 }
 
 void MainWindow::nudgePeer()
