@@ -32,6 +32,7 @@
 #include <QHBoxLayout>
 #include <QHttpMultiPart>
 #include <QImage>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -914,6 +915,10 @@ MainWindow::MainWindow(QWidget *parent)
     applyStyle();
     setupChatDrop();
 
+    m_chatSaveTimer = new QTimer(this);
+    m_chatSaveTimer->setSingleShot(true);
+    connect(m_chatSaveTimer, SIGNAL(timeout()), this, SLOT(flushChatHistory()));
+
     QTimer *tick = new QTimer(this);
     connect(tick, SIGNAL(timeout()), this, SLOT(refreshPeers()));
     tick->start(1000);
@@ -1721,6 +1726,7 @@ void MainWindow::maybeTrayNotify(const QString &title, const QString &body, cons
 void MainWindow::quitApp()
 {
     persistWindowGeometry();
+    flushChatHistory();
     m_forceQuit = true;
     hideTrayToast();
     if (m_tray) {
@@ -1738,6 +1744,7 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     persistWindowGeometry();
+    flushChatHistory();
     if (m_forceQuit || !m_tray) {
         event->accept();
         qApp->quit();
@@ -2201,6 +2208,7 @@ void MainWindow::setStatusOnline(const QString &text, bool ok)
 void MainWindow::boot()
 {
     m_settings = Settings::load();
+    loadChatHistory();
     m_id = deviceId();
     QDir().mkpath(m_settings.downloadDir);
     m_disc->setIdentity(m_id, m_settings.deviceName, m_settings.port);
@@ -2289,6 +2297,101 @@ void MainWindow::applySideWidth()
     QList<int> sizes;
     sizes << w << qMax(400, total - w);
     m_bodySplit->setSizes(sizes);
+}
+
+QString MainWindow::chatHistoryFilePath()
+{
+    return QFileInfo(Settings::filePath()).absolutePath() + QStringLiteral("/chat.json");
+}
+
+bool MainWindow::saveChatHistoryToFile(const QString &path, const QHash<QString, QVector<ChatMsg> > &log)
+{
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QJsonObject root;
+    for (auto it = log.constBegin(); it != log.constEnd(); ++it) {
+        QJsonArray arr;
+        const QVector<ChatMsg> &msgs = it.value();
+        for (int i = 0; i < msgs.size(); ++i) {
+            const ChatMsg &m = msgs.at(i);
+            if (m.type == ChatMsg::OutFile && m.progressPct >= 0)
+                continue; // 不落盘进行中发送
+            QJsonObject o;
+            o.insert(QStringLiteral("type"), m.type);
+            o.insert(QStringLiteral("who"), m.who);
+            o.insert(QStringLiteral("face"), m.face);
+            o.insert(QStringLiteral("text"), m.text);
+            o.insert(QStringLiteral("path"), m.path);
+            o.insert(QStringLiteral("size"), m.size);
+            o.insert(QStringLiteral("rttMs"), m.rttMs);
+            o.insert(QStringLiteral("sha256"), m.sha256);
+            o.insert(QStringLiteral("time"), m.time);
+            arr.append(o);
+        }
+        if (!arr.isEmpty())
+            root.insert(it.key(), arr);
+    }
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return false;
+    f.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    return true;
+}
+
+QHash<QString, QVector<ChatMsg> > MainWindow::loadChatHistoryFromFile(const QString &path)
+{
+    QHash<QString, QVector<ChatMsg> > out;
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return out;
+    const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        if (!it.value().isArray())
+            continue;
+        const QJsonArray arr = it.value().toArray();
+        QVector<ChatMsg> msgs;
+        msgs.reserve(qMin(500, arr.size()));
+        for (int i = 0; i < arr.size(); ++i) {
+            const QJsonObject o = arr.at(i).toObject();
+            ChatMsg m;
+            m.type = o.value(QStringLiteral("type")).toInt();
+            if (m.type < ChatMsg::OutText || m.type > ChatMsg::Fail)
+                continue;
+            m.who = o.value(QStringLiteral("who")).toString();
+            m.face = o.value(QStringLiteral("face")).toString();
+            m.text = o.value(QStringLiteral("text")).toString();
+            m.path = o.value(QStringLiteral("path")).toString();
+            m.size = static_cast<qint64>(o.value(QStringLiteral("size")).toDouble());
+            m.rttMs = static_cast<qint64>(o.value(QStringLiteral("rttMs")).toDouble(-1));
+            m.sha256 = o.value(QStringLiteral("sha256")).toString();
+            m.time = o.value(QStringLiteral("time")).toString();
+            m.progressPct = -1;
+            msgs.append(m);
+        }
+        if (msgs.size() > 500)
+            msgs = msgs.mid(msgs.size() - 500);
+        if (!msgs.isEmpty())
+            out.insert(it.key(), msgs);
+    }
+    return out;
+}
+
+void MainWindow::loadChatHistory()
+{
+    m_log = loadChatHistoryFromFile(chatHistoryFilePath());
+}
+
+void MainWindow::scheduleSaveChatHistory()
+{
+    if (!m_chatSaveTimer)
+        return;
+    m_chatSaveTimer->start(500);
+}
+
+void MainWindow::flushChatHistory()
+{
+    if (m_chatSaveTimer)
+        m_chatSaveTimer->stop();
+    saveChatHistoryToFile(chatHistoryFilePath(), m_log);
 }
 
 void MainWindow::persistManualPeers()
@@ -2616,6 +2719,7 @@ void MainWindow::appendMsg(const QString &key, const ChatMsg &msg)
     if (lines.size() > 500)
         lines = lines.mid(lines.size() - 500);
     m_log.insert(key, lines);
+    scheduleSaveChatHistory();
     const bool viewing = (key == currentKey()) && isVisible();
     if (viewing) {
         markChatNewBelowIfAway();
@@ -3050,6 +3154,7 @@ void MainWindow::finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs,
         refreshChatHtml();
         refreshFilesView();
     }
+    scheduleSaveChatHistory();
 }
 
 void MainWindow::dropUploadMsg(const QString &key, int msgIndex)
@@ -3074,6 +3179,7 @@ void MainWindow::dropUploadMsg(const QString &key, int msgIndex)
         refreshChatHtml();
         refreshFilesView();
     }
+    scheduleSaveChatHistory();
 }
 
 void MainWindow::pumpUploadQueue()

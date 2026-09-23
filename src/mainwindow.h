@@ -48,6 +48,10 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
 
+    static QString chatHistoryFilePath();
+    static bool saveChatHistoryToFile(const QString &path, const QHash<QString, QVector<ChatMsg> > &log);
+    static QHash<QString, QVector<ChatMsg> > loadChatHistoryFromFile(const QString &path);
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void changeEvent(QEvent *event) override;
@@ -85,6 +89,7 @@ private slots:
     void jumpChatToBottom();
     void copyLocalAddr();
     void copyPeerAddr();
+    void flushChatHistory();
 
 private:
     void boot();
@@ -122,6 +127,8 @@ private:
     void persistWindowGeometry();
     void applyWindowGeometry();
     void applySideWidth();
+    void loadChatHistory();
+    void scheduleSaveChatHistory();
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     void updateUploadProgress(const QString &key, int msgIndex, int pct);
@@ -197,6 +204,7 @@ private:
     QLabel *m_trayToastTitle = 0;
     QLabel *m_trayToastBody = 0;
     QTimer *m_trayToastTimer = 0;
+    QTimer *m_chatSaveTimer = 0;
     QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转
 };
 

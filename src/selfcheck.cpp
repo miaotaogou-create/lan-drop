@@ -2,12 +2,15 @@
 
 #include "files.h"
 #include "discovery.h"
+#include "mainwindow.h"
 #include "qrcodegen.hpp"
 #include "settings.h"
 
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QHash>
+#include <QVector>
 #include <cstdio>
 
 static int fail(const char *msg)
@@ -169,6 +172,64 @@ int runSelfCheck()
             return fail("sideWidth missing");
         if (!Settings::loadFromFile(path).lastPeer.isEmpty())
             return fail("lastPeer missing");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
+    {
+        // chat.json 往返
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-chat-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("chat.json"));
+        QFile::remove(path);
+        QHash<QString, QVector<ChatMsg> > log;
+        ChatMsg a;
+        a.type = ChatMsg::OutText;
+        a.who = QString::fromUtf8(u8"我");
+        a.face = QStringLiteral("pc");
+        a.text = QString::fromUtf8(u8"你好");
+        a.rttMs = 12;
+        a.time = QStringLiteral("10:00:00");
+        ChatMsg b;
+        b.type = ChatMsg::OutFile;
+        b.who = QString::fromUtf8(u8"我");
+        b.text = QStringLiteral("a.bin");
+        b.path = QStringLiteral("C:/tmp/a.bin");
+        b.size = 42;
+        b.progressPct = 50; // 应被跳过
+        b.time = QStringLiteral("10:01:00");
+        ChatMsg c;
+        c.type = ChatMsg::InFile;
+        c.who = QStringLiteral("peer");
+        c.text = QStringLiteral("b.bin");
+        c.path = QStringLiteral("C:/dl/b.bin");
+        c.size = 7;
+        c.sha256 = QStringLiteral("abc");
+        c.time = QStringLiteral("10:02:00");
+        QVector<ChatMsg> msgs;
+        msgs << a << b << c;
+        log.insert(QStringLiteral("10.0.0.9:8848"), msgs);
+        if (!MainWindow::saveChatHistoryToFile(path, log))
+            return fail("chat save");
+        const QHash<QString, QVector<ChatMsg> > loaded = MainWindow::loadChatHistoryFromFile(path);
+        if (!loaded.contains(QStringLiteral("10.0.0.9:8848")))
+            return fail("chat key");
+        const QVector<ChatMsg> got = loaded.value(QStringLiteral("10.0.0.9:8848"));
+        if (got.size() != 2)
+            return fail("chat skip pending");
+        if (got.at(0).type != ChatMsg::OutText || got.at(0).text != QString::fromUtf8(u8"你好"))
+            return fail("chat text");
+        if (got.at(1).type != ChatMsg::InFile || got.at(1).size != 7 || got.at(1).sha256 != QLatin1String("abc"))
+            return fail("chat file");
+        // 损坏文件不崩
+        {
+            QFile f(path);
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                return fail("chat corrupt write");
+            f.write("{not-json");
+            f.close();
+        }
+        if (!MainWindow::loadChatHistoryFromFile(path).isEmpty())
+            return fail("chat corrupt");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }
