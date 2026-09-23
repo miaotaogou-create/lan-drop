@@ -3168,17 +3168,28 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
 void MainWindow::onFileReceiveFailed(const QString &ip, const QString &path)
 {
     const QString key = peerSessionKey(ip);
+    Peer known;
+    m_disc->find(ip, 8848, &known);
+    known.ip = ip;
+    const QString who = known.label().isEmpty() ? ip : known.label();
+    QString name = QFileInfo(path).fileName();
     const int idx = findPendingInFile(key, path);
-    if (idx < 0)
-        return;
-    QVector<ChatMsg> lines = m_log.value(key);
-    lines.removeAt(idx);
-    m_log.insert(key, lines);
-    if (key == currentKey()) {
-        refreshChatHtml();
-        refreshFilesView();
+    if (idx >= 0) {
+        QVector<ChatMsg> lines = m_log.value(key);
+        if (name.isEmpty())
+            name = lines.at(idx).text;
+        lines.removeAt(idx);
+        m_log.insert(key, lines);
     }
-    scheduleSaveChatHistory();
+    if (name.isEmpty())
+        name = QString::fromUtf8(u8"文件");
+    ChatMsg m;
+    m.type = ChatMsg::Fail;
+    m.text = QString::fromUtf8(u8"接收失败：%1（对端中断或写盘失败）").arg(name);
+    m.time = nowClock();
+    appendMsg(key, m);
+    playNotifySound();
+    maybeTrayNotify(QString::fromUtf8(u8"接收失败 · %1").arg(who), name, key);
 }
 
 QString MainWindow::peerSessionKey(const QString &ip) const
