@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include <QSet>
 #include <QStandardPaths>
+#include <QStringList>
 
 static QString configDir()
 {
@@ -158,6 +159,18 @@ Settings Settings::loadFromFile(const QString &path)
     if (o.contains(QStringLiteral("sideWidth")))
         s.sideWidth = o.value(QStringLiteral("sideWidth")).toInt();
     s.lastPeer = o.value(QStringLiteral("lastPeer")).toString().trimmed();
+    s.pinnedPeers.clear();
+    if (o.contains(QStringLiteral("pinnedPeers")) && o.value(QStringLiteral("pinnedPeers")).isArray()) {
+        const QJsonArray arr = o.value(QStringLiteral("pinnedPeers")).toArray();
+        QSet<QString> seen;
+        for (int i = 0; i < arr.size(); ++i) {
+            const QString k = arr.at(i).toString().trimmed();
+            if (k.isEmpty() || !k.contains(QLatin1Char(':')) || seen.contains(k))
+                continue;
+            seen.insert(k);
+            s.pinnedPeers.append(k);
+        }
+    }
     return s;
 }
 
@@ -190,6 +203,12 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("sideWidth"), sideWidth);
     if (!lastPeer.trimmed().isEmpty())
         o.insert(QStringLiteral("lastPeer"), lastPeer.trimmed());
+    if (!pinnedPeers.isEmpty()) {
+        QJsonArray pins;
+        for (int i = 0; i < pinnedPeers.size(); ++i)
+            pins.append(pinnedPeers.at(i));
+        o.insert(QStringLiteral("pinnedPeers"), pins);
+    }
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;

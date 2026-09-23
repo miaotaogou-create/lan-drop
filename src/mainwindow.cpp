@@ -7,6 +7,7 @@
 #include "httpserver.h"
 #include "qrcodegen.hpp"
 #include "uiicons.h"
+#include "ziputil.h"
 
 #include <algorithm>
 
@@ -27,6 +28,7 @@
 #include <QDropEvent>
 #include <QElapsedTimer>
 #include <QEvent>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -1894,6 +1896,11 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     const bool manual = it->data(Qt::UserRole + 3).toBool();
     QMenu menu(this);
     QAction *clearChat = menu.addAction(QString::fromUtf8(u8"清空聊天记录"));
+    const QString key = it->data(Qt::UserRole).toString() + QLatin1Char(':')
+        + QString::number(it->data(Qt::UserRole + 1).toInt());
+    const bool pinned = m_settings.pinnedPeers.contains(key);
+    QAction *pinAct = menu.addAction(pinned ? QString::fromUtf8(u8"取消置顶")
+                                            : QString::fromUtf8(u8"置顶"));
     QAction *edit = menu.addAction(QString::fromUtf8(u8"编辑别名 / 标签…"));
     edit->setEnabled(manual);
     if (!manual)
@@ -1905,7 +1912,14 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     QAction *chosen = menu.exec(m_list->viewport()->mapToGlobal(pos));
     if (chosen == clearChat)
         clearSelectedPeerChat();
-    else if (chosen == edit)
+    else if (chosen == pinAct) {
+        if (pinned)
+            m_settings.pinnedPeers.removeAll(key);
+        else if (!m_settings.pinnedPeers.contains(key))
+            m_settings.pinnedPeers.append(key);
+        m_settings.save();
+        refreshPeers();
+    } else if (chosen == edit)
         editSelectedManualPeer();
     else if (chosen == del)
         removeSelectedManualPeer();
@@ -2144,6 +2158,10 @@ void MainWindow::refreshPeers()
     m_list->clear();
     QList<Peer> list = m_disc->peers();
     std::stable_sort(list.begin(), list.end(), [this](const Peer &a, const Peer &b) {
+        const bool ap = m_settings.pinnedPeers.contains(a.key());
+        const bool bp = m_settings.pinnedPeers.contains(b.key());
+        if (ap != bp)
+            return ap && !bp;
         const bool ao = a.online();
         const bool bo = b.online();
         if (ao != bo)
@@ -2159,6 +2177,9 @@ void MainWindow::refreshPeers()
         const Peer &p = list.at(i);
         const QString flag = p.online() ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线");
         const QString manual = p.manual ? QString::fromUtf8(u8" · 手动") : QString();
+        const QString pinTag = m_settings.pinnedPeers.contains(p.key())
+            ? QString::fromUtf8(u8" · 置顶")
+            : QString();
         const QString osTag = p.osName.trimmed().isEmpty()
             ? QString()
             : (QStringLiteral("  ·  ") + p.osName);
@@ -2170,8 +2191,9 @@ void MainWindow::refreshPeers()
             ? QString::fromUtf8(u8" · %1").arg(unread)
             : QString();
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1%2\n%3:%4  %5%6%7%8")
-                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, osTag, dept));
+            QStringLiteral("%1%2\n%3:%4  %5%6%7%8%9")
+                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, pinTag,
+                     osTag, dept));
         it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 44)));
         it->setSizeHint(QSize(0, 60));
         it->setData(Qt::UserRole, p.ip);
@@ -2396,8 +2418,9 @@ void MainWindow::setRecvProgressText(const QString &filename, int pct)
 
 void MainWindow::syncCancelUploadBtn()
 {
-    const bool on = m_uploading;
-    const bool hasQueue = on && !m_uploadQueue.isEmpty();
+    const bool receiving = !m_uploading && !m_recvCurrentName.isEmpty();
+    const bool on = m_uploading || receiving;
+    const bool hasQueue = m_uploading && !m_uploadQueue.isEmpty();
     if (m_cancelUploadBtn)
         m_cancelUploadBtn->setVisible(on);
     if (m_cancelUploadBtnFiles)
@@ -2410,19 +2433,24 @@ void MainWindow::syncCancelUploadBtn()
 
 void MainWindow::cancelUpload()
 {
-    if (!m_uploading)
-        return;
-    m_uploadCanceling = true;
-    m_uploadQueue.clear();
-    syncCancelUploadBtn();
-    if (m_activeUploadReply) {
-        m_activeUploadReply->abort();
+    if (m_uploading) {
+        m_uploadCanceling = true;
+        m_uploadQueue.clear();
+        syncCancelUploadBtn();
+        if (m_activeUploadReply) {
+            m_activeUploadReply->abort();
+            return;
+        }
+        m_uploadCanceling = false;
+        m_uploading = false;
+        m_uploadCurrentName.clear();
+        setProgress(QString());
         return;
     }
-    m_uploadCanceling = false;
-    m_uploading = false;
-    m_uploadCurrentName.clear();
-    setProgress(QString());
+    if (m_recvCurrentName.isEmpty() || !m_http)
+        return;
+    m_recvCanceling = true;
+    m_http->abortActiveReceives();
 }
 
 void MainWindow::clearUploadQueue()
@@ -2897,16 +2925,23 @@ void MainWindow::onFileReceiveFailed(const QString &ip, const QString &path)
         name = QString::fromUtf8(u8"文件");
     ChatMsg m;
     m.type = ChatMsg::Fail;
-    m.text = QString::fromUtf8(u8"接收失败：%1（对端中断或写盘失败）").arg(name);
+    const bool wasCancel = m_recvCanceling;
+    m.text = wasCancel
+        ? QString::fromUtf8(u8"接收已取消：%1").arg(name)
+        : QString::fromUtf8(u8"接收失败：%1（对端中断或写盘失败）").arg(name);
     m.time = nowClock();
     appendMsg(key, m);
+    m_recvCanceling = false;
     m_recvCurrentName.clear();
     m_recvSpeedBps = 0;
     m_recvRemainBytes = -1;
     if (!m_uploading)
         setProgress(QString());
     playNotifySound();
-    maybeTrayNotify(QString::fromUtf8(u8"接收失败 · %1").arg(who), name, key);
+    maybeTrayNotify(wasCancel
+                        ? QString::fromUtf8(u8"接收已取消 · %1").arg(who)
+                        : QString::fromUtf8(u8"接收失败 · %1").arg(who),
+                    name, key);
 }
 
 QString MainWindow::peerSessionKey(const QString &ip) const
@@ -3400,35 +3435,92 @@ void MainWindow::sendFolder()
     if (!currentPeer(0, 0, 0))
         return;
     const QString dir = QFileDialog::getExistingDirectory(
-        this, QString::fromUtf8(u8"选择要发送的文件夹（仅顶层文件）"));
+        this, QString::fromUtf8(u8"选择要发送的文件夹"));
     if (dir.isEmpty())
         return;
     const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
     const bool hasNested = !QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty();
-    if (files.isEmpty()) {
+    if (files.isEmpty() && !hasNested) {
         ChatMsg m;
         m.type = ChatMsg::System;
-        m.text = hasNested
-            ? QString::fromUtf8(u8"顶层没有可发送的文件（子目录内容不会发送）")
-            : QString::fromUtf8(u8"文件夹为空，没有可发送的文件");
+        m.text = QString::fromUtf8(u8"文件夹为空，没有可发送的文件");
         m.time = nowClock();
         appendMsg(currentKey(), m);
         return;
     }
+
+    enum Mode { TopOnly = 0, ZipPack, Cancel };
+    Mode mode = TopOnly;
     if (hasNested) {
-        if (QMessageBox::question(
-                this, QString::fromUtf8(u8"局域快传"),
-                QString::fromUtf8(u8"将只发送该文件夹顶层的 %1 个文件，"
-                                    u8"不会发送子目录里的内容。\n是否继续？")
-                    .arg(files.size()),
-                QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes)
-            != QMessageBox::Yes) {
+        QMessageBox box(this);
+        box.setWindowTitle(QString::fromUtf8(u8"局域快传"));
+        if (files.isEmpty()) {
+            box.setText(QString::fromUtf8(
+                u8"顶层没有普通文件，但有子目录。\n可打包为 zip 发送完整目录树。"));
+        } else {
+            box.setText(QString::fromUtf8(
+                u8"该文件夹包含子目录。\n"
+                u8"可打包 zip（含完整子目录），或只发顶层的 %1 个文件。")
+                            .arg(files.size()));
+        }
+        QPushButton *zipBtn = box.addButton(QString::fromUtf8(u8"打包 zip 发送"),
+                                            QMessageBox::AcceptRole);
+        QPushButton *topBtn = 0;
+        if (!files.isEmpty())
+            topBtn = box.addButton(QString::fromUtf8(u8"仅发顶层"), QMessageBox::ActionRole);
+        box.addButton(QMessageBox::Cancel);
+        box.exec();
+        if (box.clickedButton() == zipBtn)
+            mode = ZipPack;
+        else if (topBtn && box.clickedButton() == topBtn)
+            mode = TopOnly;
+        else
+            mode = Cancel;
+    }
+    if (mode == Cancel)
+        return;
+
+    if (mode == ZipPack) {
+        setProgress(QString::fromUtf8(u8"正在打包文件夹…"));
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        const QString base = QFileInfo(dir).fileName().trimmed().isEmpty()
+            ? QStringLiteral("folder")
+            : QFileInfo(dir).fileName();
+        const QString zipDir = QDir::temp().filePath(QStringLiteral("landrop-zip"));
+        QDir().mkpath(zipDir);
+        const QString zipPath = QDir(zipDir).filePath(
+            base + QStringLiteral("-")
+            + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss"))
+            + QStringLiteral(".zip"));
+        QString err;
+        if (!zipDirectory(dir, zipPath, &err)) {
+            setProgress(QString());
+            ChatMsg m;
+            m.type = ChatMsg::Fail;
+            m.text = QString::fromUtf8(u8"打包失败：%1").arg(err.isEmpty()
+                                                                 ? QString::fromUtf8(u8"未知错误")
+                                                                 : err);
+            m.time = nowClock();
+            appendMsg(currentKey(), m);
             return;
         }
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"已打包文件夹为 zip，开始发送");
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+        if (!m_uploading)
+            m_uploadQueue.clear();
+        enqueueMoreUploads(QStringList() << zipPath, false);
+        return;
     }
+
+    // 仅顶层
     QStringList paths;
     for (int i = 0; i < files.size(); ++i)
         paths.append(files.at(i).absoluteFilePath());
+    if (paths.isEmpty())
+        return;
     if (!m_uploading)
         m_uploadQueue.clear();
     enqueueMoreUploads(paths, true);

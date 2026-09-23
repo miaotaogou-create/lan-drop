@@ -208,6 +208,7 @@ private:
     QStringList m_uploadQueue;
     bool m_uploading = false;
     bool m_uploadCanceling = false;
+    bool m_recvCanceling = false;
     QPointer<QNetworkReply> m_activeUploadReply;
     QString m_uploadCurrentName;
     int m_uploadLastPct = -1;

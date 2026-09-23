@@ -12,6 +12,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QList>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -143,6 +144,7 @@ void HttpServer::onNew()
         Conn *c = new Conn;
         c->sock = sock;
         c->peerIp = peerIpOf(sock);
+        m_conns.append(c);
         sock->setProperty("conn", QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(c)));
         connect(sock, SIGNAL(readyRead()), this, SLOT(onReady()));
         connect(sock, SIGNAL(disconnected()), this, SLOT(onGone()));
@@ -156,11 +158,25 @@ void HttpServer::onNew()
     }
 }
 
+void HttpServer::abortActiveReceives()
+{
+    const QList<Conn *> snap = m_conns;
+    for (int i = 0; i < snap.size(); ++i) {
+        Conn *c = snap.at(i);
+        if (!c || !c->file || c->replied)
+            continue;
+        // 主动断开 → onGone 删未完成文件并 fileReceiveFailed
+        if (c->sock)
+            c->sock->abort();
+    }
+}
+
 void HttpServer::onGone()
 {
     Conn *c = connOf(sender());
     if (!c)
         return;
+    m_conns.removeAll(c);
     if (c->file) {
         const QString path = c->file->fileName();
         const QString ip = c->peerIp;

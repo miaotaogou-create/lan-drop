@@ -3,6 +3,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 // 手动「+ 加 IP」节点；写入 settings.json 的 manualPeers
 struct ManualPeerEntry {
@@ -27,6 +28,7 @@ struct Settings {
     bool alwaysOnTop = false; // 主窗口置顶
     QString soundFile; // 自定义 wav；空=系统提示音
     QList<ManualPeerEntry> manualPeers;
+    QStringList pinnedPeers; // 置顶对端 ip:port
     // 窗口几何；windowW/H≤0 表示未记忆，启动用默认尺寸
     int windowX = 0;
     int windowY = 0;

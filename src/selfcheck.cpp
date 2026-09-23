@@ -7,6 +7,7 @@
 #include "mainwindow.h"
 #include "qrcodegen.hpp"
 #include "settings.h"
+#include "ziputil.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -342,6 +343,45 @@ int runSelfCheck()
         const QString html = renderChatHtml(msgs);
         if (!html.contains(QStringLiteral("<img ")) || !html.contains(QStringLiteral("IMG")))
             return fail("thumb html");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
+    {
+        // ziputil：小目录打包
+        const QString root = QDir::temp().filePath(QStringLiteral("landrop-zip-check"));
+        const QString sub = root + QStringLiteral("/demo");
+        QDir().mkpath(sub + QStringLiteral("/nested"));
+        QFile f(sub + QStringLiteral("/nested/a.txt"));
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return fail("zip src");
+        f.write("hi");
+        f.close();
+        const QString zip = QDir::temp().filePath(QStringLiteral("landrop-zip-check-out.zip"));
+        QFile::remove(zip);
+        QString err;
+        if (!zipDirectory(sub, zip, &err)) {
+            // 无 tar 的环境跳过（不判失败）
+            if (!err.contains(QString::fromUtf8(u8"找不到 tar")))
+                return fail("zip pack");
+        } else if (!QFileInfo::exists(zip) || QFileInfo(zip).size() <= 0) {
+            return fail("zip empty");
+        }
+        QFile::remove(zip);
+        QFile::remove(sub + QStringLiteral("/nested/a.txt"));
+        QDir().rmdir(sub + QStringLiteral("/nested"));
+        QDir().rmdir(sub);
+        QDir().rmdir(root);
+    }
+    {
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-pin-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
+        Settings s = Settings::defaults();
+        s.pinnedPeers << QStringLiteral("10.0.0.1:8848");
+        if (!s.saveToFile(path))
+            return fail("pin save");
+        if (!Settings::loadFromFile(path).pinnedPeers.contains(QStringLiteral("10.0.0.1:8848")))
+            return fail("pin load");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }

@@ -2,6 +2,7 @@
 #define HTTPSERVER_H
 
 #include <QObject>
+#include <QList>
 #include <QString>
 
 class QTcpServer;
@@ -19,6 +20,8 @@ public:
     void setDownloadDir(const QString &dir);
     void setShareDir(const QString &dir);
     QString shareDir() const { return m_shareDir; }
+    // 中止正在落盘的接收（删未完成文件并发 fileReceiveFailed）
+    void abortActiveReceives();
 
 signals:
     void textArrived(const QString &ip, const QString &fromId, const QString &fromName, int fromPort, const QString &text);
@@ -43,6 +46,7 @@ private:
     bool tryShare(Conn *c);
 
     QTcpServer *m_srv = 0;
+    QList<Conn *> m_conns;
     QString m_id;
     QString m_name;
     int m_port = 8848;
