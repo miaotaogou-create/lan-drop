@@ -560,17 +560,16 @@ static QString renderSystem(const ChatMsg &m)
             const QString rawText = m.path.mid(5);
             const QString href = QStringLiteral("landrop://retrytext/")
                 + QString::fromLatin1(rawText.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-            links = QString::fromUtf8(
-                        u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
-                        u8"<font color=\"#2563eb\" size=\"3\">重发</font></a>")
-                        .arg(href);
+            links = QStringLiteral("<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>")
+                + actionChipHtml(href, QString::fromUtf8(u8"重发"),
+                                 QString::fromUtf8(u8"重新发送该消息"), true)
+                + QStringLiteral("</tr></table>");
         } else {
             const QString href = QStringLiteral("landrop://retry/")
                 + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-            links = QString::fromUtf8(
-                        u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
-                        u8"<font color=\"#2563eb\" size=\"3\">重试</font></a>")
-                        .arg(href);
+            links = QStringLiteral("<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>")
+                + actionChipHtml(href, QString::fromUtf8(u8"重试"),
+                                 QString::fromUtf8(u8"重新发送该文件"), true);
             if (!m.morePaths.isEmpty()) {
                 QStringList all;
                 all << m.path;
@@ -581,12 +580,12 @@ static QString renderSystem(const ChatMsg &m)
                 const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
                 const QString batchHref = QStringLiteral("landrop://retrybatch/")
                     + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
-                links += QString::fromUtf8(
-                             u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                             u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
-                             .arg(batchHref)
-                             .arg(all.size());
+                links += QStringLiteral("<td width=\"6\"></td>")
+                    + actionChipHtml(batchHref,
+                                     QString::fromUtf8(u8"重发剩余 %1").arg(all.size()),
+                                     QString::fromUtf8(u8"重发本文件及排队剩余"), false);
             }
+            links += QStringLiteral("</tr></table>");
         }
     }
     const QString capsule = systemCapsuleImgHtml(m.text, fail);

@@ -24,7 +24,7 @@ QPixmap makeLaptopIcon(int logical = 16);
 QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44);
 // unread>0 时在头像右上角画未读角标（99+ 封顶）
 QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread,
-                           int logical = 44);
+                           int logical = 44, bool pinned = false);
 QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName);
 QPixmap makeStatusDot(bool ok, int logical = 7);
 QPixmap makeAlertTriangleIcon(int logical = 16);

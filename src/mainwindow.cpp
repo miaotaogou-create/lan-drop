@@ -497,7 +497,13 @@ void MainWindow::buildUi()
     chromeLay->addWidget(dlBtn);
     chromeLay->addWidget(setBtn);
     chromeLay->addWidget(m_pinBtn);
-    chromeLay->addSpacing(6);
+    QFrame *chromeSep = new QFrame;
+    chromeSep->setObjectName(QStringLiteral("chromeSep"));
+    chromeSep->setFixedSize(1, 18);
+    chromeSep->setFrameShape(QFrame::NoFrame);
+    chromeLay->addSpacing(2);
+    chromeLay->addWidget(chromeSep, 0, Qt::AlignVCenter);
+    chromeLay->addSpacing(2);
     chromeLay->addWidget(minBtn);
     chromeLay->addWidget(m_maxBtn);
     chromeLay->addWidget(closeBtn);
@@ -1019,7 +1025,8 @@ void MainWindow::applyStyle()
         "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
         "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
         "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
-        "#titleBar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
+        "#titleBar { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
+        "#chromeSep { background: #e2e8f0; border: none; }"
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
         "#brandWrap { background: transparent; }"
         "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
@@ -2360,23 +2367,102 @@ void MainWindow::editSelectedManualPeer()
     }
 
     QDialog dlg(this);
-    dlg.setWindowTitle(QString::fromUtf8(u8"编辑手动节点"));
+    dlg.setObjectName(QStringLiteral("editPeerDlg"));
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
-    QVBoxLayout *root = new QVBoxLayout(&dlg);
-    root->setContentsMargins(16, 14, 16, 14);
-    root->setSpacing(10);
-    QLabel *addr = new QLabel(QString::fromUtf8(u8"地址：%1:%2（不可改）").arg(ip).arg(port));
-    addr->setStyleSheet(QStringLiteral("color:#64748b;"));
-    root->addWidget(addr);
+    dlg.setFixedWidth(420);
+    dlg.setStyleSheet(QStringLiteral(
+        "#editPeerDlg { background: transparent; }"
+        "#editPeerRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#editPeerHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
+        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
+        "#editPeerTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#editPeerSub { color: #64748b; font-size: 11px; }"
+        "#editPeerClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+        "#editPeerClose:hover { background: #e2e8f0; }"
+        "#editPeerLabel { color: #334155; font-size: 12px; font-weight: 600; }"
+        "#editPeerField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
+        "#editPeerField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#editPeerCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 7px 32px 7px 10px; color: #0f172a; min-height: 20px; }"
+        "#editPeerCombo:hover { border-color: #cbd5e1; }"
+        "#editPeerCombo:on { background: #ffffff; border-color: #3b82f6; }"
+        "#editPeerCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
+        " width: 28px; border: none; background: transparent; }"
+        "#editPeerCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
+        "#editPeerCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
+        " outline: 0; padding: 4px; selection-background-color: #eff6ff;"
+        " selection-color: #1e3a8a; color: #0f172a; }"
+        "#editPeerFoot { border-top: 1px solid #e2e8f0; }"
+        "#editPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #475569; padding: 8px 14px; }"
+        "#editPeerCancel:hover { background: #f8fafc; }"
+        "#editPeerOk { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
+        " padding: 8px 16px; font-weight: 600; }"
+        "#editPeerOk:hover { background: #1d4ed8; }"));
 
-    QFormLayout *form = new QFormLayout;
-    form->setSpacing(8);
-    QLineEdit *alias = new QLineEdit(peer.alias);
-    alias->setPlaceholderText(QString::fromUtf8(u8"例如：跨网段工控机"));
-    QLineEdit *tag = new QLineEdit(peer.tag);
-    tag->setPlaceholderText(QString::fromUtf8(u8"可选，如：工控 / 财务"));
+    QWidget *root = new QWidget(&dlg);
+    root->setObjectName(QStringLiteral("editPeerRoot"));
+    applyFloatingShadow(root);
+    QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
+    dlgLay->setContentsMargins(16, 16, 16, 16);
+    dlgLay->addWidget(root);
+    QVBoxLayout *rootLay = new QVBoxLayout(root);
+    rootLay->setContentsMargins(0, 0, 0, 0);
+    rootLay->setSpacing(0);
+
+    QWidget *head = new QWidget;
+    head->setObjectName(QStringLiteral("editPeerHead"));
+    QHBoxLayout *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(20, 14, 12, 14);
+    headLay->setSpacing(10);
+    QVBoxLayout *titleCol = new QVBoxLayout;
+    titleCol->setContentsMargins(0, 0, 0, 0);
+    titleCol->setSpacing(2);
+    QLabel *title = new QLabel(QString::fromUtf8(u8"编辑手动节点"));
+    title->setObjectName(QStringLiteral("editPeerTitle"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"地址 %1:%2 不可改").arg(ip).arg(port));
+    sub->setObjectName(QStringLiteral("editPeerSub"));
+    titleCol->addWidget(title);
+    titleCol->addWidget(sub);
+    QPushButton *closeBtn = new QPushButton;
+    closeBtn->setObjectName(QStringLiteral("editPeerClose"));
+    closeBtn->setFixedSize(28, 28);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setFocusPolicy(Qt::NoFocus);
+    closeBtn->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#94a3b8"))));
+    closeBtn->setIconSize(QSize(14, 14));
+    connect(closeBtn, SIGNAL(clicked()), &dlg, SLOT(reject()));
+    headLay->addLayout(titleCol, 1);
+    headLay->addWidget(closeBtn, 0, Qt::AlignTop);
+
+    QWidget *body = new QWidget;
+    QVBoxLayout *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(20, 16, 20, 8);
+    bodyLay->setSpacing(12);
+
+    auto fieldLabel = [](const QString &t) {
+        QLabel *lab = new QLabel(t);
+        lab->setObjectName(QStringLiteral("editPeerLabel"));
+        return lab;
+    };
+    auto fieldEdit = [](const QString &text, const QString &ph = QString()) {
+        QLineEdit *e = new QLineEdit(text);
+        e->setObjectName(QStringLiteral("editPeerField"));
+        e->setPlaceholderText(ph);
+        return e;
+    };
+
+    QLineEdit *alias = fieldEdit(peer.alias, QString::fromUtf8(u8"例如：跨网段工控机"));
+    QLineEdit *tag = fieldEdit(peer.tag, QString::fromUtf8(u8"可选，如：工控 / 财务"));
     QComboBox *osBox = new QComboBox;
+    osBox->setObjectName(QStringLiteral("editPeerCombo"));
     osBox->setEditable(false);
+    osBox->setFocusPolicy(Qt::StrongFocus);
+    if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
+        osBox->setStyle(fusion);
     osBox->addItem(QStringLiteral("Windows PC"), QStringLiteral("windows"));
     osBox->addItem(QString::fromUtf8(u8"Linux (Ubuntu / 麒麟)"), QStringLiteral("linux"));
     osBox->addItem(QString::fromUtf8(u8"ARM64 Linux (工控/树莓派)"), QStringLiteral("arm-linux"));
@@ -2389,17 +2475,44 @@ void MainWindow::editSelectedManualPeer()
         }
     }
     osBox->setCurrentIndex(osIdx);
-    form->addRow(QString::fromUtf8(u8"设备别名"), alias);
-    form->addRow(QString::fromUtf8(u8"部门 / 标签"), tag);
-    form->addRow(QString::fromUtf8(u8"系统类型"), osBox);
-    root->addLayout(form);
 
-    QDialogButtonBox *box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    box->button(QDialogButtonBox::Ok)->setText(QString::fromUtf8(u8"保存"));
-    box->button(QDialogButtonBox::Cancel)->setText(QString::fromUtf8(u8"取消"));
-    root->addWidget(box);
-    connect(box, SIGNAL(accepted()), &dlg, SLOT(accept()));
-    connect(box, SIGNAL(rejected()), &dlg, SLOT(reject()));
+    QVBoxLayout *aliasCol = new QVBoxLayout;
+    aliasCol->setSpacing(4);
+    aliasCol->addWidget(fieldLabel(QString::fromUtf8(u8"设备别名")));
+    aliasCol->addWidget(alias);
+    QVBoxLayout *tagCol = new QVBoxLayout;
+    tagCol->setSpacing(4);
+    tagCol->addWidget(fieldLabel(QString::fromUtf8(u8"部门 / 标签")));
+    tagCol->addWidget(tag);
+    QVBoxLayout *osCol = new QVBoxLayout;
+    osCol->setSpacing(4);
+    osCol->addWidget(fieldLabel(QString::fromUtf8(u8"系统类型")));
+    osCol->addWidget(osBox);
+    bodyLay->addLayout(aliasCol);
+    bodyLay->addLayout(tagCol);
+    bodyLay->addLayout(osCol);
+
+    QWidget *foot = new QWidget;
+    foot->setObjectName(QStringLiteral("editPeerFoot"));
+    QHBoxLayout *footLay = new QHBoxLayout(foot);
+    footLay->setContentsMargins(20, 12, 20, 16);
+    footLay->setSpacing(8);
+    QPushButton *cancel = new QPushButton(QString::fromUtf8(u8"取消"));
+    cancel->setObjectName(QStringLiteral("editPeerCancel"));
+    cancel->setCursor(Qt::PointingHandCursor);
+    QPushButton *ok = new QPushButton(QString::fromUtf8(u8"保存"));
+    ok->setObjectName(QStringLiteral("editPeerOk"));
+    ok->setCursor(Qt::PointingHandCursor);
+    ok->setDefault(true);
+    footLay->addStretch(1);
+    footLay->addWidget(cancel);
+    footLay->addWidget(ok);
+
+    rootLay->addWidget(head);
+    rootLay->addWidget(body);
+    rootLay->addWidget(foot);
+    connect(cancel, SIGNAL(clicked()), &dlg, SLOT(reject()));
+    connect(ok, &QPushButton::clicked, &dlg, [&]() { dlg.accept(); });
     alias->setFocus();
     if (dlg.exec() != QDialog::Accepted)
         return;
@@ -2596,7 +2709,8 @@ void MainWindow::refreshPeers()
         bits << flag;
         if (p.manual)
             bits << QString::fromUtf8(u8"手动");
-        if (m_settings.pinnedPeers.contains(p.key()))
+        const bool pinned = m_settings.pinnedPeers.contains(p.key());
+        if (pinned)
             bits << QString::fromUtf8(u8"置顶");
         if (!p.osName.trimmed().isEmpty())
             bits << p.osName.trimmed();
@@ -2605,7 +2719,7 @@ void MainWindow::refreshPeers()
         const int unread = m_unread.value(p.key(), 0);
         QListWidgetItem *it = new QListWidgetItem(
             QStringLiteral("%1\n%2").arg(p.label(), bits.join(QString::fromUtf8(u8"  ·  "))));
-        it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44)));
+        it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned)));
         it->setSizeHint(QSize(0, 66));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);

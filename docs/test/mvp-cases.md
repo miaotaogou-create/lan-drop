@@ -761,6 +761,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-147 重试 chip、置顶钉与编辑白卡
+- 对应验收：R1–R4（`docs/requirements/20260922-retry-chrome-pin-edit.md`）
+- 步骤：看失败消息重试区；看标题栏分隔；右键置顶后看头像；编辑手动节点
+- 期望：重试为 chip；工具与窗口钮之间有竖线；置顶头像有蓝钉；编辑为白卡非系统框
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

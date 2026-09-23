@@ -228,31 +228,46 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     return pm;
 }
 
-QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread, int logical)
+QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread, int logical,
+                           bool pinned)
 {
     QPixmap base = makePeerAvatar(name, osName, logical);
-    if (unread <= 0)
+    if (unread <= 0 && !pinned)
         return base;
     const int dpr = qMax(1, qRound(base.devicePixelRatio()));
     QPixmap pm = base;
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
-    const QString label = unread > 99 ? QStringLiteral("99+") : QString::number(unread);
-    QFont font = qApp->font();
-    font.setPixelSize(unread > 99 ? 8 : 10);
-    font.setBold(true);
-    p.setFont(font);
-    QFontMetrics fm(font);
-    const int tw = fm.horizontalAdvance(label);
-    const int pillW = qMax(16, tw + 8);
-    const int pillH = 16;
-    const QRectF pill(logical - pillW + 2.0, -2.0, pillW, pillH);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#ef4444")));
-    p.drawRoundedRect(pill, pillH / 2.0, pillH / 2.0);
-    p.setPen(Qt::white);
-    p.drawText(pill, Qt::AlignCenter, label);
+    if (pinned) {
+        // 左下角小钉：一眼识别置顶
+        const QRectF pin(2.0, logical - 16.0, 14.0, 14.0);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(QStringLiteral("#2563eb")));
+        p.drawEllipse(pin);
+        p.setPen(QPen(Qt::white, 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QRectF(pin.x() + 3.5, pin.y() + 2.5, 7.0, 7.0));
+        p.drawLine(QPointF(pin.center().x(), pin.y() + 9.0),
+                   QPointF(pin.center().x(), pin.y() + 11.5));
+    }
+    if (unread > 0) {
+        const QString label = unread > 99 ? QStringLiteral("99+") : QString::number(unread);
+        QFont font = qApp->font();
+        font.setPixelSize(unread > 99 ? 8 : 10);
+        font.setBold(true);
+        p.setFont(font);
+        QFontMetrics fm(font);
+        const int tw = fm.horizontalAdvance(label);
+        const int pillW = qMax(16, tw + 8);
+        const int pillH = 16;
+        const QRectF pill(logical - pillW + 2.0, -2.0, pillW, pillH);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(QStringLiteral("#ef4444")));
+        p.drawRoundedRect(pill, pillH / 2.0, pillH / 2.0);
+        p.setPen(Qt::white);
+        p.drawText(pill, Qt::AlignCenter, label);
+    }
     Q_UNUSED(dpr);
     return pm;
 }
