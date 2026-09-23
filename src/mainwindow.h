@@ -103,7 +103,7 @@ private:
     void setupTray();
     void setupChatDrop();
     void setChatDropHint(bool on);
-    void enqueueDroppedPaths(const QStringList &paths);
+    void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
     bool tryPasteClipboardFiles();
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);

@@ -819,8 +819,14 @@ static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const 
 }
 
 // 网页共享 / 聊天区共用：本地文件与文件夹顶层文件
-static QStringList localSendPathsFromUrls(const QList<QUrl> &urls)
+// hadDir：urls 中是否含目录；hadNested：某目录下是否还有子目录（将不会发送）
+static QStringList localSendPathsFromUrls(const QList<QUrl> &urls, bool *hadDir = 0,
+                                          bool *hadNested = 0)
 {
+    if (hadDir)
+        *hadDir = false;
+    if (hadNested)
+        *hadNested = false;
     QStringList paths;
     for (int i = 0; i < urls.size(); ++i) {
         if (!urls.at(i).isLocalFile())
@@ -830,6 +836,11 @@ static QStringList localSendPathsFromUrls(const QList<QUrl> &urls)
         if (fi.isFile()) {
             paths.append(fi.absoluteFilePath());
         } else if (fi.isDir()) {
+            if (hadDir)
+                *hadDir = true;
+            if (hadNested
+                && !QDir(p).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty())
+                *hadNested = true;
             const QFileInfoList kids = QDir(p).entryInfoList(
                 QDir::Files | QDir::Readable, QDir::Name);
             for (int k = 0; k < kids.size(); ++k)
@@ -843,7 +854,7 @@ class ShareDropFilter : public QObject
 {
 public:
     explicit ShareDropFilter(QObject *parent = 0) : QObject(parent) {}
-    std::function<void(const QStringList &)> onFiles;
+    std::function<void(const QStringList &, bool fromFolder)> onFiles;
     std::function<void(bool)> onActive; // 拖入/拖出高亮（可选）
 
 protected:
@@ -879,10 +890,11 @@ protected:
             if (onActive)
                 onActive(false);
             QStringList paths;
+            bool hadDir = false;
             if (de->mimeData())
-                paths = localSendPathsFromUrls(de->mimeData()->urls());
+                paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
             if (!paths.isEmpty() && onFiles) {
-                onFiles(paths);
+                onFiles(paths, hadDir);
                 de->acceptProposedAction();
                 return true;
             }
@@ -2140,7 +2152,9 @@ void MainWindow::openShare()
     connect(addBtn, &QPushButton::clicked, &dlg, pickFiles);
     connect(dropBtn, &QPushButton::clicked, &dlg, pickFiles);
     ShareDropFilter *dropFilter = new ShareDropFilter(&dlg);
-    dropFilter->onFiles = addFilesToShare;
+    dropFilter->onFiles = [addFilesToShare](const QStringList &paths, bool) {
+        addFilesToShare(paths);
+    };
     dropBtn->setAcceptDrops(true);
     dropBtn->installEventFilter(dropFilter);
     scroll->setAcceptDrops(true);
@@ -3454,7 +3468,9 @@ void MainWindow::pumpUploadQueue()
 void MainWindow::setupChatDrop()
 {
     ShareDropFilter *filter = new ShareDropFilter(this);
-    filter->onFiles = [this](const QStringList &paths) { enqueueDroppedPaths(paths); };
+    filter->onFiles = [this](const QStringList &paths, bool fromFolder) {
+        enqueueDroppedPaths(paths, fromFolder);
+    };
     filter->onActive = [this](bool on) { setChatDropHint(on); };
     // 只挂会话页：子控件不接 drop，事件落到 chatPage，避免进出子控件时高亮闪烁
     if (m_chatPage) {
@@ -3498,14 +3514,16 @@ bool MainWindow::tryPasteClipboardFiles()
     const QMimeData *md = QApplication::clipboard()->mimeData();
     if (!md || !md->hasUrls())
         return false;
-    const QStringList paths = localSendPathsFromUrls(md->urls());
+    bool hadDir = false;
+    bool hadNested = false;
+    const QStringList paths = localSendPathsFromUrls(md->urls(), &hadDir, &hadNested);
     if (paths.isEmpty())
         return false;
-    enqueueDroppedPaths(paths);
+    enqueueDroppedPaths(paths, hadDir);
     return true;
 }
 
-void MainWindow::enqueueDroppedPaths(const QStringList &paths)
+void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
 {
     if (paths.isEmpty())
         return;
@@ -3528,7 +3546,7 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths)
     }
     if (unique.isEmpty())
         return;
-    if (unique.size() == 1) {
+    if (unique.size() == 1 && !fromFolder) {
         startUpload(unique.first(), false);
         return;
     }
@@ -3536,7 +3554,12 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths)
     {
         ChatMsg m;
         m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"开始发送文件（%1 个）").arg(m_uploadQueue.size());
+        if (fromFolder) {
+            m.text = QString::fromUtf8(u8"开始发送文件夹顶层文件（%1 个，不含子目录）")
+                         .arg(m_uploadQueue.size());
+        } else {
+            m.text = QString::fromUtf8(u8"开始发送文件（%1 个）").arg(m_uploadQueue.size());
+        }
         m.time = nowClock();
         appendMsg(currentKey(), m);
     }
@@ -3567,17 +3590,32 @@ void MainWindow::sendFolder()
     }
     if (!currentPeer(0, 0, 0))
         return;
-    const QString dir = QFileDialog::getExistingDirectory(this, QString::fromUtf8(u8"选择要发送的文件夹"));
+    const QString dir = QFileDialog::getExistingDirectory(
+        this, QString::fromUtf8(u8"选择要发送的文件夹（仅顶层文件）"));
     if (dir.isEmpty())
         return;
     const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+    const bool hasNested = !QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty();
     if (files.isEmpty()) {
         ChatMsg m;
         m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"文件夹为空，没有可发送的文件");
+        m.text = hasNested
+            ? QString::fromUtf8(u8"顶层没有可发送的文件（子目录内容不会发送）")
+            : QString::fromUtf8(u8"文件夹为空，没有可发送的文件");
         m.time = nowClock();
         appendMsg(currentKey(), m);
         return;
+    }
+    if (hasNested) {
+        if (QMessageBox::question(
+                this, QString::fromUtf8(u8"局域快传"),
+                QString::fromUtf8(u8"将只发送该文件夹顶层的 %1 个文件，"
+                                    u8"不会发送子目录里的内容。\n是否继续？")
+                    .arg(files.size()),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes)
+            != QMessageBox::Yes) {
+            return;
+        }
     }
     m_uploadQueue.clear();
     for (int i = 0; i < files.size(); ++i)
@@ -3585,7 +3623,8 @@ void MainWindow::sendFolder()
     {
         ChatMsg m;
         m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"开始发送文件夹（%1 个文件）").arg(m_uploadQueue.size());
+        m.text = QString::fromUtf8(u8"开始发送文件夹顶层文件（%1 个，不含子目录）")
+                     .arg(m_uploadQueue.size());
         m.time = nowClock();
         appendMsg(currentKey(), m);
     }
