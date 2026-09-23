@@ -2223,6 +2223,9 @@ void MainWindow::persistWindowGeometry()
         if (!sizes.isEmpty())
             m_settings.sideWidth = qBound(220, 480, sizes.at(0));
     }
+    const QString peer = currentKey();
+    if (!peer.isEmpty())
+        m_settings.lastPeer = peer;
     m_settings.save();
 }
 
@@ -2392,6 +2395,9 @@ void MainWindow::updateEmpty()
 void MainWindow::refreshPeers()
 {
     const QString keep = currentKey();
+    QString want = keep;
+    if (want.isEmpty())
+        want = m_settings.lastPeer.trimmed();
     const QString filter = m_search ? m_search->text() : QString();
     m_list->blockSignals(true);
     m_list->clear();
@@ -2418,16 +2424,19 @@ void MainWindow::refreshPeers()
         it->setData(Qt::UserRole + 2, p.label());
         it->setData(Qt::UserRole + 3, p.manual);
         m_list->addItem(it);
-        if (p.key() == keep)
+        if (!want.isEmpty() && p.key() == want)
             row = m_list->count() - 1;
     }
     if (row >= 0)
         m_list->setCurrentRow(row);
     else if (m_list->count() > 0 && keep.isEmpty())
         m_list->setCurrentRow(0);
+    const bool restoredLast = keep.isEmpty() && row >= 0;
     m_list->blockSignals(false);
     filterPeers(filter);
-    if (row < 0 && !keep.isEmpty())
+    // 周期性刷新：已有选中只 updateEmpty，避免每秒 forceBottom
+    // 刚从 lastPeer 恢复或丢选中时要走 showChat
+    if (restoredLast || (row < 0 && !keep.isEmpty()))
         showChat();
     else
         updateEmpty();
@@ -2517,6 +2526,10 @@ void MainWindow::showChat()
     if (key.isEmpty()) {
         updateEmpty();
         return;
+    }
+    if (m_settings.lastPeer != key) {
+        m_settings.lastPeer = key;
+        m_settings.save();
     }
     clearUnread(key);
     m_chatNewBelow = false;

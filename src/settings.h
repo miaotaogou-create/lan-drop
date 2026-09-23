@@ -30,6 +30,7 @@ struct Settings {
     int windowH = 0;
     bool windowMaximized = false;
     int sideWidth = 0; // ≤0 表示未记忆，启动用 300
+    QString lastPeer; // 最近选中的对端 ip:port；空=未记忆
 
     static QString filePath();
     static Settings defaults();

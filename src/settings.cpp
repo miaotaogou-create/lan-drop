@@ -147,6 +147,7 @@ Settings Settings::loadFromFile(const QString &path)
         s.windowMaximized = o.value(QStringLiteral("windowMaximized")).toBool();
     if (o.contains(QStringLiteral("sideWidth")))
         s.sideWidth = o.value(QStringLiteral("sideWidth")).toInt();
+    s.lastPeer = o.value(QStringLiteral("lastPeer")).toString().trimmed();
     return s;
 }
 
@@ -173,6 +174,8 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("windowH"), windowH);
     o.insert(QStringLiteral("windowMaximized"), windowMaximized);
     o.insert(QStringLiteral("sideWidth"), sideWidth);
+    if (!lastPeer.trimmed().isEmpty())
+        o.insert(QStringLiteral("lastPeer"), lastPeer.trimmed());
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;

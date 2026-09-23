@@ -144,6 +144,15 @@ int runSelfCheck()
             if (Settings::loadFromFile(path).sideWidth != 360)
                 return fail("sideWidth load");
         }
+        // lastPeer 往返
+        {
+            Settings s3 = Settings::defaults();
+            s3.lastPeer = QStringLiteral("10.0.0.8:8848");
+            if (!s3.saveToFile(path))
+                return fail("lastPeer save");
+            if (Settings::loadFromFile(path).lastPeer != QLatin1String("10.0.0.8:8848"))
+                return fail("lastPeer load");
+        }
         // 缺字段也能加载
         {
             QFile f(path);
@@ -158,6 +167,8 @@ int runSelfCheck()
             return fail("window geom missing");
         if (Settings::loadFromFile(path).sideWidth != 0)
             return fail("sideWidth missing");
+        if (!Settings::loadFromFile(path).lastPeer.isEmpty())
+            return fail("lastPeer missing");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }
