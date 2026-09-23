@@ -137,6 +137,7 @@ Settings Settings::loadFromFile(const QString &path)
         s.nudgeEnabled = o.value(QStringLiteral("nudgeEnabled")).toBool();
     if (o.contains(QStringLiteral("soundNotification")))
         s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
+    s.soundFile = o.value(QStringLiteral("soundFile")).toString().trimmed();
     s.manualPeers = readManualPeers(o);
     if (o.contains(QStringLiteral("windowX")))
         s.windowX = o.value(QStringLiteral("windowX")).toInt();
@@ -170,6 +171,8 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("transferThreads"), clampThreads(transferThreads, 8));
     o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
     o.insert(QStringLiteral("soundNotification"), soundNotification);
+    if (!soundFile.trimmed().isEmpty())
+        o.insert(QStringLiteral("soundFile"), soundFile.trimmed());
     o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));
     o.insert(QStringLiteral("windowX"), windowX);
     o.insert(QStringLiteral("windowY"), windowY);

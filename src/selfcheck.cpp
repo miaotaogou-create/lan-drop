@@ -126,6 +126,21 @@ int runSelfCheck()
             return fail("manualPeers meta");
         if (e.tag != QString::fromUtf8(u8"工控"))
             return fail("manualPeers tag");
+        // 自定义铃声路径往返
+        {
+            Settings g = Settings::defaults();
+            g.soundFile = QStringLiteral("C:/tmp/notify.wav");
+            if (!g.saveToFile(path))
+                return fail("soundFile save");
+            const Settings gl = Settings::loadFromFile(path);
+            if (gl.soundFile != QLatin1String("C:/tmp/notify.wav"))
+                return fail("soundFile load");
+            g.soundFile.clear();
+            if (!g.saveToFile(path))
+                return fail("soundFile clear save");
+            if (!Settings::loadFromFile(path).soundFile.isEmpty())
+                return fail("soundFile clear");
+        }
         // 窗口几何往返
         {
             Settings g = Settings::defaults();

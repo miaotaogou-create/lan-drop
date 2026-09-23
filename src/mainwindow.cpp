@@ -49,6 +49,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QtMath>
 #include <QPushButton>
 #include <QScrollArea>
@@ -73,6 +74,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <mmsystem.h>
 #endif
 
 enum ChromeIcon {
@@ -3663,15 +3665,38 @@ void MainWindow::nudgePeer()
     });
 }
 
-void MainWindow::playNotifySound()
+static void playSystemBeep()
 {
-    if (!m_settings.soundNotification)
-        return;
 #ifdef Q_OS_WIN
     MessageBeep(MB_OK);
 #else
     QApplication::beep();
 #endif
+}
+
+// 播自定义 wav；失败返回 false（调用方可回落系统音）
+static bool playCustomWav(const QString &path)
+{
+    if (path.trimmed().isEmpty() || !QFileInfo::exists(path))
+        return false;
+#ifdef Q_OS_WIN
+    return PlaySoundW(reinterpret_cast<LPCWSTR>(path.utf16()), NULL,
+                      SND_FILENAME | SND_ASYNC) != FALSE;
+#else
+    // ponytail: 无 Multimedia；优先 paplay，再 aplay；都没有则失败回落 beep
+    if (QProcess::startDetached(QStringLiteral("paplay"), QStringList() << path))
+        return true;
+    return QProcess::startDetached(QStringLiteral("aplay"), QStringList() << path);
+#endif
+}
+
+void MainWindow::playNotifySound()
+{
+    if (!m_settings.soundNotification)
+        return;
+    if (playCustomWav(m_settings.soundFile))
+        return;
+    playSystemBeep();
 }
 
 void MainWindow::shakeWindow()
@@ -4092,9 +4117,11 @@ void MainWindow::editSettings()
         l->setWordWrap(true);
         return l;
     };
-    auto fieldEdit = [](const QString &text) {
+    auto fieldEdit = [](const QString &text, const QString &ph = QString()) {
         QLineEdit *e = new QLineEdit(text);
         e->setObjectName(QStringLiteral("settingsField"));
+        if (!ph.isEmpty())
+            e->setPlaceholderText(ph);
         return e;
     };
 
@@ -4174,6 +4201,66 @@ void MainWindow::editSettings()
     bodyLay->addWidget(nudgePair.first);
     bodyLay->addWidget(soundPair.first);
 
+    QWidget *soundExtra = new QWidget;
+    QVBoxLayout *soundExtraLay = new QVBoxLayout(soundExtra);
+    soundExtraLay->setContentsMargins(0, 0, 0, 8);
+    soundExtraLay->setSpacing(6);
+    QLineEdit *soundPath = fieldEdit(m_settings.soundFile,
+                                     QString::fromUtf8(u8"留空则使用系统提示音"));
+    QPushButton *soundBrowse = new QPushButton(QString::fromUtf8(u8"浏览…"));
+    soundBrowse->setObjectName(QStringLiteral("settingsBrowse"));
+    soundBrowse->setCursor(Qt::PointingHandCursor);
+    soundBrowse->setFocusPolicy(Qt::NoFocus);
+    QPushButton *soundPreview = new QPushButton(QString::fromUtf8(u8"试听"));
+    soundPreview->setObjectName(QStringLiteral("settingsBrowse"));
+    soundPreview->setCursor(Qt::PointingHandCursor);
+    soundPreview->setFocusPolicy(Qt::NoFocus);
+    QPushButton *soundReset = new QPushButton(QString::fromUtf8(u8"恢复默认"));
+    soundReset->setObjectName(QStringLiteral("settingsBrowse"));
+    soundReset->setCursor(Qt::PointingHandCursor);
+    soundReset->setFocusPolicy(Qt::NoFocus);
+    QHBoxLayout *soundRow = new QHBoxLayout;
+    soundRow->setContentsMargins(0, 0, 0, 0);
+    soundRow->setSpacing(8);
+    soundRow->addWidget(soundPath, 1);
+    soundRow->addWidget(soundBrowse, 0);
+    soundRow->addWidget(soundPreview, 0);
+    soundRow->addWidget(soundReset, 0);
+    soundExtraLay->addWidget(fieldLabel(QString::fromUtf8(u8"自定义铃声 (wav)")));
+    soundExtraLay->addLayout(soundRow);
+    soundExtraLay->addWidget(fieldHint(QString::fromUtf8(u8"可选；仅 wav。空路径或恢复默认后使用系统提示音")));
+    bodyLay->addWidget(soundExtra);
+    auto syncSoundExtra = [soundExtra, soundBox]() {
+        soundExtra->setEnabled(soundBox->isChecked());
+    };
+    syncSoundExtra();
+    connect(soundBox, &QCheckBox::toggled, &dlg, [syncSoundExtra](bool) { syncSoundExtra(); });
+    connect(soundBrowse, &QPushButton::clicked, &dlg, [soundPath, &dlg]() {
+        QString start = QFileInfo(soundPath->text().trimmed()).absolutePath();
+        if (start.isEmpty() || !QDir(start).exists())
+            start = QDir::homePath();
+        const QString picked = QFileDialog::getOpenFileName(
+            &dlg, QString::fromUtf8(u8"选择通知铃声"), start,
+            QString::fromUtf8(u8"波形音频 (*.wav);;所有文件 (*.*)"));
+        if (!picked.isEmpty())
+            soundPath->setText(QDir::toNativeSeparators(picked));
+    });
+    connect(soundPreview, &QPushButton::clicked, &dlg, [soundPath, &dlg]() {
+        const QString p = soundPath->text().trimmed();
+        if (p.isEmpty()) {
+            playSystemBeep();
+            return;
+        }
+        if (!playCustomWav(p)) {
+            playSystemBeep();
+            QMessageBox::information(&dlg, QString::fromUtf8(u8"局域快传"),
+                                     QString::fromUtf8(u8"无法播放该文件，已回落系统提示音。\n请选用有效的 wav。"));
+        }
+    });
+    connect(soundReset, &QPushButton::clicked, &dlg, [soundPath]() {
+        soundPath->clear();
+    });
+
     QWidget *foot = new QWidget;
     foot->setObjectName(QStringLiteral("settingsFoot"));
     QHBoxLayout *footLay = new QHBoxLayout(foot);
@@ -4210,6 +4297,7 @@ void MainWindow::editSettings()
         m_settings.downloadDir = dir->text().trimmed();
         m_settings.nudgeEnabled = nudgeBox->isChecked();
         m_settings.soundNotification = soundBox->isChecked();
+        m_settings.soundFile = soundPath->text().trimmed();
         if (!m_settings.save()) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
                                  QString::fromUtf8(u8"保存设置失败"));

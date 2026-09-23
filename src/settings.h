@@ -23,6 +23,7 @@ struct Settings {
     int transferThreads = 8; // ponytail: 仅入库；上传仍是单队列，以后再接线程池
     bool nudgeEnabled = true;
     bool soundNotification = true; // 收文字/文件、本机发文件完成时播提示音；关则静音
+    QString soundFile; // 自定义 wav；空=系统提示音
     QList<ManualPeerEntry> manualPeers;
     // 窗口几何；windowW/H≤0 表示未记忆，启动用默认尺寸
     int windowX = 0;

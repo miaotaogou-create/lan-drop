@@ -432,6 +432,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-63 自定义通知铃声
+- 对应验收：C1–C5（`docs/requirements/20260922-custom-ringtone.md`）
+- 步骤：设置选 wav → 试听 → 保存 → 收/发文件听铃声；恢复默认再测；关通知声；无效路径；`--self-check`
+- 期望：有效 wav 生效；默认回系统音；关开关收发静音但试听可用；无效回落不崩；自检含 soundFile
+- 类型：手测 / 集成
+- 结果：`--self-check` 含 soundFile；界面待手测
+
 ### TC-34 会话顶栏主机名
 - 对应验收：H1–H3（`docs/requirements/20260922-peer-hostname.md`）
 - 步骤：本机 `landrop --self-check`；选中对端看副行首段；可用浏览器打开 `http://本机IP:端口/api/info` 看 `hostname`
@@ -461,7 +468,8 @@
 - 手动节点删除：见 `20260922-remove-manual-peer.md`（本轮已落地）
 - 部门标签入库：见 `20260922-peer-tag.md`（本轮已落地）
 - 右键编辑手动节点别名/标签：见 `20260922-edit-manual-peer.md`（本轮已落地）
-- 自定义铃声：待开需求
+- 自定义铃声：见 `20260922-custom-ringtone.md`（本轮已落地）
+- 并发线程数诚实化（灰显说明暂单队列）：待开需求
 - 通知声（收件）：见 `20260922-sound-notification.md`
 - 发送完成通知声：见 `20260922-send-complete-sound.md`（本轮已落地）
 - 并发线程池：见 `20260921-settings-dialog.md` 仍非本轮
