@@ -6,11 +6,16 @@
 #include <QBuffer>
 #include <QColor>
 #include <QCryptographicHash>
+#include <QDateTime>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontMetrics>
+#include <QImage>
 #include <QPainter>
 #include <QPixmap>
+#include <QUrl>
 
 // —— 本模块自用（不依赖 uiicons；体积格式复用 fmtutil）——
 
@@ -226,6 +231,41 @@ static QString renderTextBubble(const ChatMsg &m)
     return renderMsgRow(out, head, body, avatar);
 }
 
+static bool isImageFileName(const QString &nameOrPath)
+{
+    const QString e = QFileInfo(nameOrPath).suffix().toLower();
+    return e == QLatin1String("png") || e == QLatin1String("jpg") || e == QLatin1String("jpeg")
+        || e == QLatin1String("gif") || e == QLatin1String("bmp") || e == QLatin1String("webp");
+}
+
+// 缩略落临时目录，避免大图塞进 HTML；>12MB 不解码
+static QString imageThumbFile(const QString &path)
+{
+    QFileInfo fi(path);
+    if (!fi.exists() || !fi.isFile() || fi.size() <= 0 || fi.size() > 12LL * 1024 * 1024)
+        return QString();
+    if (!isImageFileName(fi.fileName()))
+        return QString();
+    const QByteArray keySrc = (fi.absoluteFilePath() + QLatin1Char('|')
+                               + QString::number(fi.size()) + QLatin1Char('|')
+                               + QString::number(fi.lastModified().toMSecsSinceEpoch()))
+                                  .toUtf8();
+    const QString key = QString::fromLatin1(
+        QCryptographicHash::hash(keySrc, QCryptographicHash::Sha1).toHex().left(16));
+    const QString dir = QDir::temp().filePath(QStringLiteral("landrop-thumbs"));
+    QDir().mkpath(dir);
+    const QString out = QDir(dir).filePath(key + QStringLiteral(".png"));
+    if (QFileInfo::exists(out))
+        return out;
+    QImage img(path);
+    if (img.isNull())
+        return QString();
+    const QImage scaled = img.scaled(240, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (!scaled.save(out, "PNG"))
+        return QString();
+    return out;
+}
+
 static QString renderFileCard(const ChatMsg &m)
 {
     const bool out = (m.type == ChatMsg::OutFile);
@@ -237,9 +277,10 @@ static QString renderFileCard(const ChatMsg &m)
     const QString pathB64 = (!pending && !m.path.isEmpty())
         ? QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding))
         : QString();
+    QString openHref;
     QString actions;
     if (!pathB64.isEmpty()) {
-        const QString openHref = QStringLiteral("landrop://open/") + pathB64;
+        openHref = QStringLiteral("landrop://open/") + pathB64;
         const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
         const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
         if (out) {
@@ -302,14 +343,35 @@ static QString renderFileCard(const ChatMsg &m)
     const QString shaLine = (!pending && !sha.isEmpty())
         ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>").arg(htmlEsc(sha))
         : QString();
+    QString thumbHtml;
+    if (!pending && !m.path.isEmpty()) {
+        const QString thumb = imageThumbFile(m.path);
+        if (!thumb.isEmpty()) {
+            const QString src = QUrl::fromLocalFile(thumb).toString();
+            if (openHref.isEmpty()) {
+                thumbHtml = QString::fromUtf8(
+                                u8"<br/><img src=\"%1\" />")
+                                .arg(src);
+            } else {
+                thumbHtml = QString::fromUtf8(
+                                u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
+                                u8"<img src=\"%2\" /></a>")
+                                .arg(openHref, src);
+            }
+        }
+    }
+    const bool asImage = isImageFileName(m.text) || isImageFileName(m.path);
+    const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
+    const QString badgeBg = asImage ? QStringLiteral("#ecfdf5") : QStringLiteral("#ede9fe");
+    const QString badgeFg = asImage ? QStringLiteral("#047857") : QStringLiteral("#7c3aed");
     const QString card =
         QString::fromUtf8(
             u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
             u8"style=\"border:1px solid #e2e8f0;\">"
             u8"<tr><td>"
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"#ede9fe\">"
-            u8"<tr><td><font color=\"#7c3aed\" size=\"2\"><b>FILE</b></font></td></tr></table></td>"
+            u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"%7\">"
+            u8"<tr><td><font color=\"%8\" size=\"2\"><b>%9</b></font></td></tr></table></td>"
             u8"<td>"
             u8"<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
             u8"<font color=\"#94a3b8\" size=\"2\">%2</font>"
@@ -317,9 +379,17 @@ static QString renderFileCard(const ChatMsg &m)
             u8"%3"
             u8"%4"
             u8"%5"
-            u8"<br/>%6"
+            u8"%6"
             u8"</td></tr></table>")
-            .arg(htmlEsc(m.text), size, bar, status, shaLine, actions);
+            .arg(htmlEsc(m.text),
+                 size,
+                 bar,
+                 status,
+                 shaLine,
+                 thumbHtml + QStringLiteral("<br/>") + actions,
+                 badgeBg,
+                 badgeFg,
+                 badge);
     const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));

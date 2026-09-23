@@ -94,6 +94,8 @@ private:
     void applyStyle();
     void setupTray();
     void setupChatDrop();
+    void setupPeerListDrop();
+    void hideToTray();
     void setChatDropHint(bool on);
     void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
     bool tryPasteClipboardFiles();

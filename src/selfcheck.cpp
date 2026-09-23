@@ -1,5 +1,6 @@
 ﻿#include "selfcheck.h"
 
+#include "chatrender.h"
 #include "files.h"
 #include "discovery.h"
 #include "fmtutil.h"
@@ -10,7 +11,9 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QHash>
+#include <QImage>
 #include <QVector>
 #include <cstdio>
 
@@ -317,6 +320,31 @@ int runSelfCheck()
         return fail("eta slow");
     if (formatEta(200 * 1024, 50 * 1024) != QString::fromUtf8(u8"约 4 秒"))
         return fail("eta sec");
+    {
+        // 图片缩略：完成态文件卡应含 img
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-thumb-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("a.png"));
+        QImage img(8, 8, QImage::Format_RGB32);
+        img.fill(0xff3366aa);
+        if (!img.save(path, "PNG"))
+            return fail("thumb png");
+        ChatMsg m;
+        m.type = ChatMsg::OutFile;
+        m.text = QStringLiteral("a.png");
+        m.path = path;
+        m.size = QFileInfo(path).size();
+        m.who = QString::fromUtf8(u8"我");
+        m.time = QStringLiteral("12:00");
+        m.progressPct = -1;
+        QVector<ChatMsg> msgs;
+        msgs << m;
+        const QString html = renderChatHtml(msgs);
+        if (!html.contains(QStringLiteral("<img ")) || !html.contains(QStringLiteral("IMG")))
+            return fail("thumb html");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
     {
         const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-aot-check"));
         QDir().mkpath(tmpDir);

@@ -40,6 +40,10 @@ int main(int argc, char *argv[])
             freopen_s(&out, "CONOUT$", "w", stdout);
             freopen_s(&out, "CONOUT$", "w", stderr);
 #endif
+            // 聊天气泡渲染依赖 qApp（字体/DPR），自检也要有 Application
+            QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+            QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+            QApplication app(argc, argv);
             return runSelfCheck();
         }
     }

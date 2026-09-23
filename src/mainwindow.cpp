@@ -172,6 +172,74 @@ private:
     int m_depth = 0;
 };
 
+// 拖到设备列表某行：选中该对端再发送
+class PeerListDropFilter : public QObject
+{
+public:
+    explicit PeerListDropFilter(QListWidget *list, QObject *parent = 0)
+        : QObject(parent)
+        , m_list(list)
+    {
+    }
+    std::function<void(const QStringList &, bool fromFolder)> onFiles;
+    std::function<void()> onMiss;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        Q_UNUSED(watched);
+        if (!m_list)
+            return false;
+        if (event->type() == QEvent::DragEnter) {
+            QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
+            if (de->mimeData() && de->mimeData()->hasUrls()) {
+                de->acceptProposedAction();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::DragMove) {
+            QDragMoveEvent *de = static_cast<QDragMoveEvent *>(event);
+            if (de->mimeData() && de->mimeData()->hasUrls()) {
+                const QPoint pos = (watched == m_list->viewport())
+                    ? de->pos()
+                    : m_list->viewport()->mapFrom(m_list, de->pos());
+                if (QListWidgetItem *it = m_list->itemAt(pos))
+                    m_list->setCurrentItem(it);
+                de->acceptProposedAction();
+                return true;
+            }
+        }
+        if (event->type() == QEvent::Drop) {
+            QDropEvent *de = static_cast<QDropEvent *>(event);
+            const QPoint pos = (watched == m_list->viewport())
+                ? de->pos()
+                : m_list->viewport()->mapFrom(m_list, de->pos());
+            QListWidgetItem *it = m_list->itemAt(pos);
+            QStringList paths;
+            bool hadDir = false;
+            if (de->mimeData())
+                paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
+            if (paths.isEmpty())
+                return false;
+            if (!it) {
+                if (onMiss)
+                    onMiss();
+                de->acceptProposedAction();
+                return true;
+            }
+            m_list->setCurrentItem(it);
+            if (onFiles)
+                onFiles(paths, hadDir);
+            de->acceptProposedAction();
+            return true;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    QListWidget *m_list = 0;
+};
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -200,6 +268,7 @@ MainWindow::MainWindow(QWidget *parent)
     buildUi();
     applyStyle();
     setupChatDrop();
+    setupPeerListDrop();
 
     m_chatSaveTimer = new QTimer(this);
     m_chatSaveTimer->setSingleShot(true);
@@ -921,7 +990,24 @@ void MainWindow::updateChrome()
 
 void MainWindow::minimizeWin()
 {
+    if (m_tray && m_settings.closeToTray) {
+        hideToTray();
+        return;
+    }
     showMinimized();
+}
+
+void MainWindow::hideToTray()
+{
+    persistWindowGeometry();
+    flushChatHistory();
+    hide();
+    if (!m_trayHintShown && m_tray) {
+        m_trayHintShown = true;
+        m_trayNotifyKey.clear();
+        showTrayToast(QString::fromUtf8(u8"局域快传"),
+                      QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"));
+    }
 }
 
 void MainWindow::toggleMax()
@@ -1127,13 +1213,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         return;
     }
     event->ignore();
-    hide();
-    if (!m_trayHintShown) {
-        m_trayHintShown = true;
-        m_trayNotifyKey.clear(); // 首次提示不跳会话
-        showTrayToast(QString::fromUtf8(u8"局域快传"),
-                      QString::fromUtf8(u8"已在托盘运行，可继续接收文件。右键托盘图标可退出。"));
-    }
+    hideToTray();
 }
 
 void MainWindow::refreshShareBtn()
@@ -2235,9 +2315,11 @@ void MainWindow::setProgress(const QString &text)
         return;
     if (text.isEmpty()) {
         m_progress->clear();
+        m_progress->setToolTip(QString());
         m_progress->hide();
         if (m_fileLive) {
             m_fileLive->clear();
+            m_fileLive->setToolTip(QString());
             m_fileLive->hide();
         }
         if (m_fileLiveHost)
@@ -2266,9 +2348,35 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
     const QString eta = formatEta(m_uploadRemainBytes, m_uploadSpeedBps);
     if (!eta.isEmpty())
         text += QStringLiteral(" · ") + eta;
-    if (!m_uploadQueue.isEmpty())
+    QString tip;
+    if (!m_uploadQueue.isEmpty()) {
         text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
+        QStringList preview;
+        for (int i = 0; i < m_uploadQueue.size() && i < 2; ++i) {
+            QString n = QFileInfo(m_uploadQueue.at(i)).fileName();
+            if (n.size() > 18)
+                n = n.left(16) + QStringLiteral("…");
+            preview.append(n);
+        }
+        text += QString::fromUtf8(u8"（%1%2）")
+                    .arg(preview.join(QString::fromUtf8(u8"、")))
+                    .arg(m_uploadQueue.size() > 2 ? QString::fromUtf8(u8"…") : QString());
+        tip = QString::fromUtf8(u8"排队：\n");
+        const int maxTip = qMin(12, m_uploadQueue.size());
+        for (int i = 0; i < maxTip; ++i) {
+            QString n = QFileInfo(m_uploadQueue.at(i)).fileName();
+            if (n.size() > 40)
+                n = n.left(38) + QStringLiteral("…");
+            tip += QStringLiteral("· ") + n + QLatin1Char('\n');
+        }
+        if (m_uploadQueue.size() > maxTip)
+            tip += QString::fromUtf8(u8"…共 %1 个").arg(m_uploadQueue.size());
+    }
     setProgress(text);
+    if (m_progress)
+        m_progress->setToolTip(tip);
+    if (m_fileLive)
+        m_fileLive->setToolTip(tip);
 }
 
 void MainWindow::setRecvProgressText(const QString &filename, int pct)
@@ -3165,6 +3273,23 @@ void MainWindow::setupChatDrop()
         m_chat->installEventFilter(this); // Ctrl+V 粘贴发文件
 }
 
+void MainWindow::setupPeerListDrop()
+{
+    if (!m_list)
+        return;
+    PeerListDropFilter *filter = new PeerListDropFilter(m_list, this);
+    filter->onFiles = [this](const QStringList &paths, bool fromFolder) {
+        enqueueDroppedPaths(paths, fromFolder);
+    };
+    filter->onMiss = [this]() {
+        setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
+    };
+    m_list->setAcceptDrops(true);
+    m_list->viewport()->setAcceptDrops(true);
+    m_list->installEventFilter(filter);
+    m_list->viewport()->installEventFilter(filter);
+}
+
 void MainWindow::setChatDropHint(bool on)
 {
     if (!m_chatDropHint || !m_sessionStack || !m_chatPage)
@@ -3877,7 +4002,7 @@ void MainWindow::editSettings()
     const QPair<QWidget *, QCheckBox *> soundPair =
         switchRow(QString::fromUtf8(u8"新消息与传输完成通知声"), m_settings.soundNotification);
     const QPair<QWidget *, QCheckBox *> trayPair =
-        switchRow(QString::fromUtf8(u8"关闭窗口时最小化到托盘（后台继续收文件）"),
+        switchRow(QString::fromUtf8(u8"关闭/最小化到托盘（后台继续收文件）"),
                   m_settings.closeToTray);
     const QPair<QWidget *, QCheckBox *> topPair =
         switchRow(QString::fromUtf8(u8"窗口置顶"), m_settings.alwaysOnTop);
