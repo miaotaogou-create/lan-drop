@@ -866,6 +866,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-162 共享收声、空态统一与复制就地反馈
+- 对应验收：K1–K4（`docs/requirements/20260922-share-empty-copyflash.md`）
+- 步骤：看顶栏共享钮文案；开共享弹窗看关闭钮；无设备时看右侧空态；点本机 pill / 对端地址复制
+- 期望：无「(HTTP)」；关闭为白底灰边；右侧位图白卡；复制后控件短暂绿态且有 toast
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

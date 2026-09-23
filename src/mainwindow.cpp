@@ -651,25 +651,17 @@ void MainWindow::buildUi()
     emptyLay->setContentsMargins(32, 32, 32, 32);
     emptyLay->addStretch(1);
     QFrame *emptyCard = new QFrame;
-    emptyCard->setObjectName(QStringLiteral("emptyCard"));
+    emptyCard->setObjectName(QStringLiteral("emptyCardHost"));
     emptyCard->setMaximumWidth(440);
-    applyFloatingShadow(emptyCard);
     QVBoxLayout *emptyCardLay = new QVBoxLayout(emptyCard);
-    emptyCardLay->setContentsMargins(28, 28, 28, 28);
+    emptyCardLay->setContentsMargins(0, 0, 0, 0);
     emptyCardLay->setSpacing(0);
     m_emptyHint = new QLabel;
     m_emptyHint->setObjectName(QStringLiteral("emptyHint"));
-    m_emptyHint->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_emptyHint->setAlignment(Qt::AlignCenter);
     m_emptyHint->setWordWrap(true);
     m_emptyHint->setTextFormat(Qt::RichText);
-    m_emptyHint->setText(
-        QString::fromUtf8(
-            u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
-            u8"还没有可聊的设备</p>"
-            u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
-            u8"1. 同一网段等待自动发现<br/>"
-            u8"2. 或点左侧「<span style=\"color:#2563eb;font-weight:600;\">+ 加 IP</span>」手动添加<br/>"
-            u8"3. 选中后即可发消息或拖文件</p>"));
+    m_emptyHint->setText(renderMainEmptyHintHtml(false));
     emptyCardLay->addWidget(m_emptyHint);
     emptyLay->addWidget(emptyCard, 0, Qt::AlignHCenter);
     emptyLay->addStretch(1);
@@ -1073,6 +1065,7 @@ void MainWindow::applyStyle()
         "#statusOnline[ok=\"true\"] { color: #047857; }"
         "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
+        "#hostPill[copied=\"true\"] { background: #ecfdf5; border-color: #86efac; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
         "#hostIp { color: #94a3b8; font-size: 12px; font-family: Consolas, 'Courier New', monospace; }"
@@ -1122,12 +1115,14 @@ void MainWindow::applyStyle()
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#emptyCardHost { background: transparent; border: none; }"
         "#emptyHint { color: #64748b; background: transparent; padding: 0; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
         "#peerName { color: #0f172a; font-size: 13px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
         " background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 8px; }"
         "#peerAddr:hover { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }"
+        "#peerAddr[copied=\"true\"] { color: #047857; background: #ecfdf5; border-color: #86efac; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
         "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#sessionTab { background: transparent; border: none; border-radius: 8px;"
@@ -1525,6 +1520,25 @@ void MainWindow::showMiniToast(const QString &text)
     m_miniToastTimer->start(1600);
 }
 
+void MainWindow::flashCopied(QWidget *w)
+{
+    if (!w)
+        return;
+    w->setProperty("copied", true);
+    w->style()->unpolish(w);
+    w->style()->polish(w);
+    w->update();
+    const QPointer<QWidget> guard(w);
+    QTimer::singleShot(1200, this, [guard]() {
+        if (!guard)
+            return;
+        guard->setProperty("copied", false);
+        guard->style()->unpolish(guard);
+        guard->style()->polish(guard);
+        guard->update();
+    });
+}
+
 void MainWindow::showTrayToast(const QString &title, const QString &body)
 {
     if (!m_trayToast) {
@@ -1637,10 +1651,13 @@ void MainWindow::refreshShareBtn()
     m_shareBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/globe.svg"), 16)));
     m_shareBtn->setIconSize(QSize(16, 16));
     const bool on = m_http && !m_http->shareDir().isEmpty();
-    if (on)
-        m_shareBtn->setText(QString::fromUtf8(u8"共享中…"));
-    else
-        m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
+    if (on) {
+        m_shareBtn->setText(QString::fromUtf8(u8"共享中"));
+        m_shareBtn->setToolTip(QString::fromUtf8(u8"本机 HTTP 网页共享进行中，点击管理"));
+    } else {
+        m_shareBtn->setText(QString::fromUtf8(u8"网页共享"));
+        m_shareBtn->setToolTip(QString::fromUtf8(u8"开启本机 HTTP 网页共享，供局域网浏览器下载"));
+    }
     m_shareBtn->setProperty("sharing", on);
     m_shareBtn->style()->unpolish(m_shareBtn);
     m_shareBtn->style()->polish(m_shareBtn);
@@ -1726,9 +1743,9 @@ void MainWindow::openShare()
         "#sharePause { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #334155; padding: 8px 14px; font-weight: 600; }"
         "#sharePause:hover { background: #f8fafc; }"
-        "#shareCloseWin { background: #0f172a; border: none; border-radius: 8px; color: #ffffff;"
-        " padding: 8px 16px; font-weight: 600; }"
-        "#shareCloseWin:hover { background: #1e293b; }"));
+        "#shareCloseWin { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " color: #334155; padding: 8px 16px; font-weight: 600; }"
+        "#shareCloseWin:hover { background: #f8fafc; }"));
 
     const QString ip = localIpText();
     const QString url = QStringLiteral("http://%1:%2/share/").arg(ip).arg(m_settings.port);
@@ -1890,7 +1907,7 @@ void MainWindow::openShare()
     pauseBtn->setIconSize(QSize(16, 16));
     QLabel *footHint = new QLabel(QString::fromUtf8(u8"仅局域网有效，随开随关"));
     footHint->setObjectName(QStringLiteral("shareHint"));
-    QPushButton *closeWin = new QPushButton(QString::fromUtf8(u8"关闭窗口"));
+    QPushButton *closeWin = new QPushButton(QString::fromUtf8(u8"关闭"));
     closeWin->setObjectName(QStringLiteral("shareCloseWin"));
     closeWin->setCursor(Qt::PointingHandCursor);
     footLay->addWidget(pauseBtn);
@@ -2057,6 +2074,7 @@ void MainWindow::copyLocalAddr()
     }
     const QString addr = ip + QLatin1Char(':') + QString::number(m_settings.port);
     QApplication::clipboard()->setText(addr);
+    flashCopied(m_hostPill);
     showMiniToast(QString::fromUtf8(u8"已复制 %1").arg(addr));
 }
 
@@ -2072,6 +2090,7 @@ void MainWindow::copyPeerAddr()
         port = 8848;
     const QString addr = ip.trimmed() + QLatin1Char(':') + QString::number(port);
     QApplication::clipboard()->setText(addr);
+    flashCopied(m_peerAddr);
     showMiniToast(QString::fromUtf8(u8"已复制 %1").arg(addr));
 }
 
@@ -2731,25 +2750,10 @@ void MainWindow::updateEmpty()
     }
     const bool hasPeer = currentPeer(0, 0, 0);
     if (m_emptyHint) {
-        if (!q.isEmpty() && visible == 0) {
-            m_emptyHint->setText(
-                QString::fromUtf8(
-                    u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
-                    u8"没有匹配的设备</p>"
-                    u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
-                    u8"没有匹配「<span style=\"color:#0f172a;font-weight:600;\">%1</span>」的设备。<br/>"
-                    u8"可按 Esc 清除搜索，或改用名称 / IP / 标签再试。</p>")
-                    .arg(q.toHtmlEscaped()));
-        } else {
-            m_emptyHint->setText(
-                QString::fromUtf8(
-                    u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
-                    u8"还没有可聊的设备</p>"
-                    u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
-                    u8"1. 同一网段等待自动发现<br/>"
-                    u8"2. 或点左侧「<span style=\"color:#2563eb;font-weight:600;\">+ 加 IP</span>」手动添加<br/>"
-                    u8"3. 选中后即可发消息或拖文件</p>"));
-        }
+        if (!q.isEmpty() && visible == 0)
+            m_emptyHint->setText(renderMainEmptyHintHtml(true, q));
+        else
+            m_emptyHint->setText(renderMainEmptyHintHtml(false));
     }
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);

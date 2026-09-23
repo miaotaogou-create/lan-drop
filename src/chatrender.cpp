@@ -836,3 +836,26 @@ QString renderSidebarEmptyHintHtml(bool noMatch)
         QString::fromUtf8(u8"同一网段等待自动发现"),
         200);
 }
+
+QString renderMainEmptyHintHtml(bool noMatch, const QString &query)
+{
+    if (noMatch) {
+        QString foot = QString::fromUtf8(u8"可按 Esc 清除搜索，或改用名称 / IP / 标签");
+        if (!query.trimmed().isEmpty()) {
+            QString q = query.trimmed();
+            if (q.size() > 20)
+                q = q.left(18) + QString::fromUtf8(u8"…");
+            foot = QString::fromUtf8(u8"没有匹配「%1」· Esc 清除").arg(q);
+        }
+        return emptyGuideCardImgHtml(
+            QString::fromUtf8(u8"没有匹配的设备"),
+            QStringList() << QString::fromUtf8(u8"Esc"),
+            foot,
+            360);
+    }
+    return emptyGuideCardImgHtml(
+        QString::fromUtf8(u8"还没有可聊的设备"),
+        QStringList() << QString::fromUtf8(u8"+ 加 IP"),
+        QString::fromUtf8(u8"同一网段等待自动发现，或手动添加后选中即可聊天"),
+        360);
+}

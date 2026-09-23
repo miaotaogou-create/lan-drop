@@ -117,6 +117,7 @@ private:
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
     void showMiniToast(const QString &text);
+    void flashCopied(QWidget *w);
     void selectPeerByKey(const QString &key);
     void clearUnread(const QString &key);
     void appendMsg(const QString &key, const ChatMsg &msg);
