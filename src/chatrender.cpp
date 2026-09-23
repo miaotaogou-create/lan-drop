@@ -587,7 +587,21 @@ static QString renderSystem(const ChatMsg &m)
         .arg(capsule, links);
 }
 
-static QString emptyGuideCardImgHtml(const QString &title, const QString &body)
+static void paintKeycap(QPainter &p, const QRectF &r, const QString &label)
+{
+    p.setPen(QPen(QColor(QStringLiteral("#94a3b8")), 1.0));
+    p.setBrush(QColor(QStringLiteral("#f8fafc")));
+    p.drawRoundedRect(r, 5.0, 5.0);
+    QFont f = qApp->font();
+    f.setPixelSize(11);
+    f.setBold(true);
+    p.setFont(f);
+    p.setPen(QColor(QStringLiteral("#475569")));
+    p.drawText(r, Qt::AlignCenter, label);
+}
+
+static QString emptyGuideCardImgHtml(const QString &title, const QStringList &keycaps,
+                                     const QString &footer)
 {
     const int cardW = 360;
     const int pad = 28;
@@ -595,16 +609,15 @@ static QString emptyGuideCardImgHtml(const QString &title, const QString &body)
     QFont titleFont = qApp->font();
     titleFont.setPixelSize(17);
     titleFont.setBold(true);
-    QFont bodyFont = qApp->font();
-    bodyFont.setPixelSize(13);
+    QFont footFont = qApp->font();
+    footFont.setPixelSize(12);
     QFontMetrics titleFm(titleFont);
-    QFontMetrics bodyFm(bodyFont);
-    const QRect bodyBound = bodyFm.boundingRect(QRect(0, 0, cardW - pad * 2, 10000),
-                                               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-                                               body);
+    QFontMetrics footFm(footFont);
     const int titleH = titleFm.height();
-    const int bodyH = qMax(bodyFm.height() * 2, bodyBound.height());
-    const int innerH = pad + titleH + 12 + bodyH + pad;
+    const int capH = 24;
+    const int footH = footer.isEmpty() ? 0 : (footFm.height() + 10);
+    const int capsBlock = keycaps.isEmpty() ? 0 : (12 + capH);
+    const int innerH = pad + titleH + capsBlock + footH + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
@@ -623,10 +636,29 @@ static QString emptyGuideCardImgHtml(const QString &title, const QString &body)
     p.setPen(QColor(QStringLiteral("#0f172a")));
     p.drawText(QRect(kShadowPad + pad, kShadowPad + pad, cardW - pad * 2, titleH),
                Qt::AlignLeft | Qt::AlignVCenter, title);
-    p.setFont(bodyFont);
-    p.setPen(QColor(QStringLiteral("#64748b")));
-    p.drawText(QRect(kShadowPad + pad, kShadowPad + pad + titleH + 12, cardW - pad * 2, bodyH),
-               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop, body);
+    int y = kShadowPad + pad + titleH + 12;
+    if (!keycaps.isEmpty()) {
+        QFont capFont = qApp->font();
+        capFont.setPixelSize(11);
+        capFont.setBold(true);
+        QFontMetrics capFm(capFont);
+        int x = kShadowPad + pad;
+        for (int i = 0; i < keycaps.size(); ++i) {
+            const QString lab = keycaps.at(i);
+            const int w = qMax(36, capFm.horizontalAdvance(lab) + 16);
+            if (x + w > kShadowPad + cardW - pad)
+                break;
+            paintKeycap(p, QRectF(x, y, w, capH), lab);
+            x += w + 8;
+        }
+        y += capH + 10;
+    }
+    if (!footer.isEmpty()) {
+        p.setFont(footFont);
+        p.setPen(QColor(QStringLiteral("#94a3b8")));
+        p.drawText(QRect(kShadowPad + pad, y, cardW - pad * 2, footFm.height()),
+                   Qt::AlignLeft | Qt::AlignVCenter, footer);
+    }
     return pixmapToImgHtml(pm);
 }
 
@@ -657,9 +689,13 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
         html += QStringLiteral("</div>");
     }
     if (!hasUserContent) {
+        QStringList caps;
+        caps << QStringLiteral("Enter")
+             << QStringLiteral("Shift+Enter")
+             << QStringLiteral("Ctrl+V");
         const QString card = emptyGuideCardImgHtml(
-            QString::fromUtf8(u8"发消息，或把文件拖到这里"),
-            QString::fromUtf8(u8"Enter 发送 · Shift+Enter 换行\n支持拖放文件与粘贴截图"));
+            QString::fromUtf8(u8"发消息，或把文件拖到这里"), caps,
+            QString::fromUtf8(u8"发送 · 换行 · 粘贴文件/截图"));
         html += QStringLiteral(
                     "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"48\"><tr>"
                     "<td align=\"center\">%1</td></tr></table>")
@@ -695,9 +731,8 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
     }
     if (n == 0) {
         const QString card = emptyGuideCardImgHtml(
-            QString::fromUtf8(u8"还没有文件传输"),
-            QString::fromUtf8(
-                u8"把文件拖到聊天区，或点左下角附件发送。\n传完后会在这里列出记录。"));
+            QString::fromUtf8(u8"还没有文件传输"), QStringList(),
+            QString::fromUtf8(u8"把文件拖到聊天区，或点左下角附件发送"));
         html += QStringLiteral(
                     "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"48\"><tr>"
                     "<td align=\"center\">%1</td></tr></table>")

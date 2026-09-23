@@ -417,10 +417,11 @@ void MainWindow::buildUi()
 
     m_hostPill = new QWidget;
     m_hostPill->setObjectName(QStringLiteral("hostPill"));
-    m_hostPill->setFixedHeight(28);
+    m_hostPill->setFixedHeight(30);
     m_hostPill->setCursor(Qt::PointingHandCursor);
     m_hostPill->setToolTip(QString::fromUtf8(u8"点击复制本机 IP:端口"));
     m_hostPill->installEventFilter(this);
+    applyFloatingShadow(m_hostPill);
     QHBoxLayout *pillLay = new QHBoxLayout(m_hostPill);
     pillLay->setContentsMargins(10, 0, 12, 0);
     pillLay->setSpacing(5);
@@ -787,6 +788,7 @@ void MainWindow::buildUi()
     m_jumpBottomBtn->setFocusPolicy(Qt::NoFocus);
     m_jumpBottomBtn->setText(QString::fromUtf8(u8"有新消息 ↓"));
     m_jumpBottomBtn->hide();
+    applyFloatingShadow(m_jumpBottomBtn);
     connect(m_jumpBottomBtn, SIGNAL(clicked()), this, SLOT(jumpChatToBottom()));
     connect(m_chat->verticalScrollBar(), &QScrollBar::valueChanged, this, [this](int) {
         syncJumpBottomBtn();
@@ -871,6 +873,7 @@ void MainWindow::buildUi()
     m_sendBtn->setToolTip(QString::fromUtf8(u8"发送（Enter）"));
     m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
     m_sendBtn->setIconSize(QSize(18, 18));
+    applyFloatingShadow(m_sendBtn);
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
     connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
@@ -1021,7 +1024,7 @@ void MainWindow::applyStyle()
         "#brandWrap { background: transparent; }"
         "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
         "#statusOnline { color: #64748b; font-size: 11px; padding: 0; margin: 0; }"
-        "#hostPill { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
+        "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
@@ -1056,12 +1059,12 @@ void MainWindow::applyStyle()
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
-        "#peerList::item { background: transparent; border: 1px solid transparent;"
+        "#peerList::item { background: #ffffff; border: 1px solid #eef2f7;"
         " border-left: 3px solid transparent; border-radius: 12px;"
-        " padding: 8px 10px; margin: 3px 4px; color: #0f172a; }"
+        " padding: 8px 10px; margin: 4px 2px; color: #0f172a; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0;"
         " border-left: 3px solid #cbd5e1; }"
-        "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe;"
+        "#peerList::item:selected { background: #ffffff; border-color: #93c5fd;"
         " border-left: 3px solid #2563eb; color: #0f172a; }"
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
@@ -2566,22 +2569,22 @@ void MainWindow::refreshPeers()
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
         const QString flag = p.online() ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线");
-        const QString manual = p.manual ? QString::fromUtf8(u8" · 手动") : QString();
-        const QString pinTag = m_settings.pinnedPeers.contains(p.key())
-            ? QString::fromUtf8(u8" · 置顶")
-            : QString();
-        const QString osTag = p.osName.trimmed().isEmpty()
-            ? QString()
-            : (QStringLiteral(" · ") + p.osName);
-        const QString dept = p.tag.trimmed().isEmpty()
-            ? QString()
-            : (QStringLiteral(" · ") + p.tag.trimmed());
+        QStringList bits;
+        bits << (p.ip + QLatin1Char(':') + QString::number(p.port));
+        bits << flag;
+        if (p.manual)
+            bits << QString::fromUtf8(u8"手动");
+        if (m_settings.pinnedPeers.contains(p.key()))
+            bits << QString::fromUtf8(u8"置顶");
+        if (!p.osName.trimmed().isEmpty())
+            bits << p.osName.trimmed();
+        if (!p.tag.trimmed().isEmpty())
+            bits << p.tag.trimmed();
         const int unread = m_unread.value(p.key(), 0);
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1\n%2:%3 · %4%5%6%7%8")
-                .arg(p.label(), p.ip, QString::number(p.port), flag, manual, pinTag, osTag, dept));
+            QStringLiteral("%1\n%2").arg(p.label(), bits.join(QString::fromUtf8(u8"  ·  "))));
         it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44)));
-        it->setSizeHint(QSize(0, 64));
+        it->setSizeHint(QSize(0, 66));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());

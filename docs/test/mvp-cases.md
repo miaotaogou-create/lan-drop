@@ -747,6 +747,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-145 发送钮浮起与列表卡感
+- 对应验收：F1–F4（`docs/requirements/20260922-fab-hostpill-peer-cards.md`）
+- 步骤：看发送钮与本机胶囊；切换侧栏选中；打开空会话看引导卡
+- 期望：发送/跳底/本机胶囊有轻阴影；列表白底卡感；空会话有 Enter 等 keycap
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
