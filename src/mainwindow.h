@@ -115,6 +115,7 @@ private:
     void revealInFolder(const QString &path);
     void maybeTrayNotify(const QString &title, const QString &body, const QString &peerKey = QString());
     void showTrayToast(const QString &title, const QString &body);
+    void showMiniToast(const QString &text);
     void selectPeerByKey(const QString &key);
     void clearUnread(const QString &key);
     void appendMsg(const QString &key, const ChatMsg &msg);
@@ -269,6 +270,8 @@ private:
     QLabel *m_trayToastBody = 0;
     QLabel *m_trayToastHint = 0;
     QTimer *m_trayToastTimer = 0;
+    QLabel *m_miniToast = 0;
+    QTimer *m_miniToastTimer = 0;
     QTimer *m_chatSaveTimer = 0;
     QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转
     QString m_offlineWarnedKey; // 本轮离线提示已发过的对端 key

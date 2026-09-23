@@ -1038,7 +1038,7 @@ void MainWindow::applyStyle()
         "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
         "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
         "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
-        "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
+        "#root { background: #f8fafc; border: 1px solid #e2e8f0; }"
         "#titleBar { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
         "#chromeSep { background: #e2e8f0; border: none; }"
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
@@ -1122,7 +1122,7 @@ void MainWindow::applyStyle()
         "#jumpBottomBtn { background: #2563eb; color: #f8fafc; border: none; border-radius: 16px;"
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
         "#jumpBottomBtn:hover { background: #1d4ed8; }"
-        "#composer { background: #f1f5f9; border-top: 1px solid #e2e8f0; }"
+        "#composer { background: #f1f5f9; border-top: none; }"
         "#chatDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 16px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
@@ -1134,7 +1134,7 @@ void MainWindow::applyStyle()
         "#clearQueueBtn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 12px;"
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
-        "#composerToolBar { background: #f8fafc; border: none; border-bottom: 1px solid #eef2f7;"
+        "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #f1f5f9;"
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
         "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
         " padding: 5px 9px; font-weight: 600; }"
@@ -1467,6 +1467,33 @@ void MainWindow::hideTrayToast()
 {
     if (m_trayToast)
         m_trayToast->hide();
+}
+
+void MainWindow::showMiniToast(const QString &text)
+{
+    if (text.isEmpty())
+        return;
+    if (!m_miniToast) {
+        m_miniToast = new QLabel(0, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        m_miniToast->setObjectName(QStringLiteral("miniToast"));
+        m_miniToast->setAttribute(Qt::WA_ShowWithoutActivating);
+        m_miniToast->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_miniToast->setAlignment(Qt::AlignCenter);
+        m_miniToast->setStyleSheet(QStringLiteral(
+            "#miniToast { background: #ffffff; color: #0f172a; border: 1px solid #e2e8f0;"
+            " border-radius: 10px; padding: 8px 12px; font-size: 12px; font-weight: 600; }"));
+        applyFloatingShadow(m_miniToast);
+        m_miniToastTimer = new QTimer(this);
+        m_miniToastTimer->setSingleShot(true);
+        connect(m_miniToastTimer, SIGNAL(timeout()), m_miniToast, SLOT(hide()));
+    }
+    m_miniToast->setText(text);
+    m_miniToast->adjustSize();
+    const QPoint pos = QCursor::pos() + QPoint(14, 18);
+    m_miniToast->move(pos);
+    m_miniToast->show();
+    m_miniToast->raise();
+    m_miniToastTimer->start(1600);
 }
 
 void MainWindow::showTrayToast(const QString &title, const QString &body)
@@ -1996,12 +2023,12 @@ void MainWindow::copyLocalAddr()
 {
     const QString ip = localIpText();
     if (ip.isEmpty() || ip == QString::fromUtf8(u8"—")) {
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"暂无可用 IP"), this);
+        showMiniToast(QString::fromUtf8(u8"暂无可用 IP"));
         return;
     }
     const QString addr = ip + QLatin1Char(':') + QString::number(m_settings.port);
     QApplication::clipboard()->setText(addr);
-    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
+    showMiniToast(QString::fromUtf8(u8"已复制 %1").arg(addr));
 }
 
 void MainWindow::copyPeerAddr()
@@ -2009,14 +2036,14 @@ void MainWindow::copyPeerAddr()
     QString ip;
     int port = 0;
     if (!currentPeer(&ip, &port, 0) || ip.trimmed().isEmpty()) {
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"请先选择对端"), this);
+        showMiniToast(QString::fromUtf8(u8"请先选择对端"));
         return;
     }
     if (port <= 0)
         port = 8848;
     const QString addr = ip.trimmed() + QLatin1Char(':') + QString::number(port);
     QApplication::clipboard()->setText(addr);
-    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
+    showMiniToast(QString::fromUtf8(u8"已复制 %1").arg(addr));
 }
 
 void MainWindow::setStatusOnline(const QString &text, bool ok)
@@ -2331,7 +2358,7 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     else if (chosen == copyAddr) {
         const QString addr = ip + QLatin1Char(':') + QString::number(port);
         QApplication::clipboard()->setText(addr);
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
+        showMiniToast(QString::fromUtf8(u8"已复制 %1").arg(addr));
     } else if (chosen == clearChat)
         clearSelectedPeerChat();
     else if (chosen == pinAct) {
@@ -3048,6 +3075,17 @@ void MainWindow::syncSendBtn()
     const bool on = hasPeer && hasText;
     m_sendBtn->setEnabled(on);
     m_sendBtn->setCursor(on ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    QPixmap icon = renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18);
+    if (!on) {
+        QPixmap faded(icon.size());
+        faded.setDevicePixelRatio(icon.devicePixelRatio());
+        faded.fill(Qt::transparent);
+        QPainter p(&faded);
+        p.setOpacity(0.4);
+        p.drawPixmap(0, 0, icon);
+        icon = faded;
+    }
+    m_sendBtn->setIcon(QIcon(icon));
 }
 
 void MainWindow::syncCancelUploadBtn()
@@ -3357,7 +3395,7 @@ void MainWindow::onChatAnchor(const QUrl &url)
         if (text.isEmpty())
             return;
         QApplication::clipboard()->setText(text);
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制"), this);
+        showMiniToast(QString::fromUtf8(u8"已复制"));
         return;
     }
     if (url.host() == QLatin1String("copypath")) {
@@ -3365,7 +3403,7 @@ void MainWindow::onChatAnchor(const QUrl &url)
         if (path.isEmpty())
             return;
         QApplication::clipboard()->setText(QDir::toNativeSeparators(path));
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制路径"), this);
+        showMiniToast(QString::fromUtf8(u8"已复制路径"));
         return;
     }
     if (url.host() == QLatin1String("retrytext")) {
@@ -4131,7 +4169,7 @@ bool MainWindow::tryPasteClipboardImage()
         QStringLiteral("screenshot-%1.png")
             .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss-zzz"))));
     if (!img.save(path, "PNG")) {
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"截图保存失败"), this);
+        showMiniToast(QString::fromUtf8(u8"截图保存失败"));
         return true;
     }
     enqueueDroppedPaths(QStringList() << path, false);
@@ -4140,7 +4178,7 @@ bool MainWindow::tryPasteClipboardImage()
     tip.text = QString::fromUtf8(u8"已粘贴截图，开始发送");
     tip.time = nowClock();
     appendMsg(currentKey(), tip);
-    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已粘贴截图"), this);
+    showMiniToast(QString::fromUtf8(u8"已粘贴截图"));
     return true;
 }
 

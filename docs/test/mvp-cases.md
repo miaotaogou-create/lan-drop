@@ -845,6 +845,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-159 输入卡、发送灰化与复制白卡
+- 对应验收：T1–T4（`docs/requirements/20260922-composer-send-copytoast.md`）
+- 步骤：看输入区顶线/工具条；空输入看发送钮；点本机 pill 与气泡复制
+- 期望：无硬顶线、工具条白；禁用发送整颗灰；复制为迷你白卡
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
