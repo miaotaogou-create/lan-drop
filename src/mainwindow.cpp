@@ -694,7 +694,7 @@ void MainWindow::buildUi()
     m_progress = new QLabel;
     m_progress->setObjectName(QStringLiteral("progress"));
     m_progress->hide();
-    m_cancelUploadBtn = new QPushButton(QString::fromUtf8(u8"取消"));
+    m_cancelUploadBtn = new QPushButton(QString::fromUtf8(u8"取消全部"));
     m_cancelUploadBtn->setObjectName(QStringLiteral("cancelUploadBtn"));
     m_cancelUploadBtn->setCursor(Qt::PointingHandCursor);
     m_cancelUploadBtn->setFocusPolicy(Qt::NoFocus);
@@ -706,6 +706,7 @@ void MainWindow::buildUi()
     m_clearQueueBtn->setCursor(Qt::PointingHandCursor);
     m_clearQueueBtn->setFocusPolicy(Qt::NoFocus);
     m_clearQueueBtn->setFlat(true);
+    m_clearQueueBtn->setToolTip(QString::fromUtf8(u8"只清空排队，当前文件继续发送"));
     m_clearQueueBtn->hide();
     connect(m_clearQueueBtn, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QHBoxLayout *progLay = new QHBoxLayout;
@@ -753,7 +754,7 @@ void MainWindow::buildUi()
     m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
     m_sendBtn->setIconSize(QSize(18, 18));
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
-    m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"取消当前发送并清空排队"));
+    m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
     connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
     syncSendBtn();
     QHBoxLayout *sendRow = new QHBoxLayout;
@@ -777,12 +778,12 @@ void MainWindow::buildUi()
     m_fileLive = new QLabel;
     m_fileLive->setObjectName(QStringLiteral("progress"));
     m_fileLive->hide();
-    m_cancelUploadBtnFiles = new QPushButton(QString::fromUtf8(u8"取消"));
+    m_cancelUploadBtnFiles = new QPushButton(QString::fromUtf8(u8"取消全部"));
     m_cancelUploadBtnFiles->setObjectName(QStringLiteral("cancelUploadBtn"));
     m_cancelUploadBtnFiles->setCursor(Qt::PointingHandCursor);
     m_cancelUploadBtnFiles->setFocusPolicy(Qt::NoFocus);
     m_cancelUploadBtnFiles->setFlat(true);
-    m_cancelUploadBtnFiles->setToolTip(QString::fromUtf8(u8"取消当前发送并清空排队"));
+    m_cancelUploadBtnFiles->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
     m_cancelUploadBtnFiles->hide();
     connect(m_cancelUploadBtnFiles, SIGNAL(clicked()), this, SLOT(cancelUpload()));
     m_clearQueueBtnFiles = new QPushButton(QString::fromUtf8(u8"清空排队"));
@@ -790,6 +791,7 @@ void MainWindow::buildUi()
     m_clearQueueBtnFiles->setCursor(Qt::PointingHandCursor);
     m_clearQueueBtnFiles->setFocusPolicy(Qt::NoFocus);
     m_clearQueueBtnFiles->setFlat(true);
+    m_clearQueueBtnFiles->setToolTip(QString::fromUtf8(u8"只清空排队，当前文件继续发送"));
     m_clearQueueBtnFiles->hide();
     connect(m_clearQueueBtnFiles, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QWidget *fileLiveHost = new QWidget;
@@ -2045,10 +2047,14 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
         return;
     m_list->setCurrentItem(it);
     const bool manual = it->data(Qt::UserRole + 3).toBool();
+    const QString ip = it->data(Qt::UserRole).toString();
+    const int port = it->data(Qt::UserRole + 1).toInt();
     QMenu menu(this);
+    QAction *sendFileAct = menu.addAction(QString::fromUtf8(u8"发送文件…"));
+    QAction *copyAddr = menu.addAction(QString::fromUtf8(u8"复制 IP:端口"));
+    menu.addSeparator();
     QAction *clearChat = menu.addAction(QString::fromUtf8(u8"清空聊天记录"));
-    const QString key = it->data(Qt::UserRole).toString() + QLatin1Char(':')
-        + QString::number(it->data(Qt::UserRole + 1).toInt());
+    const QString key = ip + QLatin1Char(':') + QString::number(port);
     const bool pinned = m_settings.pinnedPeers.contains(key);
     QAction *pinAct = menu.addAction(pinned ? QString::fromUtf8(u8"取消置顶")
                                             : QString::fromUtf8(u8"置顶"));
@@ -2061,7 +2067,13 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     if (!manual)
         del->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可删除"));
     QAction *chosen = menu.exec(m_list->viewport()->mapToGlobal(pos));
-    if (chosen == clearChat)
+    if (chosen == sendFileAct)
+        sendFile();
+    else if (chosen == copyAddr) {
+        const QString addr = ip + QLatin1Char(':') + QString::number(port);
+        QApplication::clipboard()->setText(addr);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制 %1").arg(addr), this);
+    } else if (chosen == clearChat)
         clearSelectedPeerChat();
     else if (chosen == pinAct) {
         if (pinned)
