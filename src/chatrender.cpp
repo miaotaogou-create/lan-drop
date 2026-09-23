@@ -293,7 +293,7 @@ static QString renderMsgRow(bool out, const QString &meta, const QString &body, 
                    "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr>"
                    "<td></td>"
                    "<td align=\"right\" valign=\"top\">"
-                   "<div align=\"right\">%1</div>"
+                   "<div align=\"right\" style=\"margin-right:5px;\">%1</div>"
                    "<div style=\"margin-top:8px;\" align=\"right\">%2</div>"
                    "</td>"
                    "<td width=\"56\" valign=\"top\">%3</td>"
@@ -304,7 +304,7 @@ static QString renderMsgRow(bool out, const QString &meta, const QString &body, 
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr>"
                "<td width=\"56\" valign=\"top\">%1</td>"
                "<td align=\"left\" valign=\"top\">"
-               "<div>%2</div>"
+               "<div style=\"margin-left:5px;\">%2</div>"
                "<div style=\"margin-top:8px;\">%3</div>"
                "</td>"
                "<td></td>"
@@ -573,7 +573,7 @@ static QString renderFileCard(const ChatMsg &m)
         }
     }
     const QString card = shell + thumbHtml + QStringLiteral("<br/>") + actions;
-    const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false);
+    const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false, out);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
     return renderMsgRow(out, head, card, avatar);

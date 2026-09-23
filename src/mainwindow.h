@@ -179,6 +179,7 @@ private:
     QLabel *m_peerCount = 0;
     QLabel *m_emptyHint = 0;
     QLineEdit *m_search = 0;
+    QWidget *m_searchShell = 0;
     QListWidget *m_list = 0;
     QStackedWidget *m_pages = 0;
     QSplitter *m_bodySplit = 0;

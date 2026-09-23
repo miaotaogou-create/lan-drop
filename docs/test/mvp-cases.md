@@ -810,6 +810,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-154 搜索浮起、meta 对齐与状态字色
+- 对应验收：R1–R4（`docs/requirements/20260922-search-meta-status.md`）
+- 步骤：点搜索看浮卡/蓝边；发文字看 meta 与气泡右缘；发文件看徽标；看顶栏状态字色
+- 期望：搜索浮起白卡；meta 与色块大致齐；文件有发送中/已送达；正常绿字、告警琥珀
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

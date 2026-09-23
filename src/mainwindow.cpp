@@ -550,6 +550,7 @@ void MainWindow::buildUi()
     m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…（Ctrl+F）"));
     m_search->setToolTip(QString::fromUtf8(u8"Ctrl+F 聚焦；Esc 清除搜索"));
     m_search->setClearButtonEnabled(true);
+    m_search->setFrame(false);
     m_search->installEventFilter(this);
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
     QShortcut *findShortcut = new QShortcut(QKeySequence::Find, this);
@@ -559,6 +560,13 @@ void MainWindow::buildUi()
         m_search->setFocus(Qt::ShortcutFocusReason);
         m_search->selectAll();
     });
+    m_searchShell = new QWidget;
+    m_searchShell->setObjectName(QStringLiteral("searchShell"));
+    applyFloatingShadow(m_searchShell);
+    QHBoxLayout *searchLay = new QHBoxLayout(m_searchShell);
+    searchLay->setContentsMargins(10, 0, 6, 0);
+    searchLay->setSpacing(0);
+    searchLay->addWidget(m_search);
 
     m_list = new QListWidget;
     m_list->setObjectName(QStringLiteral("peerList"));
@@ -573,7 +581,7 @@ void MainWindow::buildUi()
     m_list->installEventFilter(this);
 
     sideLay->addLayout(sideHead);
-    sideLay->addWidget(m_search);
+    sideLay->addWidget(m_searchShell);
     QWidget *listHost = new QWidget;
     listHost->setObjectName(QStringLiteral("peerListHost"));
     QVBoxLayout *listHostLay = new QVBoxLayout(listHost);
@@ -1017,7 +1025,8 @@ void MainWindow::applyStyle()
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
         "#brandWrap { background: transparent; }"
         "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
-        "#statusOnline { color: #64748b; font-size: 11px; padding: 0; margin: 0; }"
+        "#statusOnline { color: #b45309; font-size: 11px; padding: 0; margin: 0; }"
+        "#statusOnline[ok=\"true\"] { color: #047857; }"
         "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
@@ -1044,9 +1053,11 @@ void MainWindow::applyStyle()
         "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 6px 12px; font-size: 12px; font-weight: 600; min-height: 32px; }"
         "#addBtn:hover { background: #dbeafe; }"
-        "#search { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;"
+        "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#searchShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
+        "#search { background: transparent; border: none; padding: 8px 4px;"
         " color: #0f172a; selection-background-color: #bfdbfe; }"
-        "#search:focus { background: #ffffff; border: 1px solid #3b82f6; }"
+        "#search:focus { background: transparent; border: none; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerListHost { background: transparent; }"
         "#listEmptyHint { color: #94a3b8; background: transparent; padding: 16px 8px; }"
@@ -1166,6 +1177,15 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
             m_inputShell->style()->unpolish(m_inputShell);
             m_inputShell->style()->polish(m_inputShell);
             m_inputShell->update();
+        }
+    }
+    if (m_search && watched == m_search
+        && (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut)) {
+        if (m_searchShell) {
+            m_searchShell->setProperty("focused", event->type() == QEvent::FocusIn);
+            m_searchShell->style()->unpolish(m_searchShell);
+            m_searchShell->style()->polish(m_searchShell);
+            m_searchShell->update();
         }
     }
     if (m_search && watched == m_search && event->type() == QEvent::KeyPress) {
@@ -1982,8 +2002,13 @@ void MainWindow::setStatusOnline(const QString &text, bool ok)
 {
     if (m_statusDot)
         m_statusDot->setPixmap(makeStatusDot(ok));
-    if (m_statusLabel)
+    if (m_statusLabel) {
         m_statusLabel->setText(text);
+        m_statusLabel->setProperty("ok", ok);
+        m_statusLabel->style()->unpolish(m_statusLabel);
+        m_statusLabel->style()->polish(m_statusLabel);
+        m_statusLabel->update();
+    }
 }
 
 void MainWindow::boot()
