@@ -873,6 +873,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-163 菜单白卡与顶栏 meta 减负
+- 对应验收：M1–M4（`docs/requirements/20260922-menu-peermeta.md`）
+- 步骤：托盘右键；侧栏对端右键；选中对端看顶栏副行；悬停 meta / 在线圆点
+- 期望：菜单白底浅蓝悬停；顶栏无「Ping」字样；tooltip 含 Ping/链路/在线
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

@@ -1,11 +1,15 @@
 #include "uidialogs.h"
 
+#include <QColor>
 #include <QDialog>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QPushButton>
+#include <QStyle>
+#include <QStyleFactory>
 #include <QVBoxLayout>
 
 void applyFloatingShadow(QWidget *w)
@@ -18,6 +22,23 @@ void applyFloatingShadow(QWidget *w)
     fx->setOffset(0, 4);
     fx->setColor(QColor(15, 23, 42, 36));
     w->setGraphicsEffect(fx);
+}
+
+void styleAppMenu(QMenu *menu)
+{
+    if (!menu)
+        return;
+    if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
+        menu->setStyle(fusion);
+    menu->setStyleSheet(QStringLiteral(
+        "QMenu { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;"
+        " padding: 6px; color: #0f172a; }"
+        "QMenu::item { padding: 7px 24px 7px 14px; border-radius: 6px; background: transparent;"
+        " color: #0f172a; font-size: 12px; }"
+        "QMenu::item:selected { background: #eff6ff; color: #1d4ed8; }"
+        "QMenu::item:disabled { color: #94a3b8; background: transparent; }"
+        "QMenu::separator { height: 1px; background: #eef2f7; margin: 5px 8px; }"
+        "QMenu::indicator { width: 14px; height: 14px; margin-left: 8px; }"));
 }
 
 static QString cardDialogStyle()

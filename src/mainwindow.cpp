@@ -1381,6 +1381,7 @@ void MainWindow::setupTray()
     m_tray->setIcon(QIcon(makeRadioLogo(32)));
     m_tray->setToolTip(QString::fromUtf8(u8"局域快传 · 后台接收中"));
     QMenu *menu = new QMenu(this);
+    styleAppMenu(menu);
     QAction *showAct = menu->addAction(QString::fromUtf8(u8"显示主窗口"));
     QAction *dlAct = menu->addAction(QString::fromUtf8(u8"打开下载目录"));
     m_traySoundAct = menu->addAction(QString::fromUtf8(u8"通知声"));
@@ -2384,6 +2385,7 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     const QString ip = it->data(Qt::UserRole).toString();
     const int port = it->data(Qt::UserRole + 1).toInt();
     QMenu menu(this);
+    styleAppMenu(&menu);
     QAction *sendFileAct = menu.addAction(QString::fromUtf8(u8"发送文件…"));
     QAction *copyAddr = menu.addAction(QString::fromUtf8(u8"复制 IP:端口"));
     menu.addSeparator();
@@ -2902,12 +2904,6 @@ void MainWindow::updatePeerSession()
     const QString label = peer.label().isEmpty() ? name : peer.label();
     const QString addr = QStringLiteral("%1:%2").arg(ip).arg(port);
     const bool online = found && peer.online();
-    const QString hostTag = !peer.hostname.trimmed().isEmpty()
-        ? peer.hostname.trimmed()
-        : (!label.isEmpty() ? label : ip);
-    const QString metaHead = peer.tag.trimmed().isEmpty()
-        ? hostTag
-        : (hostTag + QString::fromUtf8(u8"  ·  ") + peer.tag.trimmed());
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 36));
     m_peerName->setText(label);
     m_peerName->setStyleSheet(online
@@ -2918,14 +2914,33 @@ void MainWindow::updatePeerSession()
     const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
         ? m_pingText
         : QString::fromUtf8(u8"—");
-    // 在线态由圆点表示，meta 只留次要信息，避免 52px 顶栏挤两遍「在线」
-    m_peerMeta->setText(
-        QString::fromUtf8(
-            u8"<span style=\"color:#94a3b8;\">%1 · Ping %2 · %3</span>")
-            .arg(metaHead.toHtmlEscaped(), pingText.toHtmlEscaped(),
-                 localLinkLabel().toHtmlEscaped()));
-    m_peerMeta->setToolTip(online ? QString::fromUtf8(u8"在线")
-                                  : QString::fromUtf8(u8"离线"));
+    const QString linkText = localLinkLabel();
+    // 顶栏只留一行轻量副信息；Ping / 链路 / 标签细节进 tooltip
+    QString metaVisible;
+    const QString hostOnly = peer.hostname.trimmed();
+    const QString tagOnly = peer.tag.trimmed();
+    if (!hostOnly.isEmpty() && hostOnly.compare(label, Qt::CaseInsensitive) != 0)
+        metaVisible = hostOnly;
+    else if (!tagOnly.isEmpty())
+        metaVisible = tagOnly;
+    if (metaVisible.isEmpty())
+        m_peerMeta->clear();
+    else
+        m_peerMeta->setText(
+            QString::fromUtf8(u8"<span style=\"color:#94a3b8;\">%1</span>")
+                .arg(metaVisible.toHtmlEscaped()));
+    QStringList tipBits;
+    tipBits << (online ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线"));
+    tipBits << (QString::fromUtf8(u8"Ping %1").arg(pingText));
+    tipBits << linkText;
+    if (!tagOnly.isEmpty() && metaVisible != tagOnly)
+        tipBits << (QString::fromUtf8(u8"标签 %1").arg(tagOnly));
+    if (!hostOnly.isEmpty() && metaVisible != hostOnly)
+        tipBits << hostOnly;
+    const QString tip = tipBits.join(QString::fromUtf8(u8" · "));
+    m_peerMeta->setToolTip(tip);
+    if (m_peerOnlineDot)
+        m_peerOnlineDot->setToolTip(tip);
     if (m_peerOnlineKnown.contains(addr)) {
         const bool wasOnline = m_peerOnlineKnown.value(addr);
         if (wasOnline != online) {

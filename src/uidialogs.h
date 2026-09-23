@@ -5,8 +5,10 @@
 #include <QStringList>
 
 class QWidget;
+class QMenu;
 
 void applyFloatingShadow(QWidget *w);
+void styleAppMenu(QMenu *menu);
 
 void appInfo(QWidget *parent, const QString &text);
 void appWarn(QWidget *parent, const QString &text);
