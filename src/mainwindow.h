@@ -129,6 +129,8 @@ private:
     void setProgress(const QString &text);
     void setUploadProgressText(const QString &filename, int pct = -1);
     void noteBusyUpload(const QString &hint = QString());
+    void maybeWarnOfflinePeer();
+    bool currentPeerOnline() const;
     void noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath = QString());
     void refreshShareBtn();
     void updateInputPlaceholder();
@@ -227,6 +229,7 @@ private:
     QTimer *m_trayToastTimer = 0;
     QTimer *m_chatSaveTimer = 0;
     QString m_trayNotifyKey; // 最近一条收件提示对应的对端 ip:port；空=勿跳转
+    QString m_offlineWarnedKey; // 本轮离线提示已发过的对端 key
 };
 
 #endif

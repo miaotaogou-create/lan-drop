@@ -250,6 +250,27 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-74 搜索清空与 Ctrl+F
+- 对应验收：E1–E3（`docs/requirements/20260922-search-clear-focus.md`）
+- 步骤：搜索框输入关键字看 ×；点 ×；再输入后 Esc；在输入框按 Ctrl+F
+- 期望：× 可清空；Esc 清空；Ctrl+F 聚焦搜索并选中文字
+- 类型：手测
+- 结果：待手测
+
+### TC-75 离线发送轻提示
+- 对应验收：O1–O3（`docs/requirements/20260922-offline-send-hint.md`）
+- 步骤：选离线对端发文字；再发文件；再选在线对端发文字
+- 期望：离线首次有系统条且不拦发送；同对端不重复；在线无此条
+- 类型：手测
+- 结果：待手测
+
+### TC-76 文件卡复制路径
+- 对应验收：P1–P3（`docs/requirements/20260922-copy-file-path.md`）
+- 步骤：收/发各一个文件后点「复制路径」粘贴到记事本；看发送中进度卡
+- 期望：剪贴板为绝对路径；进度中无该链接
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -572,4 +593,7 @@
 - 粘贴剪贴板图片发送：见 `20260922-paste-clipboard-image.md`（本轮已落地）
 - 打开所在目录并选中：见 `20260922-reveal-select.md`（本轮已落地）
 - 选中对端聚焦输入框：见 `20260922-focus-input-on-peer.md`（本轮已落地）
+- 搜索清空与 Ctrl+F：见 `20260922-search-clear-focus.md`（本轮已落地）
+- 离线发送轻提示：见 `20260922-offline-send-hint.md`（本轮已落地）
+- 文件卡复制路径：见 `20260922-copy-file-path.md`（本轮已落地）
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端

@@ -56,6 +56,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -647,14 +648,18 @@ static QString renderFileCard(const ChatMsg &m)
     if (!pathB64.isEmpty()) {
         const QString openHref = QStringLiteral("landrop://open/") + pathB64;
         const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
+        const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
         if (out) {
             actions = QString::fromUtf8(
                           u8"<a href=\"%1\" style=\"text-decoration:none;\">"
                           u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>")
-                          .arg(openHref, revealHref);
+                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
+                          u8"&nbsp;&nbsp;"
+                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>")
+                          .arg(openHref, revealHref, copyPathHref);
         } else {
             actions = QString::fromUtf8(
                           u8"<a href=\"%1\" style=\"text-decoration:none;\">"
@@ -662,8 +667,11 @@ static QString renderFileCard(const ChatMsg &m)
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
                           u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
+                          u8"&nbsp;&nbsp;"
+                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
+                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>"
                           u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
-                          .arg(openHref, revealHref);
+                          .arg(openHref, revealHref, copyPathHref);
         }
     } else if (pending) {
         actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
@@ -1119,7 +1127,16 @@ void MainWindow::buildUi()
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
     m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…"));
+    m_search->setClearButtonEnabled(true);
+    m_search->installEventFilter(this);
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
+    QShortcut *findShortcut = new QShortcut(QKeySequence::Find, this);
+    connect(findShortcut, &QShortcut::activated, this, [this]() {
+        if (!m_search)
+            return;
+        m_search->setFocus(Qt::ShortcutFocusReason);
+        m_search->selectAll();
+    });
 
     m_list = new QListWidget;
     m_list->setObjectName(QStringLiteral("peerList"));
@@ -1554,6 +1571,13 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         && event->type() == QEvent::MouseButtonPress) {
         showFromTrayNotify();
         return true;
+    }
+    if (m_search && watched == m_search && event->type() == QEvent::KeyPress) {
+        QKeyEvent *ke = static_cast<QKeyEvent *>(event);
+        if (ke->key() == Qt::Key_Escape) {
+            m_search->clear();
+            return true;
+        }
     }
     if ((watched == m_input || watched == m_chat) && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
@@ -2954,6 +2978,38 @@ void MainWindow::noteBusyUpload(const QString &hint)
                     : hint);
 }
 
+bool MainWindow::currentPeerOnline() const
+{
+    QString ip;
+    int port = 0;
+    if (!currentPeer(&ip, &port, 0) || !m_disc)
+        return false;
+    Peer peer;
+    if (!m_disc->find(ip, port, &peer))
+        return true; // 列表有节点但发现表暂缺：不当离线拦提示
+    return peer.online();
+}
+
+void MainWindow::maybeWarnOfflinePeer()
+{
+    const QString key = currentKey();
+    if (key.isEmpty())
+        return;
+    if (currentPeerOnline()) {
+        if (m_offlineWarnedKey == key)
+            m_offlineWarnedKey.clear();
+        return;
+    }
+    if (m_offlineWarnedKey == key)
+        return;
+    m_offlineWarnedKey = key;
+    ChatMsg m;
+    m.type = ChatMsg::System;
+    m.text = QString::fromUtf8(u8"对方当前显示离线，发送可能失败；请确认对方已打开局域快传。");
+    m.time = nowClock();
+    appendMsg(key, m);
+}
+
 void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString &retryPath)
 {
     const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -3130,6 +3186,12 @@ void MainWindow::onChatAnchor(const QUrl &url)
         url.path().mid(1).toLatin1(), QByteArray::Base64UrlEncoding);
     if (url.host() == QLatin1String("copy")) {
         QApplication::clipboard()->setText(QString::fromUtf8(raw));
+        return;
+    }
+    if (url.host() == QLatin1String("copypath")) {
+        const QString path = QString::fromUtf8(raw);
+        if (!path.isEmpty())
+            QApplication::clipboard()->setText(QDir::toNativeSeparators(path));
         return;
     }
     if (url.host() == QLatin1String("retry")) {
@@ -3339,6 +3401,7 @@ void MainWindow::sendText()
     int port = 0;
     if (!currentPeer(&ip, &port, 0))
         return;
+    maybeWarnOfflinePeer();
     QJsonObject o;
     o.insert(QStringLiteral("fromId"), m_id);
     o.insert(QStringLiteral("fromName"), m_settings.deviceName);
@@ -3587,6 +3650,7 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
                                  QString::fromUtf8(u8"请先选择一台设备，再发送文件。"));
         return;
     }
+    maybeWarnOfflinePeer();
     const bool wasBusy = m_uploading;
     QStringList added;
     for (int i = 0; i < paths.size(); ++i) {
