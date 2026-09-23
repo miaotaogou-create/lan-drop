@@ -557,7 +557,11 @@ void MainWindow::buildUi()
     rightLay->setSpacing(0);
 
     m_pages = new QStackedWidget;
-    m_emptyHint = new QLabel(QString::fromUtf8(u8"还没有对端。同一网段等待发现，或点左侧「加 IP」。"));
+    m_emptyHint = new QLabel(QString::fromUtf8(
+        u8"还没有可聊的设备\n\n"
+        u8"1. 同一网段等待自动发现\n"
+        u8"2. 或点左侧「+ 加 IP」手动添加\n"
+        u8"3. 选中后即可发消息或拖文件"));
     m_emptyHint->setObjectName(QStringLiteral("emptyHint"));
     m_emptyHint->setAlignment(Qt::AlignCenter);
     m_emptyHint->setWordWrap(true);
@@ -870,6 +874,8 @@ void MainWindow::applyStyle()
         "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 6px 12px; font-size: 12px; font-weight: 600; }"
         "#shareBtn:hover { background: #dbeafe; }"
+        "#shareBtn[sharing=\"true\"] { background: #ecfdf5; border-color: #86efac; color: #047857; }"
+        "#shareBtn[sharing=\"true\"]:hover { background: #d1fae5; }"
         "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0; }"
         "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
         "#minBtn, #maxBtn, #closeBtn, #pinBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
@@ -1328,10 +1334,15 @@ void MainWindow::refreshShareBtn()
         return;
     m_shareBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/globe.svg"), 16)));
     m_shareBtn->setIconSize(QSize(16, 16));
-    if (m_http && !m_http->shareDir().isEmpty())
+    const bool on = m_http && !m_http->shareDir().isEmpty();
+    if (on)
         m_shareBtn->setText(QString::fromUtf8(u8"共享中…"));
     else
         m_shareBtn->setText(QString::fromUtf8(u8"网页共享 (HTTP)"));
+    m_shareBtn->setProperty("sharing", on);
+    m_shareBtn->style()->unpolish(m_shareBtn);
+    m_shareBtn->style()->polish(m_shareBtn);
+    m_shareBtn->update();
 }
 
 static QPixmap makeQrPixmap(const QString &text, int logical)
@@ -3636,9 +3647,17 @@ bool MainWindow::tryPasteClipboardImage()
     const QString path = QDir(dir).filePath(
         QStringLiteral("screenshot-%1.png")
             .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss-zzz"))));
-    if (!img.save(path, "PNG"))
-        return false;
+    if (!img.save(path, "PNG")) {
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"截图保存失败"), this);
+        return true;
+    }
     enqueueDroppedPaths(QStringList() << path, false);
+    ChatMsg tip;
+    tip.type = ChatMsg::System;
+    tip.text = QString::fromUtf8(u8"已粘贴截图，开始发送");
+    tip.time = nowClock();
+    appendMsg(currentKey(), tip);
+    QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已粘贴截图"), this);
     return true;
 }
 
@@ -4595,6 +4614,9 @@ void MainWindow::editSettings()
     rootLay->addWidget(head);
     rootLay->addWidget(body);
     rootLay->addWidget(foot);
+
+    name->setFocus(Qt::OtherFocusReason);
+    name->selectAll();
 
     connect(save, &QPushButton::clicked, &dlg, [&]() {
         bool okPort = false;

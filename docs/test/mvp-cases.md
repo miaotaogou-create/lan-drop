@@ -558,6 +558,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-118 粘贴截图有反馈
+- 对应验收：P1–P2（`docs/requirements/20260922-paste-image-feedback.md`）
+- 步骤：截图后 Ctrl+V；再复制文件 Ctrl+V
+- 期望：截图出现「已粘贴截图…」系统条并开始发送；复制文件不出现该条
+- 类型：手测
+- 结果：待手测
+
+### TC-119 设置聚焦与共享中高亮
+- 对应验收：S1–S3（`docs/requirements/20260922-settings-focus-share-glow.md`）
+- 步骤：打开设置直接改名；开启网页共享看顶栏；关闭共享再看
+- 期望：打开即能改设备名；共享中按钮绿色系；关闭后恢复蓝底
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
