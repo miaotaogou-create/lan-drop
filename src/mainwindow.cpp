@@ -45,6 +45,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QBrush>
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
@@ -2341,6 +2342,8 @@ void MainWindow::refreshPeers()
         it->setData(Qt::UserRole + 2, p.label());
         it->setData(Qt::UserRole + 3, p.manual);
         it->setData(Qt::UserRole + 4, p.tag);
+        if (!p.online())
+            it->setForeground(QBrush(QColor(QStringLiteral("#94a3b8"))));
         m_list->addItem(it);
         if (!want.isEmpty() && p.key() == want)
             row = m_list->count() - 1;
@@ -2412,6 +2415,7 @@ void MainWindow::updatePeerSession()
     }
     const QString label = peer.label().isEmpty() ? name : peer.label();
     const QString addr = QStringLiteral("%1:%2").arg(ip).arg(port);
+    const bool online = found && peer.online();
     const QString hostTag = !peer.hostname.trimmed().isEmpty()
         ? peer.hostname.trimmed()
         : (!label.isEmpty() ? label : ip);
@@ -2420,22 +2424,36 @@ void MainWindow::updatePeerSession()
         : (hostTag + QString::fromUtf8(u8"  ·  ") + peer.tag.trimmed());
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 44));
     m_peerName->setText(label);
-    m_peerOnlineDot->setPixmap(makeStatusDot(found ? peer.online() : true, 8));
+    m_peerName->setStyleSheet(online
+                                  ? QStringLiteral("color:#0f172a;")
+                                  : QStringLiteral("color:#94a3b8;"));
+    m_peerOnlineDot->setPixmap(makeStatusDot(online, 8));
     m_peerAddr->setText(addr);
-    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  Ping %2  ·  %3")
+    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  %2  ·  Ping %3  ·  %4")
                             .arg(metaHead)
+                            .arg(online ? QString::fromUtf8(u8"在线")
+                                        : QString::fromUtf8(u8"离线"))
                             .arg(m_pingKey == addr && !m_pingText.isEmpty()
                                      ? m_pingText
                                      : QString::fromUtf8(u8"—"))
                             .arg(localLinkLabel()));
-    // 参考图：灰字前缀 + 加粗设备名 + 灰字地址
-    m_connBannerText->setText(
-        QString::fromUtf8(
-            u8"<span style=\"color:#64748b;\">已建立局域网直连：</span>"
-            "<span style=\"color:#0f172a;font-weight:700;\">%1</span>"
-            "<span style=\"color:#64748b;\"> (%2)</span>")
-            .arg(label.toHtmlEscaped())
-            .arg(addr.toHtmlEscaped()));
+    if (online) {
+        m_connBannerText->setText(
+            QString::fromUtf8(
+                u8"<span style=\"color:#64748b;\">已建立局域网直连：</span>"
+                "<span style=\"color:#0f172a;font-weight:700;\">%1</span>"
+                "<span style=\"color:#64748b;\"> (%2)</span>")
+                .arg(label.toHtmlEscaped())
+                .arg(addr.toHtmlEscaped()));
+    } else {
+        m_connBannerText->setText(
+            QString::fromUtf8(
+                u8"<span style=\"color:#b45309;\">对方当前离线：</span>"
+                "<span style=\"color:#92400e;font-weight:700;\">%1</span>"
+                "<span style=\"color:#b45309;\"> (%2)</span>")
+                .arg(label.toHtmlEscaped())
+                .arg(addr.toHtmlEscaped()));
+    }
     if (m_tabFiles)
         m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
                                 .arg(countFiles(m_log.value(currentKey()))));

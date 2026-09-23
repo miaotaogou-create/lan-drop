@@ -326,10 +326,10 @@ static QString renderFileCard(const ChatMsg &m)
                           u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"3\">打开所在目录</font></a>"
+                          u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"3\">复制路径</font></a>")
+                          u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>")
                           .arg(openHref, revealHref, copyPathHref);
         } else {
             actions = QString::fromUtf8(
@@ -337,10 +337,10 @@ static QString renderFileCard(const ChatMsg &m)
                           u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"3\">打开所在目录</font></a>"
+                          u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"3\">复制路径</font></a>"
+                          u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>"
                           u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>")
                           .arg(openHref, revealHref, copyPathHref);
         }
