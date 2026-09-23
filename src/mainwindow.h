@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QMainWindow>
 #include <QPoint>
+#include <QPointer>
 #include <QStringList>
 #include <QSystemTrayIcon>
 #include <QVector>
@@ -95,6 +96,7 @@ private slots:
     void copyLocalAddr();
     void copyPeerAddr();
     void flushChatHistory();
+    void cancelUpload();
 
 private:
     void boot();
@@ -138,6 +140,7 @@ private:
     void startUpload(const QString &path, bool fromQueue);
     void pumpUploadQueue();
     void enqueueMoreUploads(const QStringList &paths, bool announceFolder = false);
+    void syncCancelUploadBtn();
     void updateUploadProgress(const QString &key, int msgIndex, int pct);
     void finishUploadMsg(const QString &key, int msgIndex, qint64 rttMs, const QString &sha);
     void dropUploadMsg(const QString &key, int msgIndex);
@@ -184,9 +187,12 @@ private:
     bool m_chatNewBelow = false;
     QTextBrowser *m_files = 0;
     QLabel *m_fileLive = 0;
+    QWidget *m_fileLiveHost = 0;
     QPlainTextEdit *m_input = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
+    QPushButton *m_cancelUploadBtn = 0;
+    QPushButton *m_cancelUploadBtnFiles = 0;
     QPushButton *m_shareBtn = 0;
     QPushButton *m_maxBtn = 0;
     QWidget *m_composer = 0;
@@ -199,6 +205,8 @@ private:
     QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
     QStringList m_uploadQueue;
     bool m_uploading = false;
+    bool m_uploadCanceling = false;
+    QPointer<QNetworkReply> m_activeUploadReply;
     int m_uploadLastPct = -1;
     qint64 m_uploadLastUiMs = 0;
     bool m_pingBusy = false;

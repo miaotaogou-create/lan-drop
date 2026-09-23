@@ -1275,6 +1275,18 @@ void MainWindow::buildUi()
     m_progress = new QLabel;
     m_progress->setObjectName(QStringLiteral("progress"));
     m_progress->hide();
+    m_cancelUploadBtn = new QPushButton(QString::fromUtf8(u8"取消"));
+    m_cancelUploadBtn->setObjectName(QStringLiteral("cancelUploadBtn"));
+    m_cancelUploadBtn->setCursor(Qt::PointingHandCursor);
+    m_cancelUploadBtn->setFocusPolicy(Qt::NoFocus);
+    m_cancelUploadBtn->setFlat(true);
+    m_cancelUploadBtn->hide();
+    connect(m_cancelUploadBtn, SIGNAL(clicked()), this, SLOT(cancelUpload()));
+    QHBoxLayout *progLay = new QHBoxLayout;
+    progLay->setContentsMargins(0, 0, 0, 0);
+    progLay->setSpacing(8);
+    progLay->addWidget(m_progress, 1);
+    progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
     QHBoxLayout *toolLay = new QHBoxLayout;
     toolLay->setContentsMargins(0, 0, 0, 0);
@@ -1340,7 +1352,7 @@ void MainWindow::buildUi()
     shellLay->addWidget(m_input, 1);
     shellLay->addLayout(sendRow);
 
-    compCol->addWidget(m_progress);
+    compCol->addLayout(progLay);
     compCol->addLayout(toolLay);
     compCol->addWidget(m_inputShell);
 
@@ -1353,8 +1365,22 @@ void MainWindow::buildUi()
     filesLay->setSpacing(0);
     m_fileLive = new QLabel;
     m_fileLive->setObjectName(QStringLiteral("progress"));
-    m_fileLive->setContentsMargins(16, 10, 16, 0);
     m_fileLive->hide();
+    m_cancelUploadBtnFiles = new QPushButton(QString::fromUtf8(u8"取消"));
+    m_cancelUploadBtnFiles->setObjectName(QStringLiteral("cancelUploadBtn"));
+    m_cancelUploadBtnFiles->setCursor(Qt::PointingHandCursor);
+    m_cancelUploadBtnFiles->setFocusPolicy(Qt::NoFocus);
+    m_cancelUploadBtnFiles->setFlat(true);
+    m_cancelUploadBtnFiles->hide();
+    connect(m_cancelUploadBtnFiles, SIGNAL(clicked()), this, SLOT(cancelUpload()));
+    QWidget *fileLiveHost = new QWidget;
+    QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
+    fileLiveLay->setContentsMargins(16, 10, 16, 0);
+    fileLiveLay->setSpacing(8);
+    fileLiveLay->addWidget(m_fileLive, 1);
+    fileLiveLay->addWidget(m_cancelUploadBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
+    fileLiveHost->hide();
+    m_fileLiveHost = fileLiveHost;
     m_files = new QTextBrowser;
     m_files->setObjectName(QStringLiteral("filesView"));
     m_files->setReadOnly(true);
@@ -1362,7 +1388,7 @@ void MainWindow::buildUi()
     m_files->setOpenExternalLinks(false);
     m_files->setOpenLinks(false);
     connect(m_files, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
-    filesLay->addWidget(m_fileLive);
+    filesLay->addWidget(m_fileLiveHost);
     filesLay->addWidget(m_files, 1);
 
     m_sessionStack = new QStackedWidget;
@@ -1475,6 +1501,9 @@ void MainWindow::applyStyle()
         "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
         "#progress { color: #1d4ed8; font-size: 12px; }"
+        "#cancelUploadBtn { background: transparent; border: none; color: #dc2626; font-size: 12px;"
+        " padding: 2px 8px; border-radius: 6px; }"
+        "#cancelUploadBtn:hover { background: #fef2f2; color: #b91c1c; }"
         "#toolBtn { background: transparent; border: none; color: #475569; font-size: 12px;"
         " padding: 4px 8px; border-radius: 6px; }"
         "#toolBtn:hover { background: #f1f5f9; color: #0f172a; }"
@@ -2858,6 +2887,9 @@ void MainWindow::setProgress(const QString &text)
             m_fileLive->clear();
             m_fileLive->hide();
         }
+        if (m_fileLiveHost)
+            m_fileLiveHost->hide();
+        syncCancelUploadBtn();
         return;
     }
     m_progress->setText(text);
@@ -2866,6 +2898,33 @@ void MainWindow::setProgress(const QString &text)
         m_fileLive->setText(text);
         m_fileLive->show();
     }
+    if (m_fileLiveHost)
+        m_fileLiveHost->show();
+    syncCancelUploadBtn();
+}
+
+void MainWindow::syncCancelUploadBtn()
+{
+    const bool on = m_uploading;
+    if (m_cancelUploadBtn)
+        m_cancelUploadBtn->setVisible(on);
+    if (m_cancelUploadBtnFiles)
+        m_cancelUploadBtnFiles->setVisible(on);
+}
+
+void MainWindow::cancelUpload()
+{
+    if (!m_uploading)
+        return;
+    m_uploadCanceling = true;
+    m_uploadQueue.clear();
+    if (m_activeUploadReply) {
+        m_activeUploadReply->abort();
+        return;
+    }
+    m_uploadCanceling = false;
+    m_uploading = false;
+    setProgress(QString());
 }
 
 void MainWindow::noteBusyUpload(const QString &hint)
@@ -3332,6 +3391,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     clock->start();
     QNetworkReply *rep = m_nam->post(req, multi);
     multi->setParent(rep);
+    m_activeUploadReply = rep;
     const QString key = currentKey();
     ChatMsg pending;
     pending.type = ChatMsg::OutFile;
@@ -3346,6 +3406,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     appendMsg(key, pending);
     const int msgIndex = m_log.value(key).size() - 1;
     m_uploading = true;
+    m_uploadCanceling = false;
     m_uploadLastPct = -1;
     m_uploadLastUiMs = 0;
     setProgress(QString::fromUtf8(u8"正在发送 %1").arg(filename));
@@ -3359,8 +3420,22 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     Q_UNUSED(fromQueue);
     connect(rep, &QNetworkReply::finished, this, [this, rep, key, msgIndex, path, clock]() {
         rep->deleteLater();
+        if (m_activeUploadReply == rep)
+            m_activeUploadReply.clear();
         const qint64 ms = clock->elapsed();
         delete clock;
+        if (m_uploadCanceling) {
+            m_uploadCanceling = false;
+            dropUploadMsg(key, msgIndex);
+            ChatMsg m;
+            m.type = ChatMsg::System;
+            m.text = QString::fromUtf8(u8"已取消发送");
+            m.time = nowClock();
+            appendMsg(key, m);
+            m_uploading = false;
+            setProgress(QString());
+            return;
+        }
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             dropUploadMsg(key, msgIndex);
