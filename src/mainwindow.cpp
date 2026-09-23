@@ -1847,7 +1847,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     persistWindowGeometry();
     flushChatHistory();
-    if (m_forceQuit || !m_tray) {
+    if (m_forceQuit || !m_tray || !m_settings.closeToTray) {
         event->accept();
         qApp->quit();
         return;
@@ -3228,13 +3228,19 @@ void MainWindow::onChatAnchor(const QUrl &url)
     const QByteArray raw = QByteArray::fromBase64(
         url.path().mid(1).toLatin1(), QByteArray::Base64UrlEncoding);
     if (url.host() == QLatin1String("copy")) {
-        QApplication::clipboard()->setText(QString::fromUtf8(raw));
+        const QString text = QString::fromUtf8(raw);
+        if (text.isEmpty())
+            return;
+        QApplication::clipboard()->setText(text);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制"), this);
         return;
     }
     if (url.host() == QLatin1String("copypath")) {
         const QString path = QString::fromUtf8(raw);
-        if (!path.isEmpty())
-            QApplication::clipboard()->setText(QDir::toNativeSeparators(path));
+        if (path.isEmpty())
+            return;
+        QApplication::clipboard()->setText(QDir::toNativeSeparators(path));
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"已复制路径"), this);
         return;
     }
     if (url.host() == QLatin1String("retry")) {
@@ -4392,7 +4398,7 @@ void MainWindow::editSettings()
     titleCol->setSpacing(2);
     QLabel *title = new QLabel(QString::fromUtf8(u8"局域快传设置"));
     title->setObjectName(QStringLiteral("settingsTitle"));
-    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载目录与通知偏好"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载目录、通知与关闭行为"));
     sub->setObjectName(QStringLiteral("settingsSub"));
     titleCol->addWidget(title);
     titleCol->addWidget(sub);
@@ -4508,10 +4514,15 @@ void MainWindow::editSettings()
         switchRow(QString::fromUtf8(u8"窗口轻颤与抖动提醒 (Nudge)"), m_settings.nudgeEnabled);
     const QPair<QWidget *, QCheckBox *> soundPair =
         switchRow(QString::fromUtf8(u8"新消息与传输完成通知声"), m_settings.soundNotification);
+    const QPair<QWidget *, QCheckBox *> trayPair =
+        switchRow(QString::fromUtf8(u8"关闭窗口时最小化到托盘（后台继续收文件）"),
+                  m_settings.closeToTray);
     QCheckBox *nudgeBox = nudgePair.second;
     QCheckBox *soundBox = soundPair.second;
+    QCheckBox *trayBox = trayPair.second;
     bodyLay->addWidget(nudgePair.first);
     bodyLay->addWidget(soundPair.first);
+    bodyLay->addWidget(trayPair.first);
 
     QWidget *soundExtra = new QWidget;
     QVBoxLayout *soundExtraLay = new QVBoxLayout(soundExtra);
@@ -4602,6 +4613,7 @@ void MainWindow::editSettings()
         m_settings.downloadDir = dir->text().trimmed();
         m_settings.nudgeEnabled = nudgeBox->isChecked();
         m_settings.soundNotification = soundBox->isChecked();
+        m_settings.closeToTray = trayBox->isChecked();
         m_settings.soundFile = soundPath->text().trimmed();
         if (!m_settings.save()) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),

@@ -45,6 +45,7 @@ Settings Settings::defaults()
     s.transferThreads = 8;
     s.nudgeEnabled = true;
     s.soundNotification = true;
+    s.closeToTray = true;
     return s;
 }
 
@@ -137,6 +138,8 @@ Settings Settings::loadFromFile(const QString &path)
         s.nudgeEnabled = o.value(QStringLiteral("nudgeEnabled")).toBool();
     if (o.contains(QStringLiteral("soundNotification")))
         s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
+    if (o.contains(QStringLiteral("closeToTray")))
+        s.closeToTray = o.value(QStringLiteral("closeToTray")).toBool();
     s.soundFile = o.value(QStringLiteral("soundFile")).toString().trimmed();
     s.manualPeers = readManualPeers(o);
     if (o.contains(QStringLiteral("windowX")))
@@ -171,6 +174,7 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("transferThreads"), clampThreads(transferThreads, 8));
     o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
     o.insert(QStringLiteral("soundNotification"), soundNotification);
+    o.insert(QStringLiteral("closeToTray"), closeToTray);
     if (!soundFile.trimmed().isEmpty())
         o.insert(QStringLiteral("soundFile"), soundFile.trimmed());
     o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));

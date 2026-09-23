@@ -292,6 +292,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-80 关闭进托盘可配置
+- 对应验收：C1–C3（`docs/requirements/20260922-close-to-tray-option.md`）
+- 步骤：默认点 ✕ 看托盘；设置取消「关闭窗口时最小化到托盘」保存后再点 ✕；看 settings.json 的 closeToTray
+- 期望：默认进托盘；取消后退出进程；配置持久
+- 类型：手测
+- 结果：待手测
+
+### TC-81 复制成功提示
+- 对应验收：F1–F3（`docs/requirements/20260922-copy-feedback.md`）
+- 步骤：点文字「复制」、文件「复制路径」、代码块「复制」
+- 期望：分别出现已复制 / 已复制路径提示，剪贴板正确
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -620,4 +634,6 @@
 - 文字气泡复制：见 `20260922-text-bubble-copy.md`（本轮已落地）
 - 失败后重发剩余队列：见 `20260922-retry-remaining-queue.md`（本轮已落地）
 - 发送进度速率：见 `20260922-upload-speed.md`（本轮已落地）
+- 关闭进托盘可配置：见 `20260922-close-to-tray-option.md`（本轮已落地）
+- 复制成功提示：见 `20260922-copy-feedback.md`（本轮已落地）
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端
