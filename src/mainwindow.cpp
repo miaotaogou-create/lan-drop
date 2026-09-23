@@ -1107,7 +1107,7 @@ void MainWindow::applyStyle()
         "#jumpBottomBtn { background: #2563eb; color: #f8fafc; border: none; border-radius: 16px;"
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
         "#jumpBottomBtn:hover { background: #1d4ed8; }"
-        "#composer { background: #ffffff; border-top: 1px solid #eef2f7; }"
+        "#composer { background: #f1f5f9; border-top: 1px solid #e2e8f0; }"
         "#chatDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 16px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
@@ -2716,10 +2716,10 @@ void MainWindow::refreshPeers()
     int row = -1;
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
-        const QString flag = p.online() ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线");
         QStringList bits;
         bits << (p.ip + QLatin1Char(':') + QString::number(p.port));
-        bits << flag;
+        if (!p.online())
+            bits << QString::fromUtf8(u8"离线");
         if (p.manual)
             bits << QString::fromUtf8(u8"手动");
         const bool pinned = m_settings.pinnedPeers.contains(p.key());
@@ -3024,7 +3024,9 @@ void MainWindow::syncSendBtn()
         return;
     const bool hasPeer = currentPeer(0, 0, 0);
     const bool hasText = m_input && !m_input->toPlainText().trimmed().isEmpty();
-    m_sendBtn->setEnabled(hasPeer && hasText);
+    const bool on = hasPeer && hasText;
+    m_sendBtn->setEnabled(on);
+    m_sendBtn->setCursor(on ? Qt::PointingHandCursor : Qt::ArrowCursor);
 }
 
 void MainWindow::syncCancelUploadBtn()

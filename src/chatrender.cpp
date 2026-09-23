@@ -261,7 +261,9 @@ static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QCo
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed,
                         bool showSendState = false)
 {
-    QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
+    QString mid = who.isEmpty()
+        ? htmlEsc(time)
+        : (htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time));
     QString badge;
     if (failed) {
         badge = metaBadgeImgHtml(QString::fromUtf8(u8"发送失败"),
@@ -319,7 +321,7 @@ static QString renderTextBubble(const ChatMsg &m)
     const bool out = (m.type == ChatMsg::OutText);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
-    const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false, out);
+    const QString head = metaLine(out ? QString() : m.who, m.time, out ? m.rttMs : -1, false, out);
     if (splitCodeFence(m.text, &lang, &code))
         return renderMsgRow(out, head, renderCodeBlock(lang, code), avatar);
     QString img = textBubbleImgHtml(m.text, out);
@@ -573,7 +575,7 @@ static QString renderFileCard(const ChatMsg &m)
         }
     }
     const QString card = shell + thumbHtml + QStringLiteral("<br/>") + actions;
-    const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false, out);
+    const QString head = metaLine(out ? QString() : m.who, m.time, pending ? -1 : m.rttMs, false, out);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
     return renderMsgRow(out, head, card, avatar);

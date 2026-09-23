@@ -824,6 +824,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-156 输入衬底、发出 meta 与侧栏副行
+- 对应验收：M1–M4（`docs/requirements/20260922-composer-meta-sidebar.md`）
+- 步骤：看输入卡与底色层次；发文字看 meta；看侧栏在线/离线副行；空输入看发送光标
+- 期望：浮卡更明显；发出无「我」；在线副行无「在线」、离线有「离线」；禁用为箭头
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
