@@ -118,11 +118,55 @@ static QStringList localSendPathsFromUrls(const QList<QUrl> &urls, bool *hadDir 
     return paths;
 }
 
+static bool dirHasNested(const QString &dir)
+{
+    return !QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty();
+}
+
+static QStringList topFilesInDir(const QString &dir)
+{
+    QStringList out;
+    const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+    for (int i = 0; i < files.size(); ++i)
+        out.append(files.at(i).absoluteFilePath());
+    return out;
+}
+
+enum FolderSendChoice { FolderSendTop = 0, FolderSendZip, FolderSendCancel };
+
+static FolderSendChoice askNestedFolderChoice(QWidget *parent, int topFileCount)
+{
+    QMessageBox box(parent);
+    box.setWindowTitle(QString::fromUtf8(u8"局域快传"));
+    if (topFileCount <= 0) {
+        box.setText(QString::fromUtf8(
+            u8"顶层没有普通文件，但有子目录。\n可打包为 zip 发送完整目录树。"));
+    } else {
+        box.setText(QString::fromUtf8(
+            u8"文件夹包含子目录。\n"
+            u8"可打包 zip（含完整子目录），或只发顶层的 %1 个文件。")
+                        .arg(topFileCount));
+    }
+    QPushButton *zipBtn = box.addButton(QString::fromUtf8(u8"打包 zip 发送"),
+                                        QMessageBox::AcceptRole);
+    QPushButton *topBtn = 0;
+    if (topFileCount > 0)
+        topBtn = box.addButton(QString::fromUtf8(u8"仅发顶层"), QMessageBox::ActionRole);
+    box.addButton(QMessageBox::Cancel);
+    box.exec();
+    if (box.clickedButton() == zipBtn)
+        return FolderSendZip;
+    if (topBtn && box.clickedButton() == topBtn)
+        return FolderSendTop;
+    return FolderSendCancel;
+}
+
 class ShareDropFilter : public QObject
 {
 public:
     explicit ShareDropFilter(QObject *parent = 0) : QObject(parent) {}
     std::function<void(const QStringList &, bool fromFolder)> onFiles;
+    std::function<void(const QList<QUrl> &)> onUrls; // 优先：保留目录信息以便 zip
     std::function<void(bool)> onActive; // 拖入/拖出高亮（可选）
 
 protected:
@@ -157,10 +201,16 @@ protected:
             m_depth = 0;
             if (onActive)
                 onActive(false);
+            if (!de->mimeData() || !de->mimeData()->hasUrls())
+                return false;
+            if (onUrls) {
+                onUrls(de->mimeData()->urls());
+                de->acceptProposedAction();
+                return true;
+            }
             QStringList paths;
             bool hadDir = false;
-            if (de->mimeData())
-                paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
+            paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
             if (!paths.isEmpty() && onFiles) {
                 onFiles(paths, hadDir);
                 de->acceptProposedAction();
@@ -184,6 +234,7 @@ public:
     {
     }
     std::function<void(const QStringList &, bool fromFolder)> onFiles;
+    std::function<void(const QList<QUrl> &)> onUrls;
     std::function<void()> onMiss;
 
 protected:
@@ -217,11 +268,7 @@ protected:
                 ? de->pos()
                 : m_list->viewport()->mapFrom(m_list, de->pos());
             QListWidgetItem *it = m_list->itemAt(pos);
-            QStringList paths;
-            bool hadDir = false;
-            if (de->mimeData())
-                paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
-            if (paths.isEmpty())
+            if (!de->mimeData() || !de->mimeData()->hasUrls())
                 return false;
             if (!it) {
                 if (onMiss)
@@ -230,8 +277,14 @@ protected:
                 return true;
             }
             m_list->setCurrentItem(it);
-            if (onFiles)
-                onFiles(paths, hadDir);
+            if (onUrls) {
+                onUrls(de->mimeData()->urls());
+            } else if (onFiles) {
+                bool hadDir = false;
+                const QStringList paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
+                if (!paths.isEmpty())
+                    onFiles(paths, hadDir);
+            }
             de->acceptProposedAction();
             return true;
         }
@@ -2077,6 +2130,9 @@ QString MainWindow::localIpText() const
     const QStringList ips = localIpv4();
     if (ips.isEmpty())
         return QString::fromUtf8(u8"—");
+    const QString want = m_settings.preferredLocalIp.trimmed();
+    if (!want.isEmpty() && ips.contains(want))
+        return want;
     return ips.first();
 }
 
@@ -2419,7 +2475,7 @@ void MainWindow::setRecvProgressText(const QString &filename, int pct)
 void MainWindow::syncCancelUploadBtn()
 {
     const bool receiving = !m_uploading && !m_recvCurrentName.isEmpty();
-    const bool on = m_uploading || receiving;
+    const bool on = m_uploading || receiving || m_zipBusy;
     const bool hasQueue = m_uploading && !m_uploadQueue.isEmpty();
     if (m_cancelUploadBtn)
         m_cancelUploadBtn->setVisible(on);
@@ -2433,6 +2489,10 @@ void MainWindow::syncCancelUploadBtn()
 
 void MainWindow::cancelUpload()
 {
+    if (m_zipBusy) {
+        cancelZipPack();
+        return;
+    }
     if (m_uploading) {
         m_uploadCanceling = true;
         m_uploadQueue.clear();
@@ -3134,6 +3194,15 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         if (msgIndex >= 0 && msgIndex < lines.size())
             sha = lines.at(msgIndex).sha256;
         finishUploadMsg(key, msgIndex, ms, sha);
+        if (m_uploadQueue.isEmpty()) {
+            QString peerName;
+            // key 形如 ip:port；展示用当前选中名，否则用 key
+            currentPeer(0, 0, &peerName);
+            if (peerName.trimmed().isEmpty())
+                peerName = key;
+            maybeTrayNotify(QString::fromUtf8(u8"发送完成 · %1").arg(peerName),
+                            QFileInfo(path).fileName(), key);
+        }
         pumpUploadQueue();
     });
 }
@@ -3289,9 +3358,7 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
 void MainWindow::setupChatDrop()
 {
     ShareDropFilter *filter = new ShareDropFilter(this);
-    filter->onFiles = [this](const QStringList &paths, bool fromFolder) {
-        enqueueDroppedPaths(paths, fromFolder);
-    };
+    filter->onUrls = [this](const QList<QUrl> &urls) { handleDroppedUrls(urls); };
     filter->onActive = [this](bool on) { setChatDropHint(on); };
     // 只挂会话页：子控件不接 drop，事件落到 chatPage，避免进出子控件时高亮闪烁
     if (m_chatPage) {
@@ -3313,9 +3380,7 @@ void MainWindow::setupPeerListDrop()
     if (!m_list)
         return;
     PeerListDropFilter *filter = new PeerListDropFilter(m_list, this);
-    filter->onFiles = [this](const QStringList &paths, bool fromFolder) {
-        enqueueDroppedPaths(paths, fromFolder);
-    };
+    filter->onUrls = [this](const QList<QUrl> &urls) { handleDroppedUrls(urls); };
     filter->onMiss = [this]() {
         setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
     };
@@ -3352,11 +3417,20 @@ bool MainWindow::tryPasteClipboardFiles()
     const QMimeData *md = QApplication::clipboard()->mimeData();
     if (!md || !md->hasUrls())
         return false;
-    bool hadDir = false;
-    const QStringList paths = localSendPathsFromUrls(md->urls(), &hadDir, 0);
-    if (paths.isEmpty())
+    bool anyLocal = false;
+    const QList<QUrl> urls = md->urls();
+    for (int i = 0; i < urls.size(); ++i) {
+        if (!urls.at(i).isLocalFile())
+            continue;
+        const QFileInfo fi(urls.at(i).toLocalFile());
+        if (fi.isFile() || fi.isDir()) {
+            anyLocal = true;
+            break;
+        }
+    }
+    if (!anyLocal)
         return false;
-    enqueueDroppedPaths(paths, hadDir);
+    handleDroppedUrls(urls);
     return true;
 }
 
@@ -3417,6 +3491,190 @@ void MainWindow::enqueueDroppedPaths(const QStringList &paths, bool fromFolder)
     enqueueMoreUploads(unique, fromFolder);
 }
 
+void MainWindow::handleDroppedUrls(const QList<QUrl> &urls)
+{
+    QStringList loose;
+    QStringList nestedDirs;
+    QStringList flatDirFiles;
+    for (int i = 0; i < urls.size(); ++i) {
+        if (!urls.at(i).isLocalFile())
+            continue;
+        const QString p = urls.at(i).toLocalFile();
+        const QFileInfo fi(p);
+        if (fi.isFile()) {
+            loose.append(fi.absoluteFilePath());
+        } else if (fi.isDir()) {
+            const QString abs = fi.absoluteFilePath();
+            if (dirHasNested(abs))
+                nestedDirs.append(abs);
+            else
+                flatDirFiles += topFilesInDir(abs);
+        }
+    }
+    if (nestedDirs.isEmpty()) {
+        QStringList all = loose;
+        all.append(flatDirFiles);
+        if (all.isEmpty())
+            return;
+        enqueueDroppedPaths(all, !flatDirFiles.isEmpty());
+        return;
+    }
+    int topCount = 0;
+    for (int i = 0; i < nestedDirs.size(); ++i)
+        topCount += topFilesInDir(nestedDirs.at(i)).size();
+    const FolderSendChoice choice = askNestedFolderChoice(this, topCount);
+    if (choice == FolderSendCancel)
+        return;
+    if (choice == FolderSendTop) {
+        QStringList all = loose;
+        all.append(flatDirFiles);
+        for (int i = 0; i < nestedDirs.size(); ++i)
+            all.append(topFilesInDir(nestedDirs.at(i)));
+        enqueueDroppedPaths(all, true);
+        return;
+    }
+    // zip：嵌套目录排队打包；散落与无嵌套目录顶层一并附带
+    m_zipExtraFiles = loose;
+    m_zipExtraFiles.append(flatDirFiles);
+    m_zipDirQueue = nestedDirs;
+    pumpZipQueue();
+}
+
+void MainWindow::cancelZipPack()
+{
+    if (!m_zipBusy)
+        return;
+    m_zipCanceling = true;
+    m_zipDirQueue.clear();
+    m_zipExtraFiles.clear();
+    if (m_zipProc) {
+        m_zipProc->kill();
+        return;
+    }
+    m_zipBusy = false;
+    m_zipCanceling = false;
+    setProgress(QString());
+    syncCancelUploadBtn();
+}
+
+void MainWindow::pumpZipQueue()
+{
+    if (m_zipBusy)
+        return;
+    if (m_zipDirQueue.isEmpty()) {
+        if (!m_zipExtraFiles.isEmpty()) {
+            const QStringList extra = m_zipExtraFiles;
+            m_zipExtraFiles.clear();
+            enqueueDroppedPaths(extra, false);
+        }
+        return;
+    }
+    const QString dir = m_zipDirQueue.takeFirst();
+    const QString base = QFileInfo(dir).fileName().trimmed().isEmpty()
+        ? QStringLiteral("folder")
+        : QFileInfo(dir).fileName();
+    const QString zipDir = QDir::temp().filePath(QStringLiteral("landrop-zip"));
+    QDir().mkpath(zipDir);
+    const QString zipPath = QDir(zipDir).filePath(
+        base + QStringLiteral("-")
+        + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss-zzz"))
+        + QStringLiteral(".zip"));
+    QString err;
+    if (!prepareZipOutput(dir, zipPath, &err)) {
+        ChatMsg m;
+        m.type = ChatMsg::Fail;
+        m.text = QString::fromUtf8(u8"打包失败：%1").arg(err.isEmpty()
+                                                             ? QString::fromUtf8(u8"未知错误")
+                                                             : err);
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+        m_zipDirQueue.clear();
+        m_zipExtraFiles.clear();
+        setProgress(QString());
+        syncCancelUploadBtn();
+        return;
+    }
+    m_zipOutPath = zipPath;
+    m_zipBusy = true;
+    m_zipCanceling = false;
+    setProgress(QString::fromUtf8(u8"正在打包文件夹…"));
+    syncCancelUploadBtn();
+    QProcess *proc = new QProcess(this);
+    m_zipProc = proc;
+    proc->setProgram(QStringLiteral("tar"));
+    proc->setArguments(zipTarArguments(dir, zipPath));
+    connect(proc, SIGNAL(finished(int,QProcess::ExitStatus)),
+            this, SLOT(onZipProcessFinished(int,QProcess::ExitStatus)));
+    proc->start();
+    if (!proc->waitForStarted(5000)) {
+        m_zipProc.clear();
+        proc->deleteLater();
+        m_zipBusy = false;
+        QFile::remove(zipPath);
+        ChatMsg m;
+        m.type = ChatMsg::Fail;
+        m.text = QString::fromUtf8(u8"打包失败：本机找不到 tar，无法打包");
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+        m_zipDirQueue.clear();
+        m_zipExtraFiles.clear();
+        setProgress(QString());
+        syncCancelUploadBtn();
+    }
+}
+
+void MainWindow::onZipProcessFinished(int exitCode, QProcess::ExitStatus status)
+{
+    QProcess *proc = qobject_cast<QProcess *>(sender());
+    const QString zipPath = m_zipOutPath;
+    m_zipOutPath.clear();
+    m_zipProc.clear();
+    m_zipBusy = false;
+    if (proc)
+        proc->deleteLater();
+
+    if (m_zipCanceling) {
+        m_zipCanceling = false;
+        QFile::remove(zipPath);
+        ChatMsg m;
+        m.type = ChatMsg::System;
+        m.text = QString::fromUtf8(u8"已取消打包");
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+        setProgress(QString());
+        syncCancelUploadBtn();
+        return;
+    }
+    if (status != QProcess::NormalExit || exitCode != 0
+        || !QFileInfo::exists(zipPath) || QFileInfo(zipPath).size() <= 0) {
+        QString detail;
+        if (proc)
+            detail = QString::fromLocal8Bit(proc->readAllStandardError()).trimmed();
+        QFile::remove(zipPath);
+        ChatMsg m;
+        m.type = ChatMsg::Fail;
+        m.text = QString::fromUtf8(u8"打包失败：%1")
+                     .arg(detail.isEmpty() ? QString::fromUtf8(u8"未知错误") : detail);
+        m.time = nowClock();
+        appendMsg(currentKey(), m);
+        m_zipDirQueue.clear();
+        m_zipExtraFiles.clear();
+        setProgress(QString());
+        syncCancelUploadBtn();
+        return;
+    }
+    ChatMsg m;
+    m.type = ChatMsg::System;
+    m.text = QString::fromUtf8(u8"已打包文件夹为 zip，开始发送");
+    m.time = nowClock();
+    appendMsg(currentKey(), m);
+    if (!m_uploading)
+        m_uploadQueue.clear();
+    enqueueMoreUploads(QStringList() << zipPath, false);
+    syncCancelUploadBtn();
+    pumpZipQueue();
+}
+
 void MainWindow::sendFile()
 {
     if (!currentPeer(0, 0, 0))
@@ -3438,8 +3696,8 @@ void MainWindow::sendFolder()
         this, QString::fromUtf8(u8"选择要发送的文件夹"));
     if (dir.isEmpty())
         return;
-    const QFileInfoList files = QDir(dir).entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
-    const bool hasNested = !QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty();
+    const QStringList files = topFilesInDir(dir);
+    const bool hasNested = dirHasNested(dir);
     if (files.isEmpty() && !hasNested) {
         ChatMsg m;
         m.type = ChatMsg::System;
@@ -3449,81 +3707,24 @@ void MainWindow::sendFolder()
         return;
     }
 
-    enum Mode { TopOnly = 0, ZipPack, Cancel };
-    Mode mode = TopOnly;
+    FolderSendChoice mode = FolderSendTop;
     if (hasNested) {
-        QMessageBox box(this);
-        box.setWindowTitle(QString::fromUtf8(u8"局域快传"));
-        if (files.isEmpty()) {
-            box.setText(QString::fromUtf8(
-                u8"顶层没有普通文件，但有子目录。\n可打包为 zip 发送完整目录树。"));
-        } else {
-            box.setText(QString::fromUtf8(
-                u8"该文件夹包含子目录。\n"
-                u8"可打包 zip（含完整子目录），或只发顶层的 %1 个文件。")
-                            .arg(files.size()));
-        }
-        QPushButton *zipBtn = box.addButton(QString::fromUtf8(u8"打包 zip 发送"),
-                                            QMessageBox::AcceptRole);
-        QPushButton *topBtn = 0;
-        if (!files.isEmpty())
-            topBtn = box.addButton(QString::fromUtf8(u8"仅发顶层"), QMessageBox::ActionRole);
-        box.addButton(QMessageBox::Cancel);
-        box.exec();
-        if (box.clickedButton() == zipBtn)
-            mode = ZipPack;
-        else if (topBtn && box.clickedButton() == topBtn)
-            mode = TopOnly;
-        else
-            mode = Cancel;
-    }
-    if (mode == Cancel)
-        return;
-
-    if (mode == ZipPack) {
-        setProgress(QString::fromUtf8(u8"正在打包文件夹…"));
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-        const QString base = QFileInfo(dir).fileName().trimmed().isEmpty()
-            ? QStringLiteral("folder")
-            : QFileInfo(dir).fileName();
-        const QString zipDir = QDir::temp().filePath(QStringLiteral("landrop-zip"));
-        QDir().mkpath(zipDir);
-        const QString zipPath = QDir(zipDir).filePath(
-            base + QStringLiteral("-")
-            + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-hhmmss"))
-            + QStringLiteral(".zip"));
-        QString err;
-        if (!zipDirectory(dir, zipPath, &err)) {
-            setProgress(QString());
-            ChatMsg m;
-            m.type = ChatMsg::Fail;
-            m.text = QString::fromUtf8(u8"打包失败：%1").arg(err.isEmpty()
-                                                                 ? QString::fromUtf8(u8"未知错误")
-                                                                 : err);
-            m.time = nowClock();
-            appendMsg(currentKey(), m);
+        mode = askNestedFolderChoice(this, files.size());
+        if (mode == FolderSendCancel)
             return;
-        }
-        ChatMsg m;
-        m.type = ChatMsg::System;
-        m.text = QString::fromUtf8(u8"已打包文件夹为 zip，开始发送");
-        m.time = nowClock();
-        appendMsg(currentKey(), m);
-        if (!m_uploading)
-            m_uploadQueue.clear();
-        enqueueMoreUploads(QStringList() << zipPath, false);
+    }
+    if (mode == FolderSendZip) {
+        m_zipExtraFiles.clear();
+        m_zipDirQueue.clear();
+        m_zipDirQueue.append(dir);
+        pumpZipQueue();
         return;
     }
-
-    // 仅顶层
-    QStringList paths;
-    for (int i = 0; i < files.size(); ++i)
-        paths.append(files.at(i).absoluteFilePath());
-    if (paths.isEmpty())
+    if (files.isEmpty())
         return;
     if (!m_uploading)
         m_uploadQueue.clear();
-    enqueueMoreUploads(paths, true);
+    enqueueMoreUploads(files, true);
 }
 
 void MainWindow::nudgePeer()
@@ -4026,6 +4227,29 @@ void MainWindow::editSettings()
     nameCol->addWidget(name);
     nameCol->addWidget(fieldHint(QString::fromUtf8(u8"局域网内其他设备将显示此设备名称")));
 
+    QVBoxLayout *ipCol = new QVBoxLayout;
+    ipCol->setSpacing(4);
+    QComboBox *ipPick = new QComboBox;
+    ipPick->setObjectName(QStringLiteral("settingsField"));
+    ipPick->addItem(QString::fromUtf8(u8"自动"), QString());
+    const QStringList ips = localIpv4();
+    int ipSel = 0;
+    for (int i = 0; i < ips.size(); ++i) {
+        ipPick->addItem(ips.at(i), ips.at(i));
+        if (!m_settings.preferredLocalIp.isEmpty()
+            && ips.at(i) == m_settings.preferredLocalIp)
+            ipSel = i + 1;
+    }
+    if (!m_settings.preferredLocalIp.isEmpty() && ipSel == 0) {
+        ipPick->addItem(m_settings.preferredLocalIp + QString::fromUtf8(u8"（当前不可用）"),
+                        m_settings.preferredLocalIp);
+        ipSel = ipPick->count() - 1;
+    }
+    ipPick->setCurrentIndex(ipSel);
+    ipCol->addWidget(fieldLabel(QString::fromUtf8(u8"本机展示 IP")));
+    ipCol->addWidget(ipPick);
+    ipCol->addWidget(fieldHint(QString::fromUtf8(u8"多网卡或 VPN 时选择给同事看的局域网地址")));
+
     QHBoxLayout *rowPort = new QHBoxLayout;
     rowPort->setSpacing(12);
     QVBoxLayout *portCol = new QVBoxLayout;
@@ -4070,6 +4294,7 @@ void MainWindow::editSettings()
     });
 
     bodyLay->addLayout(nameCol);
+    bodyLay->addLayout(ipCol);
     bodyLay->addLayout(rowPort);
     bodyLay->addLayout(dirCol);
 
@@ -4199,6 +4424,7 @@ void MainWindow::editSettings()
         m_settings.closeToTray = trayBox->isChecked();
         m_settings.alwaysOnTop = topBox->isChecked();
         m_settings.soundFile = soundPath->text().trimmed();
+        m_settings.preferredLocalIp = ipPick->currentData().toString().trimmed();
         if (!m_settings.save()) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
                                  QString::fromUtf8(u8"保存设置失败"));

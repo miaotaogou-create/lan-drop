@@ -5,7 +5,7 @@
 #include <QFileInfo>
 #include <QProcess>
 
-bool zipDirectory(const QString &dirPath, const QString &zipPath, QString *errorOut)
+bool prepareZipOutput(const QString &dirPath, const QString &zipPath, QString *errorOut)
 {
     const QFileInfo fi(dirPath);
     if (!fi.exists() || !fi.isDir()) {
@@ -13,34 +13,53 @@ bool zipDirectory(const QString &dirPath, const QString &zipPath, QString *error
             *errorOut = QString::fromUtf8(u8"目录不存在");
         return false;
     }
+    if (fi.fileName().isEmpty()) {
+        if (errorOut)
+            *errorOut = QString::fromUtf8(u8"目录名无效");
+        return false;
+    }
     const QString zipAbs = QFileInfo(zipPath).absoluteFilePath();
     QDir().mkpath(QFileInfo(zipAbs).absolutePath());
     QFile::remove(zipAbs);
+    return true;
+}
+
+QStringList zipTarArguments(const QString &dirPath, const QString &zipPath)
+{
+    const QFileInfo fi(dirPath);
+    const QString zipAbs = QFileInfo(zipPath).absoluteFilePath();
+    return QStringList()
+        << QStringLiteral("-a")
+        << QStringLiteral("-cf")
+        << QDir::toNativeSeparators(zipAbs)
+        << QStringLiteral("-C")
+        << QDir::toNativeSeparators(fi.absolutePath())
+        << fi.fileName();
+}
+
+bool zipDirectory(const QString &dirPath, const QString &zipPath, QString *errorOut)
+{
+    if (!prepareZipOutput(dirPath, zipPath, errorOut))
+        return false;
 
     QProcess p;
     p.setProgram(QStringLiteral("tar"));
-    p.setArguments(QStringList()
-                   << QStringLiteral("-a")
-                   << QStringLiteral("-cf")
-                   << QDir::toNativeSeparators(zipAbs)
-                   << QStringLiteral("-C")
-                   << QDir::toNativeSeparators(fi.absolutePath())
-                   << fi.fileName());
+    p.setArguments(zipTarArguments(dirPath, zipPath));
     p.start();
     if (!p.waitForStarted(5000)) {
         if (errorOut)
             *errorOut = QString::fromUtf8(u8"本机找不到 tar，无法打包");
         return false;
     }
-    // ponytail: 大目录可能较久；上限 10 分钟，超时再升级为后台任务
     if (!p.waitForFinished(10 * 60 * 1000)) {
         p.kill();
         p.waitForFinished(3000);
-        QFile::remove(zipAbs);
+        QFile::remove(QFileInfo(zipPath).absoluteFilePath());
         if (errorOut)
             *errorOut = QString::fromUtf8(u8"打包超时");
         return false;
     }
+    const QString zipAbs = QFileInfo(zipPath).absoluteFilePath();
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0
         || !QFileInfo::exists(zipAbs) || QFileInfo(zipAbs).size() <= 0) {
         QFile::remove(zipAbs);

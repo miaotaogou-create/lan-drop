@@ -8,8 +8,10 @@
 #include <QMainWindow>
 #include <QPoint>
 #include <QPointer>
+#include <QProcess>
 #include <QStringList>
 #include <QSystemTrayIcon>
+#include <QUrl>
 #include <QVector>
 
 class Discovery;
@@ -87,6 +89,7 @@ private slots:
     void cancelUpload();
     void clearUploadQueue();
     void toggleTraySound(bool on);
+    void onZipProcessFinished(int exitCode, QProcess::ExitStatus status);
 
 private:
     void boot();
@@ -98,6 +101,9 @@ private:
     void hideToTray();
     void setChatDropHint(bool on);
     void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
+    void handleDroppedUrls(const QList<QUrl> &urls);
+    void pumpZipQueue();
+    void cancelZipPack();
     bool tryPasteClipboardFiles();
     bool tryPasteClipboardImage();
     void revealInFolder(const QString &path);
@@ -209,6 +215,12 @@ private:
     bool m_uploading = false;
     bool m_uploadCanceling = false;
     bool m_recvCanceling = false;
+    QPointer<QProcess> m_zipProc;
+    QString m_zipOutPath;
+    QStringList m_zipDirQueue;
+    QStringList m_zipExtraFiles;
+    bool m_zipBusy = false;
+    bool m_zipCanceling = false;
     QPointer<QNetworkReply> m_activeUploadReply;
     QString m_uploadCurrentName;
     int m_uploadLastPct = -1;

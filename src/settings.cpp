@@ -145,6 +145,7 @@ Settings Settings::loadFromFile(const QString &path)
     if (o.contains(QStringLiteral("alwaysOnTop")))
         s.alwaysOnTop = o.value(QStringLiteral("alwaysOnTop")).toBool();
     s.soundFile = o.value(QStringLiteral("soundFile")).toString().trimmed();
+    s.preferredLocalIp = o.value(QStringLiteral("preferredLocalIp")).toString().trimmed();
     s.manualPeers = readManualPeers(o);
     if (o.contains(QStringLiteral("windowX")))
         s.windowX = o.value(QStringLiteral("windowX")).toInt();
@@ -194,6 +195,8 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("alwaysOnTop"), alwaysOnTop);
     if (!soundFile.trimmed().isEmpty())
         o.insert(QStringLiteral("soundFile"), soundFile.trimmed());
+    if (!preferredLocalIp.trimmed().isEmpty())
+        o.insert(QStringLiteral("preferredLocalIp"), preferredLocalIp.trimmed());
     o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));
     o.insert(QStringLiteral("windowX"), windowX);
     o.insert(QStringLiteral("windowY"), windowY);

@@ -378,10 +378,14 @@ int runSelfCheck()
         const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
         Settings s = Settings::defaults();
         s.pinnedPeers << QStringLiteral("10.0.0.1:8848");
+        s.preferredLocalIp = QStringLiteral("192.168.1.8");
         if (!s.saveToFile(path))
             return fail("pin save");
-        if (!Settings::loadFromFile(path).pinnedPeers.contains(QStringLiteral("10.0.0.1:8848")))
+        const Settings loaded = Settings::loadFromFile(path);
+        if (!loaded.pinnedPeers.contains(QStringLiteral("10.0.0.1:8848")))
             return fail("pin load");
+        if (loaded.preferredLocalIp != QStringLiteral("192.168.1.8"))
+            return fail("pref ip");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }
