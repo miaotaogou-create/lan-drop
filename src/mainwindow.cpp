@@ -1621,7 +1621,8 @@ void MainWindow::openShare()
         "#shareUrlCard { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; }"
         "#shareQrCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#shareUrlLab { color: #2563eb; font-size: 12px; font-weight: 600; }"
-        "#shareUrl { color: #2563eb; font-size: 22px; font-weight: 700; }"
+        "#shareUrl { color: #1d4ed8; font-size: 15px; font-weight: 600;"
+        " font-family: Consolas, 'Courier New', monospace; }"
         "#shareMeta { color: #94a3b8; font-size: 12px; }"
         "#shareGhost { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #334155; padding: 6px 12px; font-weight: 600; }"
@@ -2400,7 +2401,8 @@ void MainWindow::editSelectedManualPeer()
         "#editPeerCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
         " outline: 0; padding: 4px; selection-background-color: #eff6ff;"
         " selection-color: #1e3a8a; color: #0f172a; }"
-        "#editPeerFoot { border-top: 1px solid #e2e8f0; }"
+        "#editPeerFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
+        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
         "#editPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #475569; padding: 8px 14px; }"
         "#editPeerCancel:hover { background: #f8fafc; }"
@@ -2823,20 +2825,19 @@ void MainWindow::updatePeerSession()
     m_peerName->setStyleSheet(online
                                   ? QStringLiteral("color:#0f172a;")
                                   : QStringLiteral("color:#94a3b8;"));
-    m_peerOnlineDot->setPixmap(makeStatusDot(online, 8));
+    m_peerOnlineDot->setPixmap(makeStatusDot(online, 7));
     m_peerAddr->setText(addr);
     const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
         ? m_pingText
         : QString::fromUtf8(u8"—");
-    const QString statusHtml = online
-        ? QString::fromUtf8(u8"<span style=\"color:#059669;font-weight:600;\">在线</span>")
-        : QString::fromUtf8(u8"<span style=\"color:#d97706;font-weight:600;\">离线</span>");
+    // 在线态由圆点表示，meta 只留次要信息，避免 52px 顶栏挤两遍「在线」
     m_peerMeta->setText(
         QString::fromUtf8(
-            u8"<span style=\"color:#94a3b8;\">%1 · </span>%2"
-            u8"<span style=\"color:#94a3b8;\"> · Ping %3 · %4</span>")
-            .arg(metaHead.toHtmlEscaped(), statusHtml, pingText.toHtmlEscaped(),
+            u8"<span style=\"color:#94a3b8;\">%1 · Ping %2 · %3</span>")
+            .arg(metaHead.toHtmlEscaped(), pingText.toHtmlEscaped(),
                  localLinkLabel().toHtmlEscaped()));
+    m_peerMeta->setToolTip(online ? QString::fromUtf8(u8"在线")
+                                  : QString::fromUtf8(u8"离线"));
     if (m_peerOnlineKnown.contains(addr)) {
         const bool wasOnline = m_peerOnlineKnown.value(addr);
         if (wasOnline != online) {
@@ -4524,7 +4525,8 @@ void MainWindow::addPeer()
         "#addPeerProbe:hover { color: #1d4ed8; }"
         "#addPeerProbe:disabled { color: #93c5fd; }"
         "#addPeerProbeResult { color: #64748b; font-size: 11px; }"
-        "#addPeerFoot { border-top: 1px solid #e2e8f0; }"
+        "#addPeerFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
+        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
         "#addPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #475569; padding: 8px 14px; }"
         "#addPeerCancel:hover { background: #f8fafc; }"
@@ -4800,10 +4802,10 @@ void MainWindow::editSettings()
         "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
         "#settingsSwitchRow { border-top: 1px solid #eef2f7; }"
         "#settingsToggle { spacing: 0; }"
-        "#settingsToggle::indicator { width: 40px; height: 22px; border-radius: 11px;"
-        " border: none; background: #cbd5e1; }"
-        "#settingsToggle::indicator:checked { background: #2563eb; }"
-        "#settingsToggle::indicator:unchecked { background: #cbd5e1; }"
+        "#settingsToggle::indicator { width: 40px; height: 22px; border: none;"
+        " image: url(:/icons/toggle-off.svg); }"
+        "#settingsToggle::indicator:checked { image: url(:/icons/toggle-on.svg); }"
+        "#settingsToggle::indicator:unchecked { image: url(:/icons/toggle-off.svg); }"
         "#settingsSoundNest { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#settingsScroll { background: transparent; border: none; }"
         "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"

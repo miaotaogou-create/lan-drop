@@ -782,6 +782,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-150 Toggle 滑块与 URL/meta 收紧
+- 对应验收：V1–V4（`docs/requirements/20260922-toggle-knob-dialog-meta.md`）
+- 步骤：设置里拨开关；看加 IP 脚栏；看共享 URL 字号；看会话顶栏第二行
+- 期望：Toggle 有白圆；加/编辑脚栏灰底；URL 约 15px；meta 无「在线」二字
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
