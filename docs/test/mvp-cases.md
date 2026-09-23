@@ -663,6 +663,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-133 会话 Tab 分段控件
+- 对应验收：T1–T2（`docs/requirements/20260922-session-tab-segment.md`）
+- 步骤：选对端，在「即时聊天 / 文件传输」间切换
+- 期望：两 Tab 同处灰底槽；选中项白底浮起
+- 类型：手测
+- 结果：待手测
+
+### TC-134 输入与搜索聚焦描边
+- 对应验收：F1–F3（`docs/requirements/20260922-focus-ring.md`）
+- 步骤：点输入框；点别处；点侧栏搜索
+- 期望：聚焦蓝边；失焦恢复；搜索同样有 focus 描边
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

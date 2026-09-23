@@ -628,19 +628,30 @@ void MainWindow::buildUi()
     peerInfoCol->addWidget(m_peerMeta);
 
     m_tabChat = new QPushButton(QString::fromUtf8(u8"即时聊天"));
-    m_tabChat->setObjectName(QStringLiteral("sessionTab"));
+    m_tabChat->setObjectName(QStringLiteral("sessionTabActive"));
     m_tabChat->setCursor(Qt::PointingHandCursor);
     m_tabChat->setFocusPolicy(Qt::NoFocus);
+    m_tabChat->setFlat(true);
     m_tabChat->setIcon(QIcon(makeChatBubbleIcon(14)));
     m_tabChat->setIconSize(QSize(14, 14));
     m_tabFiles = new QPushButton(QString::fromUtf8(u8"文件传输 (0)"));
     m_tabFiles->setObjectName(QStringLiteral("sessionTab"));
     m_tabFiles->setCursor(Qt::PointingHandCursor);
     m_tabFiles->setFocusPolicy(Qt::NoFocus);
+    m_tabFiles->setFlat(true);
     m_tabFiles->setIcon(QIcon(makeFileDocIcon(14)));
     m_tabFiles->setIconSize(QSize(14, 14));
     connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
     connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
+
+    QFrame *tabBar = new QFrame;
+    tabBar->setObjectName(QStringLiteral("sessionTabBar"));
+    tabBar->setAttribute(Qt::WA_StyledBackground, true);
+    QHBoxLayout *tabBarLay = new QHBoxLayout(tabBar);
+    tabBarLay->setContentsMargins(3, 3, 3, 3);
+    tabBarLay->setSpacing(2);
+    tabBarLay->addWidget(m_tabChat);
+    tabBarLay->addWidget(m_tabFiles);
 
     QPushButton *sessionDlBtn = new QPushButton(QString::fromUtf8(u8"下载目录"));
     sessionDlBtn->setObjectName(QStringLiteral("sessionDlBtn"));
@@ -654,8 +665,7 @@ void MainWindow::buildUi()
 
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
-    peerHeadLay->addWidget(m_tabChat, 0, Qt::AlignVCenter);
-    peerHeadLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
+    peerHeadLay->addWidget(tabBar, 0, Qt::AlignVCenter);
     peerHeadLay->addWidget(sessionDlBtn, 0, Qt::AlignVCenter);
 
     m_connBannerHost = new QWidget;
@@ -941,6 +951,7 @@ void MainWindow::applyStyle()
         "#addBtn:hover { background: #dbeafe; }"
         "#search { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;"
         " color: #0f172a; selection-background-color: #bfdbfe; }"
+        "#search:focus { background: #ffffff; border: 1px solid #3b82f6; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerList::item { background: transparent; border: 1px solid transparent;"
         " border-left: 3px solid transparent; border-radius: 12px;"
@@ -959,12 +970,13 @@ void MainWindow::applyStyle()
         " background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }"
         "#peerAddr:hover { color: #1d4ed8; background: #dbeafe; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
-        "#sessionTab { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 10px;"
-        " color: #1d4ed8; padding: 6px 12px; font-size: 12px; font-weight: 600; }"
-        "#sessionTab:hover { background: #eff6ff; }"
-        "#sessionTabActive { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px;"
-        " color: #1e40af; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
-        "#sessionTabActive:hover { background: #dbeafe; }"
+        "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#sessionTab { background: transparent; border: none; border-radius: 9px;"
+        " color: #64748b; padding: 6px 12px; font-size: 12px; font-weight: 600; }"
+        "#sessionTab:hover { background: rgba(255,255,255,0.65); color: #334155; }"
+        "#sessionTabActive { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 9px;"
+        " color: #1d4ed8; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
+        "#sessionTabActive:hover { background: #ffffff; color: #1e40af; }"
         "#sessionDlBtn { background: transparent; border: 1px solid transparent; border-radius: 10px;"
         " color: #475569; padding: 6px 10px; font-size: 12px; font-weight: 600; }"
         "#sessionDlBtn:hover { background: #f1f5f9; border-color: #e2e8f0; color: #0f172a; }"
@@ -996,6 +1008,7 @@ void MainWindow::applyStyle()
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 15px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
         "#sendFab { background: #2563eb; border: none; border-radius: 18px; padding: 0; }"
@@ -1040,6 +1053,15 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         && event->type() == QEvent::MouseButtonPress) {
         showFromTrayNotify();
         return true;
+    }
+    if (m_input && watched == m_input
+        && (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut)) {
+        if (m_inputShell) {
+            m_inputShell->setProperty("focused", event->type() == QEvent::FocusIn);
+            m_inputShell->style()->unpolish(m_inputShell);
+            m_inputShell->style()->polish(m_inputShell);
+            m_inputShell->update();
+        }
     }
     if (m_search && watched == m_search && event->type() == QEvent::KeyPress) {
         QKeyEvent *ke = static_cast<QKeyEvent *>(event);
