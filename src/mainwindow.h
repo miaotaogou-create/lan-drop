@@ -26,6 +26,7 @@ class QListWidget;
 class QNetworkAccessManager;
 class QNetworkReply;
 class QPlainTextEdit;
+class QProgressBar;
 class QPushButton;
 class QSplitter;
 class QStackedWidget;
@@ -211,6 +212,8 @@ private:
     QPlainTextEdit *m_input = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
+    QProgressBar *m_xferBar = 0;
+    QProgressBar *m_xferBarFiles = 0;
     QPushButton *m_cancelUploadBtn = 0;
     QPushButton *m_cancelUploadBtnFiles = 0;
     QPushButton *m_clearQueueBtn = 0;

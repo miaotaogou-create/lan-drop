@@ -58,6 +58,7 @@
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QProcess>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QGuiApplication>
@@ -841,7 +842,19 @@ void MainWindow::buildUi()
     QHBoxLayout *progLay = new QHBoxLayout(progressHost);
     progLay->setContentsMargins(12, 8, 10, 8);
     progLay->setSpacing(8);
-    progLay->addWidget(m_progress, 1);
+    QVBoxLayout *progTextCol = new QVBoxLayout;
+    progTextCol->setContentsMargins(0, 0, 0, 0);
+    progTextCol->setSpacing(4);
+    progTextCol->addWidget(m_progress);
+    m_xferBar = new QProgressBar;
+    m_xferBar->setObjectName(QStringLiteral("xferBar"));
+    m_xferBar->setRange(0, 100);
+    m_xferBar->setValue(0);
+    m_xferBar->setTextVisible(false);
+    m_xferBar->setFixedHeight(4);
+    m_xferBar->hide();
+    progTextCol->addWidget(m_xferBar);
+    progLay->addLayout(progTextCol, 1);
     progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
@@ -878,7 +891,7 @@ void MainWindow::buildUi()
     QWidget *inputPad = new QWidget;
     inputPad->setObjectName(QStringLiteral("inputPad"));
     QVBoxLayout *padLay = new QVBoxLayout(inputPad);
-    padLay->setContentsMargins(12, 8, 10, 10);
+    padLay->setContentsMargins(12, 8, 12, 12);
     padLay->setSpacing(4);
     m_input = new QPlainTextEdit;
     m_input->setObjectName(QStringLiteral("input"));
@@ -896,15 +909,15 @@ void MainWindow::buildUi()
     m_sendBtn->setToolTip(QString::fromUtf8(u8"发送（Enter）"));
     m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
     m_sendBtn->setIconSize(QSize(18, 18));
-    applyFloatingShadow(m_sendBtn);
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
     connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
     syncSendBtn();
     QHBoxLayout *sendRow = new QHBoxLayout;
-    sendRow->setContentsMargins(0, 0, 0, 0);
+    sendRow->setContentsMargins(0, 0, 2, 2);
     sendRow->addStretch(1);
     sendRow->addWidget(m_sendBtn);
+    padLay->setContentsMargins(12, 8, 12, 12);
     padLay->addWidget(m_input, 1);
     padLay->addLayout(sendRow);
 
@@ -948,7 +961,19 @@ void MainWindow::buildUi()
     QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
     fileLiveLay->setContentsMargins(12, 8, 10, 8);
     fileLiveLay->setSpacing(8);
-    fileLiveLay->addWidget(m_fileLive, 1);
+    QVBoxLayout *fileTextCol = new QVBoxLayout;
+    fileTextCol->setContentsMargins(0, 0, 0, 0);
+    fileTextCol->setSpacing(4);
+    fileTextCol->addWidget(m_fileLive);
+    m_xferBarFiles = new QProgressBar;
+    m_xferBarFiles->setObjectName(QStringLiteral("xferBar"));
+    m_xferBarFiles->setRange(0, 100);
+    m_xferBarFiles->setValue(0);
+    m_xferBarFiles->setTextVisible(false);
+    m_xferBarFiles->setFixedHeight(4);
+    m_xferBarFiles->hide();
+    fileTextCol->addWidget(m_xferBarFiles);
+    fileLiveLay->addLayout(fileTextCol, 1);
     fileLiveLay->addWidget(m_clearQueueBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveLay->addWidget(m_cancelUploadBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveHost->hide();
@@ -1077,6 +1102,8 @@ void MainWindow::applyStyle()
         "#search { background: transparent; border: none; padding: 8px 4px;"
         " color: #0f172a; selection-background-color: #bfdbfe; }"
         "#search:focus { background: transparent; border: none; }"
+        "#search QToolButton { background: transparent; border: none; border-radius: 6px; padding: 2px; }"
+        "#search QToolButton:hover { background: #f1f5f9; }"
         "#peerList { background: transparent; outline: none; }"
         "#peerListHost { background: transparent; }"
         "#listEmptyHint { color: #94a3b8; background: transparent; padding: 16px 8px; }"
@@ -1128,6 +1155,8 @@ void MainWindow::applyStyle()
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
         "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
         "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
+        "#xferBar { background: #dbeafe; border: none; border-radius: 2px; max-height: 4px; }"
+        "#xferBar::chunk { background: #2563eb; border-radius: 2px; }"
         "#cancelUploadBtn { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 12px;"
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#cancelUploadBtn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }"
@@ -1138,8 +1167,8 @@ void MainWindow::applyStyle()
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
         "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
         " padding: 5px 9px; font-weight: 600; }"
-        "#toolBtn:hover { background: #ffffff; color: #0f172a; }"
-        "#toolBtn:pressed { background: #eff6ff; color: #1d4ed8; }"
+        "#toolBtn:hover { background: #eff6ff; color: #1d4ed8; }"
+        "#toolBtn:pressed { background: #dbeafe; color: #1e40af; }"
         "#inputPad { background: transparent; }"
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
@@ -2976,11 +3005,15 @@ void MainWindow::setProgress(const QString &text)
         m_progress->clear();
         m_progress->setToolTip(QString());
         m_progress->hide();
+        if (m_xferBar)
+            m_xferBar->hide();
         if (m_fileLive) {
             m_fileLive->clear();
             m_fileLive->setToolTip(QString());
             m_fileLive->hide();
         }
+        if (m_xferBarFiles)
+            m_xferBarFiles->hide();
         syncCancelUploadBtn();
         return;
     }
@@ -2993,10 +3026,23 @@ void MainWindow::setProgress(const QString &text)
     syncCancelUploadBtn();
 }
 
+static void applyXferBar(QProgressBar *bar, int pct)
+{
+    if (!bar)
+        return;
+    if (pct < 0) {
+        bar->setRange(0, 0);
+        bar->show();
+        return;
+    }
+    bar->setRange(0, 100);
+    bar->setValue(qBound(0, 100, pct));
+    bar->show();
+}
+
 void MainWindow::setUploadProgressText(const QString &filename, int pct)
 {
-    Q_UNUSED(pct);
-    // 百分比以气泡为准；胶囊前置文件名，再补速率 / ETA / 排队
+    // 胶囊前置文件名 + 速率 / ETA / 排队；细条用 pct
     QString name = filename.trimmed().isEmpty() ? m_uploadCurrentName : filename;
     name = QFileInfo(name).fileName();
     if (name.size() > 22)
@@ -3037,6 +3083,8 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
             tip += QString::fromUtf8(u8"…共 %1 个").arg(m_uploadQueue.size());
     }
     setProgress(text);
+    applyXferBar(m_xferBar, pct);
+    applyXferBar(m_xferBarFiles, pct);
     if (m_progress)
         m_progress->setToolTip(tip);
     if (m_fileLive)
@@ -3045,7 +3093,6 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
 
 void MainWindow::setRecvProgressText(const QString &filename, int pct)
 {
-    Q_UNUSED(pct);
     if (m_uploading)
         return;
     QString name = QFileInfo(filename).fileName();
@@ -3058,6 +3105,8 @@ void MainWindow::setRecvProgressText(const QString &filename, int pct)
     if (!eta.isEmpty())
         text += QStringLiteral(" · ") + eta;
     setProgress(text);
+    applyXferBar(m_xferBar, pct);
+    applyXferBar(m_xferBarFiles, pct);
     if (m_progress)
         m_progress->setToolTip(filename.isEmpty()
                                    ? QString()
