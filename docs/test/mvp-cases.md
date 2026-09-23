@@ -222,6 +222,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-70 发送文件多选
+- 对应验收：M1–M4（`docs/requirements/20260922-send-file-multiselect.md`）
+- 步骤：点发送文件一次选 3 个；发送中再点发送多选 2 个；再开对话框点取消
+- 期望：对话框可多选；空闲多选依次发并有开始发送系统条；忙时入队续传；取消无动作
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
@@ -540,4 +547,5 @@
 - 发送中自动入队：见 `20260922-upload-queue-append.md`（本轮已落地）
 - 取消当前发送：见 `20260922-cancel-upload.md`（本轮已落地）
 - 进度显示排队剩余：见 `20260922-upload-queue-remain.md`（本轮已落地）
+- 发送文件多选：见 `20260922-send-file-multiselect.md`（本轮已落地）
 - 仓库里的 Go 测试（`go test ./...`）测的是旧 Go 进程，不能代替 Qt 客户端

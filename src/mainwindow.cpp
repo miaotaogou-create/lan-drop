@@ -3694,12 +3694,13 @@ void MainWindow::sendFile()
 {
     if (!currentPeer(0, 0, 0))
         return;
-    const QString path = QFileDialog::getOpenFileName(this, QString::fromUtf8(u8"选择要发送的文件"));
-    if (path.isEmpty())
+    const QStringList paths = QFileDialog::getOpenFileNames(
+        this, QString::fromUtf8(u8"选择要发送的文件"));
+    if (paths.isEmpty())
         return;
     if (!m_uploading)
         m_uploadQueue.clear();
-    enqueueMoreUploads(QStringList() << path, false);
+    enqueueMoreUploads(paths, false);
 }
 
 void MainWindow::sendFolder()
