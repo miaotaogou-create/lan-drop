@@ -64,7 +64,8 @@ static QString pixmapToImgHtml(const QPixmap &pm)
 static QString letterAvatarHtml(const QString &name, const QString &bg)
 {
     const QString ch = avatarInitial(name);
-    const int logical = 40;
+    // 参考图比例：略放大，与更大气泡协调
+    const int logical = 44;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     QPixmap pm(logical * dpr, logical * dpr);
     pm.setDevicePixelRatio(dpr);
@@ -74,10 +75,9 @@ static QString letterAvatarHtml(const QString &name, const QString &bg)
     p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(bg));
-    // 参考图：大号圆角方头像（非直角小块）
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
+    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 12.0, 12.0);
     QFont font = qApp->font();
-    font.setPixelSize(18);
+    font.setPixelSize(20);
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
@@ -92,17 +92,18 @@ static QString faceName(const ChatMsg &m)
 
 static QString textBubbleImgHtml(const QString &text, bool out)
 {
-    const int maxContentW = 340;
-    const int padX = 14;
-    const int padY = 10;
-    const qreal radius = 12.0;
+    // 对齐参考图：更大字号/留白 + 更柔和圆角（无尾巴）
+    const int maxContentW = 400;
+    const int padX = 18;
+    const int padY = 13;
+    const qreal radius = 16.0;
     QFont font = qApp->font();
-    font.setPixelSize(14);
+    font.setPixelSize(16);
     QFontMetrics fm(font);
     const QRect textBound = fm.boundingRect(QRect(0, 0, maxContentW, 10000),
                                            Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
                                            text);
-    const int contentW = qMax(24, qMin(maxContentW, textBound.width()));
+    const int contentW = qMax(28, qMin(maxContentW, textBound.width()));
     const int contentH = qMax(fm.height(), textBound.height());
     const int logicalW = contentW + padX * 2;
     const int logicalH = contentH + padY * 2;
@@ -157,30 +158,65 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
 {
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-    return QStringLiteral(
-               "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"100%\" "
-               "style=\"max-width:320px;\">"
-               "<tr><td>"
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-               "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
-               "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
-               "<font color=\"#93c5fd\" size=\"2\">%4</font></a></td>"
-               "</tr></table>"
-               "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
-               "</td></tr></table>")
-        .arg(htmlEsc(lang), href, htmlEsc(code), QString::fromUtf8(u8"复制"));
+    // Qt 富文本无圆角：整块绘成深色圆角卡，复制链仍用 HTML
+    const int maxW = 420;
+    const int padX = 14;
+    const int padY = 12;
+    const qreal radius = 14.0;
+    QFont headFont = qApp->font();
+    headFont.setPixelSize(13);
+    QFont codeFont(QStringLiteral("Consolas"));
+    if (!codeFont.exactMatch())
+        codeFont = QFont(QStringLiteral("Courier New"));
+    codeFont.setPixelSize(14);
+    codeFont.setStyleHint(QFont::Monospace);
+    QFontMetrics headFm(headFont);
+    QFontMetrics codeFm(codeFont);
+    const QRect codeBound = codeFm.boundingRect(QRect(0, 0, maxW - padX * 2, 10000),
+                                               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+                                               code);
+    const int contentW = qMax(160, qMin(maxW - padX * 2, qMax(headFm.horizontalAdvance(lang) + 48, codeBound.width())));
+    const int headH = headFm.height();
+    const int gap = 8;
+    const int contentH = headH + gap + qMax(codeFm.height(), codeBound.height());
+    const int logicalW = contentW + padX * 2;
+    const int logicalH = contentH + padY * 2;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logicalW * dpr, logicalH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(0.5, 0.5, logicalW - 1.0, logicalH - 1.0);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#1e293b")));
+    p.drawRoundedRect(box, radius, radius);
+    p.setFont(headFont);
+    p.setPen(QColor(QStringLiteral("#94a3b8")));
+    p.drawText(QRect(padX, padY, contentW, headH), Qt::AlignLeft | Qt::AlignVCenter, lang);
+    p.setFont(codeFont);
+    p.setPen(QColor(QStringLiteral("#e2e8f0")));
+    p.drawText(QRect(padX, padY + headH + gap, contentW, codeBound.height()),
+               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+               code);
+    const QString img = pixmapToImgHtml(pm);
+    return QString::fromUtf8(
+               u8"%1<br/><a href=\"%2\" style=\"text-decoration:none;\">"
+               u8"<font color=\"#93c5fd\" size=\"3\">复制</font></a>")
+        .arg(img, href);
 }
 
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
 {
     QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
     if (failed)
-        return mid + QString::fromUtf8(u8" <font color=\"#dc2626\" size=\"2\">发送失败</font>");
+        return mid + QString::fromUtf8(u8" <font color=\"#dc2626\" size=\"3\">发送失败</font>");
     if (rttMs >= 0) {
         const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
-        mid += QString::fromUtf8(u8" <font color=\"#16a34a\" size=\"2\">✓✓ 已送达 - %1ms</font>").arg(ms);
+        mid += QString::fromUtf8(u8" <font color=\"#16a34a\" size=\"3\">✓✓ 已送达 - %1ms</font>").arg(ms);
     }
-    return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
+    return QStringLiteral("<font color=\"#64748b\" size=\"3\">%1</font>").arg(mid);
 }
 
 // 参考图：头像与名字顶对齐；气泡在名字下方、相对头像斜对角偏下（勿把头像贴气泡底边）。
@@ -188,22 +224,22 @@ static QString renderMsgRow(bool out, const QString &meta, const QString &body, 
 {
     if (out) {
         return QStringLiteral(
-                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
+                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr>"
                    "<td></td>"
                    "<td align=\"right\" valign=\"top\">"
                    "<div align=\"right\">%1</div>"
-                   "<div style=\"margin-top:6px;\" align=\"right\">%2</div>"
+                   "<div style=\"margin-top:8px;\" align=\"right\">%2</div>"
                    "</td>"
-                   "<td width=\"48\" valign=\"top\">%3</td>"
+                   "<td width=\"56\" valign=\"top\">%3</td>"
                    "</tr></table>")
             .arg(meta, body, avatarHtml);
     }
     return QStringLiteral(
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"48\" valign=\"top\">%1</td>"
+               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr>"
+               "<td width=\"56\" valign=\"top\">%1</td>"
                "<td align=\"left\" valign=\"top\">"
                "<div>%2</div>"
-               "<div style=\"margin-top:6px;\">%3</div>"
+               "<div style=\"margin-top:8px;\">%3</div>"
                "</td>"
                "<td></td>"
                "</tr></table>")
@@ -226,7 +262,7 @@ static QString renderTextBubble(const ChatMsg &m)
             + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
         body += QString::fromUtf8(
                     u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#64748b\" size=\"1\">复制</font></a>")
+                    u8"<font color=\"#64748b\" size=\"2\">复制</font></a>")
                     .arg(href);
     }
     return renderMsgRow(out, head, body, avatar);
@@ -287,31 +323,31 @@ static QString renderFileCard(const ChatMsg &m)
         if (out) {
             actions = QString::fromUtf8(
                           u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
+                          u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
+                          u8"<font color=\"#64748b\" size=\"3\">打开所在目录</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>")
+                          u8"<font color=\"#64748b\" size=\"3\">复制路径</font></a>")
                           .arg(openHref, revealHref, copyPathHref);
         } else {
             actions = QString::fromUtf8(
                           u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
+                          u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
+                          u8"<font color=\"#64748b\" size=\"3\">打开所在目录</font></a>"
                           u8"&nbsp;&nbsp;"
                           u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>"
-                          u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
+                          u8"<font color=\"#64748b\" size=\"3\">复制路径</font></a>"
+                          u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>")
                           .arg(openHref, revealHref, copyPathHref);
         }
     } else if (pending) {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
+        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");
     } else {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
+        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");
     }
     const int pct = pending ? qBound(0, 100, m.progressPct) : 100;
     const int rest = 100 - pct;
@@ -319,30 +355,30 @@ static QString renderFileCard(const ChatMsg &m)
     if (pct <= 0) {
         bar = QString::fromUtf8(
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#e2e8f0\">"
-            u8"<tr><td height=\"6\"></td></tr></table>");
+            u8"<tr><td height=\"8\"></td></tr></table>");
     } else if (rest <= 0) {
         bar = QString::fromUtf8(
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
-            u8"<tr><td height=\"6\"></td></tr></table>");
+            u8"<tr><td height=\"8\"></td></tr></table>");
     } else {
         bar = QString::fromUtf8(
                  u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
                  u8"<td width=\"%1%\" bgcolor=\"#2563eb\">"
                  u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"6\"></td></tr></table></td>"
+                 u8"<tr><td height=\"8\"></td></tr></table></td>"
                  u8"<td width=\"%2%\" bgcolor=\"#e2e8f0\">"
                  u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"6\"></td></tr></table></td>"
+                 u8"<tr><td height=\"8\"></td></tr></table></td>"
                  u8"</tr></table>")
                  .arg(pct)
                  .arg(rest);
     }
     const QString status = pending
-        ? (out ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"2\">发送中 %1%</font>").arg(pct)
-               : QString::fromUtf8(u8"<font color=\"#ea580c\" size=\"2\">接收中 %1%</font>").arg(pct))
-        : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>");
+        ? (out ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"3\">发送中 %1%</font>").arg(pct)
+               : QString::fromUtf8(u8"<font color=\"#ea580c\" size=\"3\">接收中 %1%</font>").arg(pct))
+        : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"3\">✓✓ 传输完成 (已落盘)</font>");
     const QString shaLine = (!pending && !sha.isEmpty())
-        ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>").arg(htmlEsc(sha))
+        ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"2\">SHA256: %1</font>").arg(htmlEsc(sha))
         : QString();
     QString thumbHtml;
     if (!pending && !m.path.isEmpty()) {
@@ -367,15 +403,15 @@ static QString renderFileCard(const ChatMsg &m)
     const QString badgeFg = asImage ? QStringLiteral("#047857") : QStringLiteral("#7c3aed");
     const QString card =
         QString::fromUtf8(
-            u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"100%\" "
-            u8"style=\"border:1px solid #e2e8f0; max-width:300px;\">"
+            u8"<table cellspacing=\"0\" cellpadding=\"14\" bgcolor=\"#ffffff\" width=\"100%\" "
+            u8"style=\"border:1px solid #e2e8f0; max-width:360px;\">"
             u8"<tr><td>"
             u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"%7\">"
-            u8"<tr><td><font color=\"%8\" size=\"2\"><b>%9</b></font></td></tr></table></td>"
+            u8"<td width=\"40\" valign=\"top\"><table cellpadding=\"5\" bgcolor=\"%7\">"
+            u8"<tr><td><font color=\"%8\" size=\"3\"><b>%9</b></font></td></tr></table></td>"
             u8"<td>"
-            u8"<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
-            u8"<font color=\"#94a3b8\" size=\"2\">%2</font>"
+            u8"<font color=\"#0f172a\" size=\"4\"><b>%1</b></font><br/>"
+            u8"<font color=\"#94a3b8\" size=\"3\">%2</font>"
             u8"</td></tr></table>"
             u8"%3"
             u8"%4"
@@ -430,7 +466,7 @@ static QString renderSystem(const ChatMsg &m)
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
                "<table cellspacing=\"0\" cellpadding=\"6\" bgcolor=\"%1\">"
-               "<tr><td><font color=\"%2\" size=\"2\">%3</font></td></tr></table>"
+               "<tr><td><font color=\"%2\" size=\"3\">%3</font></td></tr></table>"
                "</td></tr></table>")
         .arg(bg, fg, body);
 }
@@ -441,7 +477,7 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
         "<html><body style=\"margin:0;padding:8px;background:#f1f5f9;\">");
     for (int i = 0; i < msgs.size(); ++i) {
         const ChatMsg &m = msgs.at(i);
-        html += QStringLiteral("<div style=\"margin:10px 0;\">");
+        html += QStringLiteral("<div style=\"margin:14px 0;\">");
         switch (m.type) {
         case ChatMsg::OutText:
         case ChatMsg::InText:
@@ -481,7 +517,7 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
         const ChatMsg &m = msgs.at(i);
         if (m.type != ChatMsg::InFile && m.type != ChatMsg::OutFile)
             continue;
-        html += QStringLiteral("<div style=\"margin:10px 0;\">");
+        html += QStringLiteral("<div style=\"margin:14px 0;\">");
         html += renderFileCard(m);
         html += QStringLiteral("</div>");
         ++n;
