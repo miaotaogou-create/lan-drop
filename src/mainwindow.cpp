@@ -624,6 +624,7 @@ void MainWindow::buildUi()
     peerTitleRow->addStretch(1);
     m_peerMeta = new QLabel;
     m_peerMeta->setObjectName(QStringLiteral("peerMeta"));
+    m_peerMeta->setTextFormat(Qt::RichText);
     peerInfoCol->addLayout(peerTitleRow);
     peerInfoCol->addWidget(m_peerMeta);
 
@@ -918,6 +919,16 @@ void MainWindow::buildUi()
 void MainWindow::applyStyle()
 {
     setStyleSheet(QStringLiteral(
+        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+        "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
+        "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
+        "QScrollBar:horizontal { background: transparent; height: 8px; margin: 2px; }"
+        "QScrollBar::handle:horizontal { background: #cbd5e1; border-radius: 4px; min-width: 28px; }"
+        "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
         "#root { background: #f8fafc; border: 1px solid #cbd5e1; }"
         "#titleBar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
@@ -987,9 +998,9 @@ void MainWindow::applyStyle()
         "#filesView { background: #f1f5f9; border: none; }"
         "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#chatHost { background: #f1f5f9; }"
-        "#jumpBottomBtn { background: #1e293b; color: #f8fafc; border: none; border-radius: 16px;"
+        "#jumpBottomBtn { background: #2563eb; color: #f8fafc; border: none; border-radius: 16px;"
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
-        "#jumpBottomBtn:hover { background: #334155; }"
+        "#jumpBottomBtn:hover { background: #1d4ed8; }"
         "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
         "#chatDropHint { background: rgba(239, 246, 255, 220); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 15px; font-weight: 600; }"
@@ -2547,14 +2558,18 @@ void MainWindow::updatePeerSession()
                                   : QStringLiteral("color:#94a3b8;"));
     m_peerOnlineDot->setPixmap(makeStatusDot(online, 8));
     m_peerAddr->setText(addr);
-    m_peerMeta->setText(QString::fromUtf8(u8"%1  ·  %2  ·  Ping %3  ·  %4")
-                            .arg(metaHead)
-                            .arg(online ? QString::fromUtf8(u8"在线")
-                                        : QString::fromUtf8(u8"离线"))
-                            .arg(m_pingKey == addr && !m_pingText.isEmpty()
-                                     ? m_pingText
-                                     : QString::fromUtf8(u8"—"))
-                            .arg(localLinkLabel()));
+    const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
+        ? m_pingText
+        : QString::fromUtf8(u8"—");
+    const QString statusHtml = online
+        ? QString::fromUtf8(u8"<span style=\"color:#059669;font-weight:600;\">在线</span>")
+        : QString::fromUtf8(u8"<span style=\"color:#d97706;font-weight:600;\">离线</span>");
+    m_peerMeta->setText(
+        QString::fromUtf8(
+            u8"<span style=\"color:#94a3b8;\">%1 · </span>%2"
+            u8"<span style=\"color:#94a3b8;\"> · Ping %3 · %4</span>")
+            .arg(metaHead.toHtmlEscaped(), statusHtml, pingText.toHtmlEscaped(),
+                 localLinkLabel().toHtmlEscaped()));
     if (m_peerOnlineKnown.contains(addr)) {
         const bool wasOnline = m_peerOnlineKnown.value(addr);
         if (wasOnline != online) {
@@ -2571,13 +2586,7 @@ void MainWindow::updatePeerSession()
     }
     m_peerOnlineKnown.insert(addr, online);
     if (online) {
-        m_connBannerText->setText(
-            QString::fromUtf8(
-                u8"<span style=\"color:#64748b;\">已建立局域网直连：</span>"
-                "<span style=\"color:#0f172a;font-weight:700;\">%1</span>"
-                "<span style=\"color:#64748b;\"> (%2)</span>")
-                .arg(label.toHtmlEscaped())
-                .arg(addr.toHtmlEscaped()));
+        m_connBannerHost->hide();
     } else {
         m_connBannerText->setText(
             QString::fromUtf8(
@@ -2586,6 +2595,7 @@ void MainWindow::updatePeerSession()
                 "<span style=\"color:#b45309;\"> (%2)</span>")
                 .arg(label.toHtmlEscaped())
                 .arg(addr.toHtmlEscaped()));
+        m_connBannerHost->show();
     }
     if (m_tabFiles)
         m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
