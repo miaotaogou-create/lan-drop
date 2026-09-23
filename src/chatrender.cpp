@@ -303,6 +303,106 @@ static QString imageThumbFile(const QString &path)
     return out;
 }
 
+static QString fileCardShellImgHtml(const QString &fileName, const QString &sizeLabel,
+                                    bool asImage, bool pending, bool out, int pct,
+                                    const QString &shaShort)
+{
+    const int cardW = 320;
+    const int pad = 14;
+    const qreal radius = 16.0;
+    const int badgeW = 40;
+    const int badgeH = 28;
+    const int gap = 10;
+    const int barH = 8;
+    QFont nameFont = qApp->font();
+    nameFont.setPixelSize(15);
+    nameFont.setBold(true);
+    QFont metaFont = qApp->font();
+    metaFont.setPixelSize(12);
+    QFontMetrics nameFm(nameFont);
+    QFontMetrics metaFm(metaFont);
+    const int nameMaxW = cardW - pad * 2 - badgeW - gap;
+    const QString elided = nameFm.elidedText(fileName, Qt::ElideMiddle, nameMaxW);
+    const int nameH = nameFm.height();
+    const int metaH = metaFm.height();
+    const int topH = qMax(badgeH, nameH + 4 + metaH);
+    const int statusH = metaH;
+    const int shaH = (!pending && !shaShort.isEmpty()) ? (4 + metaH) : 0;
+    const int logicalH = pad + topH + gap + barH + 8 + statusH + shaH + pad;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(cardW * dpr, logicalH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(1.0, 1.0, cardW - 2.0, logicalH - 2.0);
+    p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+    p.setBrush(Qt::white);
+    p.drawRoundedRect(box, radius, radius);
+
+    const QColor badgeBg = asImage ? QColor(QStringLiteral("#ecfdf5"))
+                                   : QColor(QStringLiteral("#ede9fe"));
+    const QColor badgeFg = asImage ? QColor(QStringLiteral("#047857"))
+                                   : QColor(QStringLiteral("#7c3aed"));
+    const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
+    const QRectF badgeRect(pad, pad + (topH - badgeH) / 2.0, badgeW, badgeH);
+    p.setPen(Qt::NoPen);
+    p.setBrush(badgeBg);
+    p.drawRoundedRect(badgeRect, 8.0, 8.0);
+    QFont badgeFont = qApp->font();
+    badgeFont.setPixelSize(11);
+    badgeFont.setBold(true);
+    p.setFont(badgeFont);
+    p.setPen(badgeFg);
+    p.drawText(badgeRect, Qt::AlignCenter, badge);
+
+    const int textX = pad + badgeW + gap;
+    p.setFont(nameFont);
+    p.setPen(QColor(QStringLiteral("#0f172a")));
+    p.drawText(QRect(textX, pad, nameMaxW, nameH), Qt::AlignLeft | Qt::AlignVCenter, elided);
+    p.setFont(metaFont);
+    p.setPen(QColor(QStringLiteral("#94a3b8")));
+    p.drawText(QRect(textX, pad + nameH + 4, nameMaxW, metaH), Qt::AlignLeft | Qt::AlignVCenter,
+               sizeLabel);
+
+    const int barY = pad + topH + gap;
+    const QRectF track(pad, barY, cardW - pad * 2, barH);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#e2e8f0")));
+    p.drawRoundedRect(track, barH / 2.0, barH / 2.0);
+    const int fillW = qRound(track.width() * qBound(0, 100, pct) / 100.0);
+    if (fillW > 0) {
+        QRectF fill = track;
+        fill.setWidth(qMax(barH, fillW));
+        p.setBrush(QColor(QStringLiteral("#2563eb")));
+        p.drawRoundedRect(fill, barH / 2.0, barH / 2.0);
+    }
+
+    QString status;
+    QColor statusColor;
+    if (pending) {
+        status = out ? QString::fromUtf8(u8"发送中 %1%").arg(pct)
+                     : QString::fromUtf8(u8"接收中 %1%").arg(pct);
+        statusColor = out ? QColor(QStringLiteral("#2563eb")) : QColor(QStringLiteral("#ea580c"));
+    } else {
+        status = QString::fromUtf8(u8"传输完成 · 已落盘");
+        statusColor = QColor(QStringLiteral("#16a34a"));
+    }
+    const int statusY = barY + barH + 8;
+    p.setFont(metaFont);
+    p.setPen(statusColor);
+    p.drawText(QRect(pad, statusY, cardW - pad * 2, statusH), Qt::AlignLeft | Qt::AlignVCenter,
+               status);
+    if (shaH > 0) {
+        p.setPen(QColor(QStringLiteral("#94a3b8")));
+        p.drawText(QRect(pad, statusY + statusH + 4, cardW - pad * 2, metaH),
+                   Qt::AlignLeft | Qt::AlignVCenter,
+                   QStringLiteral("SHA256: %1").arg(shaShort));
+    }
+    return pixmapToImgHtml(pm);
+}
+
 static QString renderFileCard(const ChatMsg &m)
 {
     const bool out = (m.type == ChatMsg::OutFile);
@@ -320,124 +420,46 @@ static QString renderFileCard(const ChatMsg &m)
         openHref = QStringLiteral("landrop://open/") + pathB64;
         const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
         const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
-        if (out) {
-            actions = QString::fromUtf8(
-                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>")
-                          .arg(openHref, revealHref, copyPathHref);
-        } else {
-            actions = QString::fromUtf8(
-                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>"
-                          u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>")
-                          .arg(openHref, revealHref, copyPathHref);
+        actions = QString::fromUtf8(
+                      u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                      u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
+                      u8"&nbsp;&nbsp;"
+                      u8"<a href=\"%2\" style=\"text-decoration:none;\">"
+                      u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
+                      u8"&nbsp;&nbsp;"
+                      u8"<a href=\"%3\" style=\"text-decoration:none;\">"
+                      u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>")
+                      .arg(openHref, revealHref, copyPathHref);
+        if (!out) {
+            actions += QString::fromUtf8(
+                u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>");
         }
-    } else if (pending) {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");
     } else {
         actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");
     }
     const int pct = pending ? qBound(0, 100, m.progressPct) : 100;
-    const int rest = 100 - pct;
-    QString bar;
-    if (pct <= 0) {
-        bar = QString::fromUtf8(
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#e2e8f0\">"
-            u8"<tr><td height=\"8\"></td></tr></table>");
-    } else if (rest <= 0) {
-        bar = QString::fromUtf8(
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
-            u8"<tr><td height=\"8\"></td></tr></table>");
-    } else {
-        bar = QString::fromUtf8(
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-                 u8"<td width=\"%1%\" bgcolor=\"#2563eb\">"
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"8\"></td></tr></table></td>"
-                 u8"<td width=\"%2%\" bgcolor=\"#e2e8f0\">"
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"8\"></td></tr></table></td>"
-                 u8"</tr></table>")
-                 .arg(pct)
-                 .arg(rest);
+    const bool asImage = isImageFileName(m.text) || isImageFileName(m.path);
+    QString shell = fileCardShellImgHtml(m.text, size, asImage, pending, out, pct,
+                                         pending ? QString() : sha);
+    if (!openHref.isEmpty()) {
+        shell = QStringLiteral("<a href=\"%1\" style=\"text-decoration:none;\">%2</a>")
+                    .arg(openHref, shell);
     }
-    const QString status = pending
-        ? (out ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"3\">发送中 %1%</font>").arg(pct)
-               : QString::fromUtf8(u8"<font color=\"#ea580c\" size=\"3\">接收中 %1%</font>").arg(pct))
-        : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"3\">✓✓ 传输完成 (已落盘)</font>");
-    const QString shaLine = (!pending && !sha.isEmpty())
-        ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"2\">SHA256: %1</font>").arg(htmlEsc(sha))
-        : QString();
     QString thumbHtml;
     if (!pending && !m.path.isEmpty()) {
         const QString thumb = imageThumbFile(m.path);
         if (!thumb.isEmpty()) {
             const QString src = QUrl::fromLocalFile(thumb).toString();
-            if (openHref.isEmpty()) {
-                thumbHtml = QString::fromUtf8(
-                                u8"<br/><img src=\"%1\" />")
-                                .arg(src);
-            } else {
+            if (openHref.isEmpty())
+                thumbHtml = QStringLiteral("<br/><img src=\"%1\" />").arg(src);
+            else
                 thumbHtml = QString::fromUtf8(
                                 u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
                                 u8"<img src=\"%2\" /></a>")
                                 .arg(openHref, src);
-            }
         }
     }
-    const bool asImage = isImageFileName(m.text) || isImageFileName(m.path);
-    const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
-    const QString badgeBg = asImage ? QStringLiteral("#ecfdf5") : QStringLiteral("#ede9fe");
-    const QString badgeFg = asImage ? QStringLiteral("#047857") : QStringLiteral("#7c3aed");
-    QString titleBlock;
-    if (!openHref.isEmpty()) {
-        titleBlock = QString::fromUtf8(
-                         u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                         u8"<font color=\"#0f172a\" size=\"4\"><b>%2</b></font><br/>"
-                         u8"<font color=\"#64748b\" size=\"3\">%3</font></a>")
-                         .arg(openHref, htmlEsc(m.text), size);
-    } else {
-        titleBlock = QString::fromUtf8(
-                         u8"<font color=\"#0f172a\" size=\"4\"><b>%1</b></font><br/>"
-                         u8"<font color=\"#94a3b8\" size=\"3\">%2</font>")
-                         .arg(htmlEsc(m.text), size);
-    }
-    const QString card =
-        QString::fromUtf8(
-            u8"<table cellspacing=\"0\" cellpadding=\"14\" bgcolor=\"#ffffff\" width=\"100%\" "
-            u8"style=\"border:1px solid #e2e8f0; max-width:360px;\">"
-            u8"<tr><td>"
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            u8"<td width=\"40\" valign=\"top\"><table cellpadding=\"5\" bgcolor=\"%6\">"
-            u8"<tr><td><font color=\"%7\" size=\"3\"><b>%8</b></font></td></tr></table></td>"
-            u8"<td>"
-            u8"%1"
-            u8"</td></tr></table>"
-            u8"%2"
-            u8"%3"
-            u8"%4"
-            u8"%5"
-            u8"</td></tr></table>")
-            .arg(titleBlock,
-                 bar,
-                 status,
-                 shaLine,
-                 thumbHtml + QStringLiteral("<br/>") + actions,
-                 badgeBg,
-                 badgeFg,
-                 badge);
+    const QString card = shell + thumbHtml + QStringLiteral("<br/>") + actions;
     const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));

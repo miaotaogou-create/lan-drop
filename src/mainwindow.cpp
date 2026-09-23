@@ -759,7 +759,7 @@ void MainWindow::buildUi()
     m_input->installEventFilter(this);
     m_sendBtn = new QPushButton;
     m_sendBtn->setObjectName(QStringLiteral("sendFab"));
-    m_sendBtn->setFixedSize(34, 34);
+    m_sendBtn->setFixedSize(36, 36);
     m_sendBtn->setCursor(Qt::PointingHandCursor);
     m_sendBtn->setFocusPolicy(Qt::NoFocus);
     m_sendBtn->setToolTip(QString::fromUtf8(u8"发送（Enter）"));
@@ -908,10 +908,13 @@ void MainWindow::applyStyle()
         "#search { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;"
         " color: #0f172a; selection-background-color: #bfdbfe; }"
         "#peerList { background: transparent; outline: none; }"
-        "#peerList::item { background: transparent; border: 1px solid transparent; border-radius: 10px;"
-        " padding: 8px 8px; margin: 2px 0; color: #0f172a; }"
-        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
-        "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }"
+        "#peerList::item { background: transparent; border: 1px solid transparent;"
+        " border-left: 3px solid transparent; border-radius: 12px;"
+        " padding: 8px 10px; margin: 3px 4px; color: #0f172a; }"
+        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0;"
+        " border-left: 3px solid #cbd5e1; }"
+        "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe;"
+        " border-left: 3px solid #2563eb; color: #0f172a; }"
         "#right { background: #f1f5f9; }"
         "#emptyHint { color: #64748b; font-size: 14px; padding: 48px 56px; background: #f1f5f9; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
@@ -958,10 +961,10 @@ void MainWindow::applyStyle()
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 13px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
-        "#sendFab { background: #93c5fd; border: none; border-radius: 8px; padding: 0; }"
-        "#sendFab:hover { background: #60a5fa; }"
-        "#sendFab:pressed { background: #3b82f6; }"
-        "#sendFab:disabled { background: #e2e8f0; }"
+        "#sendFab { background: #2563eb; border: none; border-radius: 18px; padding: 0; }"
+        "#sendFab:hover { background: #1d4ed8; }"
+        "#sendFab:pressed { background: #1e40af; }"
+        "#sendFab:disabled { background: #cbd5e1; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
@@ -2370,20 +2373,16 @@ void MainWindow::refreshPeers()
             : QString();
         const QString osTag = p.osName.trimmed().isEmpty()
             ? QString()
-            : (QStringLiteral("  ·  ") + p.osName);
+            : (QStringLiteral(" · ") + p.osName);
         const QString dept = p.tag.trimmed().isEmpty()
             ? QString()
-            : (QStringLiteral("  ·  ") + p.tag.trimmed());
+            : (QStringLiteral(" · ") + p.tag.trimmed());
         const int unread = m_unread.value(p.key(), 0);
-        const QString unreadTag = (unread > 0)
-            ? QString::fromUtf8(u8" · 未读 %1").arg(unread)
-            : QString();
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1%2\n%3:%4  %5%6%7%8%9")
-                .arg(p.label(), unreadTag, p.ip, QString::number(p.port), flag, manual, pinTag,
-                     osTag, dept));
-        it->setIcon(QIcon(makePeerAvatar(p.label(), p.osName, 44)));
-        it->setSizeHint(QSize(0, 60));
+            QStringLiteral("%1\n%2:%3 · %4%5%6%7%8")
+                .arg(p.label(), p.ip, QString::number(p.port), flag, manual, pinTag, osTag, dept));
+        it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44)));
+        it->setSizeHint(QSize(0, 64));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
@@ -2396,7 +2395,7 @@ void MainWindow::refreshPeers()
             f.setBold(true);
             it->setFont(f);
             if (p.online())
-                it->setForeground(QBrush(QColor(QStringLiteral("#1e3a8a"))));
+                it->setForeground(QBrush(QColor(QStringLiteral("#0f172a"))));
         }
         m_list->addItem(it);
         if (!want.isEmpty() && p.key() == want)

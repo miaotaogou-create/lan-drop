@@ -22,6 +22,9 @@ QPixmap makeRadioLogo(int logical = 36);
 QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
 QPixmap makeLaptopIcon(int logical = 16);
 QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44);
+// unread>0 时在头像右上角画未读角标（99+ 封顶）
+QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread,
+                           int logical = 44);
 QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName);
 QPixmap makeStatusDot(bool ok, int logical = 7);
 QPixmap makeChatBubbleIcon(int logical = 14);

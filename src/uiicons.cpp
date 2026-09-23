@@ -228,6 +228,35 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     return pm;
 }
 
+QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread, int logical)
+{
+    QPixmap base = makePeerAvatar(name, osName, logical);
+    if (unread <= 0)
+        return base;
+    const int dpr = qMax(1, qRound(base.devicePixelRatio()));
+    QPixmap pm = base;
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QString label = unread > 99 ? QStringLiteral("99+") : QString::number(unread);
+    QFont font = qApp->font();
+    font.setPixelSize(unread > 99 ? 8 : 10);
+    font.setBold(true);
+    p.setFont(font);
+    QFontMetrics fm(font);
+    const int tw = fm.horizontalAdvance(label);
+    const int pillW = qMax(16, tw + 8);
+    const int pillH = 16;
+    const QRectF pill(logical - pillW + 2.0, -2.0, pillW, pillH);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(QStringLiteral("#ef4444")));
+    p.drawRoundedRect(pill, pillH / 2.0, pillH / 2.0);
+    p.setPen(Qt::white);
+    p.drawText(pill, Qt::AlignCenter, label);
+    Q_UNUSED(dpr);
+    return pm;
+}
+
 QPixmap renderSvgIcon(const QString &resPath, int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));

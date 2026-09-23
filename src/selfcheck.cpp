@@ -341,7 +341,9 @@ int runSelfCheck()
         QVector<ChatMsg> msgs;
         msgs << m;
         const QString html = renderChatHtml(msgs);
-        if (!html.contains(QStringLiteral("<img ")) || !html.contains(QStringLiteral("IMG")))
+        // 角标 IMG 已绘入位图；完成态应含缩略/卡面 img 与打开链
+        if (!html.contains(QStringLiteral("<img "))
+            || !html.contains(QStringLiteral("landrop://open/")))
             return fail("thumb html");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
