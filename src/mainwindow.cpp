@@ -1501,6 +1501,16 @@ void MainWindow::openShare()
     dlg.setModal(true);
     dlg.setFixedWidth(760);
     dlg.setStyleSheet(QStringLiteral(
+        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+        "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
+        "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
+        "QScrollBar:horizontal { background: transparent; height: 8px; margin: 2px; }"
+        "QScrollBar::handle:horizontal { background: #cbd5e1; border-radius: 4px; min-width: 28px; }"
+        "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
         "#shareDlg { background: transparent; }"
         "#shareRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
         "#shareHead { background: #ffffff; border-bottom: 1px solid #e2e8f0;"
@@ -4503,6 +4513,16 @@ void MainWindow::editSettings()
         "#settingsField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
         " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
         "#settingsField:focus { background: #ffffff; border-color: #3b82f6; }"
+        "#settingsCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
+        " padding: 6px 10px; color: #0f172a; min-height: 20px; }"
+        "#settingsCombo:hover { border-color: #cbd5e1; }"
+        "#settingsCombo:on { background: #ffffff; border-color: #3b82f6; }"
+        "#settingsCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
+        " width: 28px; border: none; }"
+        "#settingsCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
+        "#settingsCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
+        " border-radius: 8px; selection-background-color: #eff6ff; selection-color: #1d4ed8;"
+        " outline: none; padding: 4px; }"
         "#settingsBrowse { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #334155; padding: 8px 12px; font-size: 12px; font-weight: 600; }"
         "#settingsBrowse:hover { background: #f8fafc; }"
@@ -4610,7 +4630,10 @@ void MainWindow::editSettings()
     QVBoxLayout *ipCol = new QVBoxLayout;
     ipCol->setSpacing(4);
     QComboBox *ipPick = new QComboBox;
-    ipPick->setObjectName(QStringLiteral("settingsField"));
+    ipPick->setObjectName(QStringLiteral("settingsCombo"));
+    if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
+        ipPick->setStyle(fusion);
+    ipPick->setCursor(Qt::PointingHandCursor);
     ipPick->addItem(QString::fromUtf8(u8"自动"), QString());
     const QStringList ips = localIpv4();
     int ipSel = 0;

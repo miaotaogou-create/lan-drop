@@ -712,6 +712,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-140 复制提示与设置下拉对齐
+- 对应验收：A1–A3（`docs/requirements/20260922-copy-affordance-combo.md`）
+- 步骤：悬停文字气泡；打开设置看本机展示 IP 下拉；打开共享看滚动条
+- 期望：悬停提示「点击复制」；下拉圆角现代；共享滚动条细
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
