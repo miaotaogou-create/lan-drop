@@ -13,4 +13,10 @@ QStringList zipTarArguments(const QString &dirPath, const QString &zipPath);
 // 同步打包（自检/小目录）；大目录请异步 QProcess
 bool zipDirectory(const QString &dirPath, const QString &zipPath, QString *errorOut = 0);
 
+// 本机临时打包目录中的 zip
+QString landropZipTempDir();
+bool isLandropTempZip(const QString &path);
+void removeLandropTempZip(const QString &path);
+void cleanupLandropZipTempDir();
+
 #endif

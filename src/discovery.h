@@ -68,6 +68,8 @@ private:
 
 QString deviceId();
 QStringList localIpv4();
+// preferred 非空且在 ips 中则用之；否则优先与 peerIp 同 /24，再回退首项
+QString pickDisplayLocalIp(const QStringList &ips, const QString &preferred, const QString &peerIp);
 QString localLinkLabel();
 QString localHostName();
 

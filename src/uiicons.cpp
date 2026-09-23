@@ -364,3 +364,22 @@ QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString
     b->setIconSize(QSize(16, 16));
     return b;
 }
+
+QIcon makePinIcon(bool pinned, const QColor &color)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int s = 16;
+    QPixmap pm(s * dpr, s * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(QPen(color, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    if (pinned)
+        p.setBrush(color);
+    else
+        p.setBrush(Qt::NoBrush);
+    p.drawEllipse(QRectF(4.5, 2.5, 7, 7));
+    p.drawLine(QPointF(8, 9.5), QPointF(8, 13.5));
+    return QIcon(pm);
+}

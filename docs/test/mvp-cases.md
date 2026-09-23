@@ -432,6 +432,27 @@
 - 类型：手测 + 自检
 - 结果：待手测
 
+### TC-100 清理临时 zip
+- 对应验收：C1–C3（`docs/requirements/20260922-cleanup-temp-zip.md`）
+- 步骤：zip 发成功；再 zip 发送中取消；发普通文件
+- 期望：临时 zip 删除；普通文件不受影响
+- 类型：手测 + 自检
+- 结果：待手测
+
+### TC-101 标题栏置顶
+- 对应验收：P1–P3（`docs/requirements/20260922-title-pin.md`）
+- 步骤：点顶栏钉；再点取消；重启
+- 期望：置顶/取消立刻生效；重启保持
+- 类型：手测
+- 结果：待手测
+
+### TC-102 自动同网段本机 IP
+- 对应验收：A1–A3（`docs/requirements/20260922-auto-same-subnet-ip.md`）
+- 步骤：设置本机 IP 为自动；切换不同网段对端看顶栏
+- 期望：尽量跟对端同段；手动指定不跟；无匹配仍有地址
+- 类型：手测 + 自检
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

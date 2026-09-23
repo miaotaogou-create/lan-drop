@@ -442,6 +442,17 @@ void MainWindow::buildUi()
     setBtn->setCursor(Qt::PointingHandCursor);
     connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
 
+    m_pinBtn = new QPushButton;
+    m_pinBtn->setObjectName(QStringLiteral("pinBtn"));
+    m_pinBtn->setFixedSize(40, 32);
+    m_pinBtn->setFocusPolicy(Qt::NoFocus);
+    m_pinBtn->setFlat(true);
+    m_pinBtn->setCheckable(true);
+    m_pinBtn->setCursor(Qt::PointingHandCursor);
+    m_pinBtn->setIconSize(QSize(16, 16));
+    connect(m_pinBtn, SIGNAL(clicked(bool)), this, SLOT(toggleAlwaysOnTop(bool)));
+    syncPinBtn();
+
     QPushButton *minBtn = chromeBtn(IconMinimize, QStringLiteral("minBtn"), QString::fromUtf8(u8"最小化"));
     m_maxBtn = chromeBtn(IconMaximize, QStringLiteral("maxBtn"), QString::fromUtf8(u8"最大化"));
     QPushButton *closeBtn = chromeBtn(IconClose, QStringLiteral("closeBtn"), QString::fromUtf8(u8"关闭"));
@@ -465,6 +476,7 @@ void MainWindow::buildUi()
     chromeLay->addWidget(m_shareBtn);
     chromeLay->addWidget(dlBtn);
     chromeLay->addWidget(setBtn);
+    chromeLay->addWidget(m_pinBtn);
     chromeLay->addSpacing(6);
     chromeLay->addWidget(minBtn);
     chromeLay->addWidget(m_maxBtn);
@@ -867,8 +879,9 @@ void MainWindow::applyStyle()
         "#shareBtn:hover { background: #dbeafe; }"
         "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0; }"
         "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
-        "#minBtn, #maxBtn, #closeBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
-        "#minBtn:hover, #maxBtn:hover { background: #f1f5f9; }"
+        "#minBtn, #maxBtn, #closeBtn, #pinBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+        "#minBtn:hover, #maxBtn:hover, #pinBtn:hover { background: #f1f5f9; }"
+        "#pinBtn:checked { background: #eff6ff; }"
         "#closeBtn:hover { background: #ef4444; }"
         "#side { background: #ffffff; border-right: none; }"
         "#bodySplit::handle:horizontal { background: #e2e8f0; width: 4px; }"
@@ -1130,12 +1143,36 @@ void MainWindow::applyAlwaysOnTop()
     const Qt::WindowFlags want = m_settings.alwaysOnTop
         ? (f | Qt::WindowStaysOnTopHint)
         : (f & ~Qt::WindowStaysOnTopHint);
-    if (want == f)
+    if (want == f) {
+        syncPinBtn();
         return;
+    }
     const bool vis = isVisible();
     setWindowFlags(want);
     if (vis)
         show();
+    syncPinBtn();
+}
+
+void MainWindow::syncPinBtn()
+{
+    if (!m_pinBtn)
+        return;
+    const bool on = m_settings.alwaysOnTop;
+    const bool blocked = m_pinBtn->blockSignals(true);
+    m_pinBtn->setChecked(on);
+    m_pinBtn->blockSignals(blocked);
+    m_pinBtn->setIcon(makePinIcon(on, on ? QColor(QStringLiteral("#2563eb"))
+                                         : QColor(QStringLiteral("#475569"))));
+    m_pinBtn->setToolTip(on ? QString::fromUtf8(u8"取消置顶")
+                            : QString::fromUtf8(u8"窗口置顶"));
+}
+
+void MainWindow::toggleAlwaysOnTop(bool on)
+{
+    m_settings.alwaysOnTop = on;
+    m_settings.save();
+    applyAlwaysOnTop();
 }
 
 void MainWindow::showFromTray()
@@ -1747,6 +1784,7 @@ void MainWindow::boot()
     applyWindowGeometry();
     applySideWidth();
     applyAlwaysOnTop();
+    cleanupLandropZipTempDir();
     if (m_traySoundAct) {
         const bool blocked = m_traySoundAct->blockSignals(true);
         m_traySoundAct->setChecked(m_settings.soundNotification);
@@ -2130,10 +2168,10 @@ QString MainWindow::localIpText() const
     const QStringList ips = localIpv4();
     if (ips.isEmpty())
         return QString::fromUtf8(u8"—");
-    const QString want = m_settings.preferredLocalIp.trimmed();
-    if (!want.isEmpty() && ips.contains(want))
-        return want;
-    return ips.first();
+    QString peerIp;
+    currentPeer(&peerIp, 0, 0);
+    const QString picked = pickDisplayLocalIp(ips, m_settings.preferredLocalIp, peerIp);
+    return picked.isEmpty() ? QString::fromUtf8(u8"—") : picked;
 }
 
 bool MainWindow::currentPeer(QString *ip, int *port, QString *name) const
@@ -2355,6 +2393,7 @@ void MainWindow::updatePeerSession()
     if (m_tabFiles)
         m_tabFiles->setText(QString::fromUtf8(u8"文件传输 (%1)")
                                 .arg(countFiles(m_log.value(currentKey()))));
+    updateHostPill();
 }
 
 void MainWindow::showChat()
@@ -2495,6 +2534,8 @@ void MainWindow::cancelUpload()
     }
     if (m_uploading) {
         m_uploadCanceling = true;
+        for (int i = 0; i < m_uploadQueue.size(); ++i)
+            removeLandropTempZip(m_uploadQueue.at(i));
         m_uploadQueue.clear();
         syncCancelUploadBtn();
         if (m_activeUploadReply) {
@@ -2518,6 +2559,8 @@ void MainWindow::clearUploadQueue()
     if (!m_uploading || m_uploadQueue.isEmpty())
         return;
     const int n = m_uploadQueue.size();
+    for (int i = 0; i < m_uploadQueue.size(); ++i)
+        removeLandropTempZip(m_uploadQueue.at(i));
     m_uploadQueue.clear();
     ChatMsg m;
     m.type = ChatMsg::System;
@@ -3168,6 +3211,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         if (m_uploadCanceling) {
             m_uploadCanceling = false;
             dropUploadMsg(key, msgIndex);
+            removeLandropTempZip(path);
             ChatMsg m;
             m.type = ChatMsg::System;
             m.text = QString::fromUtf8(u8"已取消发送");
@@ -3181,7 +3225,10 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (rep->error() != QNetworkReply::NoError || code >= 300) {
             dropUploadMsg(key, msgIndex);
+            removeLandropTempZip(path);
             const QStringList rest = m_uploadQueue;
+            for (int i = 0; i < rest.size(); ++i)
+                removeLandropTempZip(rest.at(i));
             m_uploadQueue.clear();
             noteFail(key, rep, path, rest);
             m_uploading = false;
@@ -3194,9 +3241,21 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         if (msgIndex >= 0 && msgIndex < lines.size())
             sha = lines.at(msgIndex).sha256;
         finishUploadMsg(key, msgIndex, ms, sha);
+        if (isLandropTempZip(path)) {
+            removeLandropTempZip(path);
+            QVector<ChatMsg> after = m_log.value(key);
+            if (msgIndex >= 0 && msgIndex < after.size() && after.at(msgIndex).path == path) {
+                after[msgIndex].path.clear();
+                m_log.insert(key, after);
+                if (key == currentKey()) {
+                    refreshChatHtml();
+                    refreshFilesView();
+                }
+                scheduleSaveChatHistory();
+            }
+        }
         if (m_uploadQueue.isEmpty()) {
             QString peerName;
-            // key 形如 ip:port；展示用当前选中名，否则用 key
             currentPeer(0, 0, &peerName);
             if (peerName.trimmed().isEmpty())
                 peerName = key;
@@ -3573,7 +3632,7 @@ void MainWindow::pumpZipQueue()
     const QString base = QFileInfo(dir).fileName().trimmed().isEmpty()
         ? QStringLiteral("folder")
         : QFileInfo(dir).fileName();
-    const QString zipDir = QDir::temp().filePath(QStringLiteral("landrop-zip"));
+    const QString zipDir = landropZipTempDir();
     QDir().mkpath(zipDir);
     const QString zipPath = QDir(zipDir).filePath(
         base + QStringLiteral("-")
@@ -4248,7 +4307,7 @@ void MainWindow::editSettings()
     ipPick->setCurrentIndex(ipSel);
     ipCol->addWidget(fieldLabel(QString::fromUtf8(u8"本机展示 IP")));
     ipCol->addWidget(ipPick);
-    ipCol->addWidget(fieldHint(QString::fromUtf8(u8"多网卡或 VPN 时选择给同事看的局域网地址")));
+    ipCol->addWidget(fieldHint(QString::fromUtf8(u8"自动时优先与当前对端同网段；多网卡或 VPN 时可手动指定")));
 
     QHBoxLayout *rowPort = new QHBoxLayout;
     rowPort->setSpacing(12);
@@ -4436,6 +4495,7 @@ void MainWindow::editSettings()
             m_traySoundAct->blockSignals(blocked);
         }
         applyAlwaysOnTop();
+        syncPinBtn();
         boot();
         dlg.accept();
     });

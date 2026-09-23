@@ -71,3 +71,38 @@ bool zipDirectory(const QString &dirPath, const QString &zipPath, QString *error
     }
     return true;
 }
+
+QString landropZipTempDir()
+{
+    return QDir::temp().filePath(QStringLiteral("landrop-zip"));
+}
+
+bool isLandropTempZip(const QString &path)
+{
+    if (path.isEmpty())
+        return false;
+    const QFileInfo fi(path);
+    if (fi.suffix().toLower() != QLatin1String("zip"))
+        return false;
+    const QString dir = QFileInfo(landropZipTempDir()).absoluteFilePath();
+    return QFileInfo(fi.absolutePath()).absoluteFilePath() == dir;
+}
+
+void removeLandropTempZip(const QString &path)
+{
+    if (!isLandropTempZip(path))
+        return;
+    QFile::remove(path);
+}
+
+void cleanupLandropZipTempDir()
+{
+    const QString dir = landropZipTempDir();
+    QDir d(dir);
+    if (!d.exists())
+        return;
+    const QFileInfoList files = d.entryInfoList(QStringList() << QStringLiteral("*.zip"),
+                                                QDir::Files);
+    for (int i = 0; i < files.size(); ++i)
+        QFile::remove(files.at(i).absoluteFilePath());
+}

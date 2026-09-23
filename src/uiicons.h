@@ -29,6 +29,7 @@ QPixmap makeFileDocIcon(int logical = 14);
 QPixmap makeCheckCircleIcon(int logical = 14);
 QPixmap loadSvgPixmap(const QString &path, int logical);
 QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip);
+QIcon makePinIcon(bool pinned, const QColor &color);
 
 // 聊天气泡 HTML 仍用首字头像
 QString avatarInitial(const QString &name);

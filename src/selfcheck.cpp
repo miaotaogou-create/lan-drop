@@ -390,6 +390,25 @@ int runSelfCheck()
         QDir().rmdir(tmpDir);
     }
     {
+        // 同网段自动选 IP
+        const QStringList ips = QStringList()
+            << QStringLiteral("10.0.0.2") << QStringLiteral("192.168.1.8")
+            << QStringLiteral("172.16.0.5");
+        if (pickDisplayLocalIp(ips, QString(), QStringLiteral("192.168.1.99"))
+            != QStringLiteral("192.168.1.8"))
+            return fail("same subnet");
+        if (pickDisplayLocalIp(ips, QStringLiteral("10.0.0.2"), QStringLiteral("192.168.1.99"))
+            != QStringLiteral("10.0.0.2"))
+            return fail("pref over subnet");
+        if (!isLandropTempZip(QDir(landropZipTempDir()).filePath(QStringLiteral("a.zip")))) {
+            QDir().mkpath(landropZipTempDir());
+            if (!isLandropTempZip(QDir(landropZipTempDir()).filePath(QStringLiteral("a.zip"))))
+                return fail("temp zip detect");
+        }
+        if (isLandropTempZip(QStringLiteral("C:/nowhere/x.zip")))
+            return fail("temp zip false");
+    }
+    {
         const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-aot-check"));
         QDir().mkpath(tmpDir);
         const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));

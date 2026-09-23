@@ -89,6 +89,7 @@ private slots:
     void cancelUpload();
     void clearUploadQueue();
     void toggleTraySound(bool on);
+    void toggleAlwaysOnTop(bool on);
     void onZipProcessFinished(int exitCode, QProcess::ExitStatus status);
 
 private:
@@ -128,6 +129,7 @@ private:
     void setUploadProgressText(const QString &filename, int pct = -1);
     void setRecvProgressText(const QString &filename, int pct = -1);
     void applyAlwaysOnTop();
+    void syncPinBtn();
     void noteBusyUpload(const QString &hint = QString());
     void maybeWarnOfflinePeer();
     bool currentPeerOnline() const;
@@ -203,6 +205,7 @@ private:
     QPushButton *m_clearQueueBtnFiles = 0;
     QPushButton *m_shareBtn = 0;
     QPushButton *m_maxBtn = 0;
+    QPushButton *m_pinBtn = 0;
     QWidget *m_composer = 0;
     QWidget *m_inputShell = 0;
     QWidget *m_chatPage = 0;

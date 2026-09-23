@@ -57,6 +57,28 @@ QStringList localIpv4()
     return ips;
 }
 
+QString pickDisplayLocalIp(const QStringList &ips, const QString &preferred, const QString &peerIp)
+{
+    if (ips.isEmpty())
+        return QString();
+    const QString want = preferred.trimmed();
+    if (!want.isEmpty() && ips.contains(want))
+        return want;
+    const QString peer = peerIp.trimmed();
+    if (!peer.isEmpty()) {
+        const QStringList pp = peer.split(QLatin1Char('.'));
+        if (pp.size() == 4) {
+            const QString prefix = pp.at(0) + QLatin1Char('.') + pp.at(1) + QLatin1Char('.') + pp.at(2)
+                + QLatin1Char('.');
+            for (int i = 0; i < ips.size(); ++i) {
+                if (ips.at(i).startsWith(prefix))
+                    return ips.at(i);
+            }
+        }
+    }
+    return ips.first();
+}
+
 #ifdef Q_OS_WIN
 #include <winsock2.h>
 #include <ws2tcpip.h>
