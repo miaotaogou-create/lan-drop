@@ -300,6 +300,19 @@ private:
     QListWidget *m_list = 0;
 };
 
+// 弹窗/空卡浮起阴影（与 #emptyCard 参数一致）
+static void applyFloatingShadow(QWidget *w)
+{
+    if (!w)
+        return;
+    w->setAttribute(Qt::WA_StyledBackground, true);
+    QGraphicsDropShadowEffect *fx = new QGraphicsDropShadowEffect(w);
+    fx->setBlurRadius(20);
+    fx->setOffset(0, 4);
+    fx->setColor(QColor(15, 23, 42, 36));
+    w->setGraphicsEffect(fx);
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -567,12 +580,7 @@ void MainWindow::buildUi()
     QFrame *emptyCard = new QFrame;
     emptyCard->setObjectName(QStringLiteral("emptyCard"));
     emptyCard->setMaximumWidth(440);
-    emptyCard->setAttribute(Qt::WA_StyledBackground, true);
-    QGraphicsDropShadowEffect *emptyShadow = new QGraphicsDropShadowEffect(emptyCard);
-    emptyShadow->setBlurRadius(20);
-    emptyShadow->setOffset(0, 4);
-    emptyShadow->setColor(QColor(15, 23, 42, 36));
-    emptyCard->setGraphicsEffect(emptyShadow);
+    applyFloatingShadow(emptyCard);
     QVBoxLayout *emptyCardLay = new QVBoxLayout(emptyCard);
     emptyCardLay->setContentsMargins(28, 28, 28, 28);
     emptyCardLay->setSpacing(0);
@@ -1539,8 +1547,9 @@ void MainWindow::openShare()
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("shareRoot"));
+    applyFloatingShadow(root);
     QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
-    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->setContentsMargins(16, 16, 16, 16);
     dlgLay->addWidget(root);
     QVBoxLayout *rootLay = new QVBoxLayout(root);
     rootLay->setContentsMargins(0, 0, 0, 0);
@@ -4242,8 +4251,9 @@ void MainWindow::addPeer()
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("addPeerRoot"));
+    applyFloatingShadow(root);
     QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
-    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->setContentsMargins(16, 16, 16, 16);
     dlgLay->addWidget(root);
     QVBoxLayout *rootLay = new QVBoxLayout(root);
     rootLay->setContentsMargins(0, 0, 0, 0);
@@ -4511,8 +4521,9 @@ void MainWindow::editSettings()
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("settingsRoot"));
+    applyFloatingShadow(root);
     QVBoxLayout *dlgLay = new QVBoxLayout(&dlg);
-    dlgLay->setContentsMargins(0, 0, 0, 0);
+    dlgLay->setContentsMargins(16, 16, 16, 16);
     dlgLay->addWidget(root);
     QVBoxLayout *rootLay = new QVBoxLayout(root);
     rootLay->setContentsMargins(0, 0, 0, 0);

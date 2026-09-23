@@ -705,6 +705,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-139 弹窗阴影与点气泡复制
+- 对应验收：P1–P3（`docs/requirements/20260922-dialog-shadow-bubble-copy.md`）
+- 步骤：打开设置/共享/加 IP；点文字气泡；再点「复制」链
+- 期望：弹窗有轻阴影；点气泡可复制并提示；链仍可用
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
