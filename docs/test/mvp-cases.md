@@ -740,6 +740,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-144 输入壳浮起与顶栏减负
+- 对应验收：H1–H4（`docs/requirements/20260922-composer-header-depth.md`）
+- 步骤：看输入壳与侧栏分隔；悬停会话顶栏文件夹图标；选离线对端看连接条；发送文件看进度胶囊
+- 期望：输入壳/离线条/进度有轻阴影；下载为图标+tooltip；侧栏有极淡右边线
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

@@ -715,13 +715,14 @@ void MainWindow::buildUi()
     tabBarLay->addWidget(m_tabChat);
     tabBarLay->addWidget(m_tabFiles);
 
-    QPushButton *sessionDlBtn = new QPushButton(QString::fromUtf8(u8"下载目录"));
-    sessionDlBtn->setObjectName(QStringLiteral("sessionDlBtn"));
+    QPushButton *sessionDlBtn = new QPushButton;
+    sessionDlBtn->setObjectName(QStringLiteral("sessionIconBtn"));
+    sessionDlBtn->setFixedSize(36, 36);
     sessionDlBtn->setCursor(Qt::PointingHandCursor);
     sessionDlBtn->setFocusPolicy(Qt::NoFocus);
     sessionDlBtn->setFlat(true);
-    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 14)));
-    sessionDlBtn->setIconSize(QSize(14, 14));
+    sessionDlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 16)));
+    sessionDlBtn->setIconSize(QSize(16, 16));
     sessionDlBtn->setToolTip(QString::fromUtf8(u8"打开本机文件接收目录"));
     connect(sessionDlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
 
@@ -743,6 +744,7 @@ void MainWindow::buildUi()
     banner->setFrameShape(QFrame::NoFrame);
     banner->setAttribute(Qt::WA_StyledBackground, true);
     banner->setFixedHeight(32);
+    applyFloatingShadow(banner);
     QHBoxLayout *bannerLay = new QHBoxLayout(banner);
     bannerLay->setContentsMargins(14, 0, 16, 0);
     bannerLay->setSpacing(8);
@@ -819,6 +821,7 @@ void MainWindow::buildUi()
     progressHost->setObjectName(QStringLiteral("progressCapsule"));
     progressHost->setAttribute(Qt::WA_StyledBackground, true);
     progressHost->hide();
+    applyFloatingShadow(progressHost);
     m_progressHost = progressHost;
     QHBoxLayout *progLay = new QHBoxLayout(progressHost);
     progLay->setContentsMargins(12, 8, 10, 8);
@@ -848,6 +851,7 @@ void MainWindow::buildUi()
 
     m_inputShell = new QWidget;
     m_inputShell->setObjectName(QStringLiteral("inputShell"));
+    applyFloatingShadow(m_inputShell);
     QVBoxLayout *shellLay = new QVBoxLayout(m_inputShell);
     shellLay->setContentsMargins(12, 10, 10, 10);
     shellLay->setSpacing(4);
@@ -917,6 +921,7 @@ void MainWindow::buildUi()
     QFrame *fileLiveHost = new QFrame;
     fileLiveHost->setObjectName(QStringLiteral("progressCapsule"));
     fileLiveHost->setAttribute(Qt::WA_StyledBackground, true);
+    applyFloatingShadow(fileLiveHost);
     QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
     fileLiveLay->setContentsMargins(12, 8, 10, 8);
     fileLiveLay->setSpacing(8);
@@ -1032,7 +1037,7 @@ void MainWindow::applyStyle()
         "#minBtn:hover, #maxBtn:hover, #pinBtn:hover { background: #f1f5f9; }"
         "#pinBtn:checked { background: #eff6ff; }"
         "#closeBtn:hover { background: #ef4444; }"
-        "#side { background: #ffffff; border-right: none; }"
+        "#side { background: #ffffff; border-right: 1px solid #e8eef5; }"
         "#bodySplit::handle:horizontal { background: #e2e8f0; width: 4px; }"
         "#bodySplit::handle:horizontal:hover { background: #93c5fd; }"
         "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 600; }"
@@ -1062,7 +1067,7 @@ void MainWindow::applyStyle()
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
         "#emptyHint { color: #64748b; background: transparent; padding: 0; }"
-        "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
+        "#peerHeader { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
         "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
         " background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }"
@@ -1070,14 +1075,13 @@ void MainWindow::applyStyle()
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
         "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px; }"
         "#sessionTab { background: transparent; border: none; border-radius: 9px;"
-        " color: #64748b; padding: 6px 12px; font-size: 12px; font-weight: 600; }"
+        " color: #64748b; padding: 6px 10px; font-size: 12px; font-weight: 600; }"
         "#sessionTab:hover { background: rgba(255,255,255,0.65); color: #334155; }"
         "#sessionTabActive { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 9px;"
-        " color: #1d4ed8; padding: 6px 12px; font-size: 12px; font-weight: 700; }"
+        " color: #1d4ed8; padding: 6px 10px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #ffffff; color: #1e40af; }"
-        "#sessionDlBtn { background: transparent; border: 1px solid transparent; border-radius: 10px;"
-        " color: #475569; padding: 6px 10px; font-size: 12px; font-weight: 600; }"
-        "#sessionDlBtn:hover { background: #f1f5f9; border-color: #e2e8f0; color: #0f172a; }"
+        "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 0; }"
+        "#sessionIconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
         "#connBannerHost { background: #f1f5f9; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
@@ -1089,7 +1093,7 @@ void MainWindow::applyStyle()
         "#jumpBottomBtn { background: #2563eb; color: #f8fafc; border: none; border-radius: 16px;"
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
         "#jumpBottomBtn:hover { background: #1d4ed8; }"
-        "#composer { background: #ffffff; border-top: 1px solid #e2e8f0; }"
+        "#composer { background: #ffffff; border-top: 1px solid #eef2f7; }"
         "#chatDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 16px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
@@ -1108,7 +1112,7 @@ void MainWindow::applyStyle()
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
-        "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
+        "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
         "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 15px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
