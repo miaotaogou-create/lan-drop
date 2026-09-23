@@ -46,6 +46,7 @@ Settings Settings::defaults()
     s.nudgeEnabled = true;
     s.soundNotification = true;
     s.closeToTray = true;
+    s.alwaysOnTop = false;
     return s;
 }
 
@@ -140,6 +141,8 @@ Settings Settings::loadFromFile(const QString &path)
         s.soundNotification = o.value(QStringLiteral("soundNotification")).toBool();
     if (o.contains(QStringLiteral("closeToTray")))
         s.closeToTray = o.value(QStringLiteral("closeToTray")).toBool();
+    if (o.contains(QStringLiteral("alwaysOnTop")))
+        s.alwaysOnTop = o.value(QStringLiteral("alwaysOnTop")).toBool();
     s.soundFile = o.value(QStringLiteral("soundFile")).toString().trimmed();
     s.manualPeers = readManualPeers(o);
     if (o.contains(QStringLiteral("windowX")))
@@ -175,6 +178,7 @@ bool Settings::saveToFile(const QString &path) const
     o.insert(QStringLiteral("nudgeEnabled"), nudgeEnabled);
     o.insert(QStringLiteral("soundNotification"), soundNotification);
     o.insert(QStringLiteral("closeToTray"), closeToTray);
+    o.insert(QStringLiteral("alwaysOnTop"), alwaysOnTop);
     if (!soundFile.trimmed().isEmpty())
         o.insert(QStringLiteral("soundFile"), soundFile.trimmed());
     o.insert(QStringLiteral("manualPeers"), writeManualPeers(manualPeers));

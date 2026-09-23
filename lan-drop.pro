@@ -9,6 +9,9 @@ SOURCES += \
     src/discovery.cpp \
     src/httpserver.cpp \
     src/files.cpp \
+    src/fmtutil.cpp \
+    src/uiicons.cpp \
+    src/chatrender.cpp \
     src/qrcodegen.cpp \
     src/mainwindow.cpp \
     src/selfcheck.cpp
@@ -18,6 +21,10 @@ HEADERS += \
     src/discovery.h \
     src/httpserver.h \
     src/files.h \
+    src/fmtutil.h \
+    src/uiicons.h \
+    src/chatmsg.h \
+    src/chatrender.h \
     src/qrcodegen.hpp \
     src/mainwindow.h \
     src/selfcheck.h

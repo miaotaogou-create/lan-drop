@@ -1,6 +1,7 @@
 ﻿#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "chatmsg.h"
 #include "settings.h"
 
 #include <QHash>
@@ -13,6 +14,7 @@
 
 class Discovery;
 class HttpServer;
+class QAction;
 class QCloseEvent;
 class QFrame;
 class QLabel;
@@ -28,21 +30,6 @@ class QTextBrowser;
 class QTimer;
 class QUrl;
 class QWidget;
-
-struct ChatMsg {
-    enum Type { OutText = 0, InText, OutFile, InFile, System, Fail };
-    int type = OutText;
-    QString who;
-    QString face; // 头像取首字；空则用 who（发出侧 who=「我」时填本机设备名）
-    QString text;
-    QString path;
-    QStringList morePaths; // Fail：失败文件之外仍待重发的排队
-    qint64 size = 0;
-    qint64 rttMs = -1;
-    QString sha256;
-    QString time;
-    int progressPct = -1; // -1=完成/非传输；0..100=收发进行中
-};
 
 class MainWindow : public QMainWindow
 {
@@ -99,6 +86,7 @@ private slots:
     void flushChatHistory();
     void cancelUpload();
     void clearUploadQueue();
+    void toggleTraySound(bool on);
 
 private:
     void boot();
@@ -131,6 +119,7 @@ private:
     void setProgress(const QString &text);
     void setUploadProgressText(const QString &filename, int pct = -1);
     void setRecvProgressText(const QString &filename, int pct = -1);
+    void applyAlwaysOnTop();
     void noteBusyUpload(const QString &hint = QString());
     void maybeWarnOfflinePeer();
     bool currentPeerOnline() const;
@@ -224,16 +213,19 @@ private:
     qint64 m_uploadBytesMark = 0;
     qint64 m_uploadMsMark = 0;
     double m_uploadSpeedBps = 0;
+    qint64 m_uploadRemainBytes = -1;
     QString m_recvCurrentName;
     qint64 m_recvBytesMark = 0;
     qint64 m_recvMsMark = 0;
     double m_recvSpeedBps = 0;
+    qint64 m_recvRemainBytes = -1;
     bool m_pingBusy = false;
     QString m_pingKey;
     QString m_pingText;
     QPoint m_dragOrigin;
     bool m_dragging = false;
     QSystemTrayIcon *m_tray = 0;
+    QAction *m_traySoundAct = 0;
     bool m_forceQuit = false;
     bool m_trayHintShown = false;
     QFrame *m_trayToast = 0;

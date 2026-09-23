@@ -1,19 +1,22 @@
 ﻿#include "mainwindow.h"
 
+#include "chatrender.h"
 #include "discovery.h"
 #include "files.h"
+#include "fmtutil.h"
 #include "httpserver.h"
 #include "qrcodegen.hpp"
+#include "uiicons.h"
+
+#include <algorithm>
 
 #include <QApplication>
 #include <QAction>
-#include <QBuffer>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QCursor>
-#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
@@ -47,10 +50,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPainter>
-#include <QPainterPath>
 #include <QPlainTextEdit>
 #include <QProcess>
-#include <QtMath>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QGuiApplication>
@@ -78,779 +79,9 @@
 #include <mmsystem.h>
 #endif
 
-enum ChromeIcon {
-    IconSettings = 0,
-    IconMinimize,
-    IconMaximize,
-    IconRestore,
-    IconClose
-};
-
-static QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int logical = 16;
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(color, 1.6);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const QRectF r(2.5, 2.5, 11.0, 11.0);
-    switch (kind) {
-    case IconMinimize:
-        p.drawLine(QPointF(3.5, 8.0), QPointF(12.5, 8.0));
-        break;
-    case IconMaximize:
-        p.drawRect(QRectF(3.5, 3.5, 9.0, 9.0));
-        break;
-    case IconRestore:
-        p.drawRect(QRectF(5.0, 3.0, 7.5, 7.5));
-        p.fillRect(QRectF(3.0, 5.5, 7.5, 7.5), Qt::white);
-        p.drawRect(QRectF(3.0, 5.5, 7.5, 7.5));
-        break;
-    case IconClose:
-        p.drawLine(QPointF(4.0, 4.0), QPointF(12.0, 12.0));
-        p.drawLine(QPointF(12.0, 4.0), QPointF(4.0, 12.0));
-        break;
-    case IconSettings: {
-        p.setBrush(color);
-        p.setPen(Qt::NoPen);
-        p.drawEllipse(QPointF(8.0, 8.0), 2.2, 2.2);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-        p.drawEllipse(QPointF(8.0, 8.0), 4.6, 4.6);
-        for (int i = 0; i < 6; ++i) {
-            const qreal a = i * 3.14159265 / 3.0;
-            const qreal c = qCos(a);
-            const qreal s = qSin(a);
-            p.drawLine(QPointF(8.0 + c * 5.2, 8.0 + s * 5.2),
-                       QPointF(8.0 + c * 7.0, 8.0 + s * 7.0));
-        }
-        break;
-    }
-    }
-    return QIcon(pm);
-}
-
-static QPixmap makeGlobeBadge(int logical = 36)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#2563eb")));
-    p.drawRoundedRect(QRectF(0, 0, logical, logical), 8, 8);
-    QPen pen(Qt::white, 1.6);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const qreal pad = 8.0;
-    const QRectF box(pad, pad, logical - pad * 2, logical - pad * 2);
-    p.drawEllipse(box);
-    p.drawEllipse(QRectF(logical * 0.36, pad, logical * 0.28, logical - pad * 2));
-    p.drawLine(QPointF(pad + 1, logical * 0.40), QPointF(logical - pad - 1, logical * 0.40));
-    p.drawLine(QPointF(pad + 1, logical * 0.60), QPointF(logical - pad - 1, logical * 0.60));
-    return pm;
-}
-
-static QPixmap makeRadioLogo(int logical = 36)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#2563eb")));
-    p.drawRoundedRect(QRectF(0, 0, logical, logical), 10, 10);
-
-    p.setBrush(Qt::white);
-    p.drawEllipse(QPointF(logical / 2.0, logical / 2.0), 2.4, 2.4);
-
-    // Qt 弧：0°在时钟 3 点，逆时针。左右弧不得跨过 12/6 点，否则会像 Wi‑Fi 上下波纹。
-    QPen pen(Qt::white, 2.0);
-    pen.setCapStyle(Qt::RoundCap);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const QPointF c(logical / 2.0, logical / 2.0);
-    for (int i = 0; i < 2; ++i) {
-        const qreal r = 6.5 + i * 4.5;
-        const QRectF box(c.x() - r, c.y() - r, r * 2, r * 2);
-        p.drawArc(box, -50 * 16, 100 * 16);  // 右侧
-        p.drawArc(box, 130 * 16, 100 * 16);  // 左侧
-    }
-    return pm;
-}
-
-enum DeviceKind {
-    DevLaptop = 0,
-    DevPhone,
-    DevTablet
-};
-
-static QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
-
-static QString avatarInitial(const QString &name)
-{
-    for (int i = 0; i < name.size(); ++i) {
-        if (!name.at(i).isSpace())
-            return QString(name.at(i).toUpper());
-    }
-    return QStringLiteral("?");
-}
-
-static QColor avatarColorForName(const QString &name)
-{
-    static const char *kColors[] = {
-        "#f97316", "#2563eb", "#059669", "#7c3aed", "#db2777", "#0891b2", "#ca8a04"
-    };
-    const uint h = qHash(name.isEmpty() ? QStringLiteral("?") : name);
-    return QColor(QString::fromLatin1(kColors[h % 7]));
-}
-
-static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
-{
-    QPen pen(color, 1.4);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const qreal x = box.x();
-    const qreal y = box.y();
-    const qreal w = box.width();
-    const qreal h = box.height();
-    switch (kind) {
-    case DevPhone:
-        p.drawRoundedRect(QRectF(x + w * 0.28, y + h * 0.08, w * 0.44, h * 0.84), 1.5, 1.5);
-        p.drawLine(QPointF(x + w * 0.40, y + h * 0.78), QPointF(x + w * 0.60, y + h * 0.78));
-        break;
-    case DevTablet:
-        p.drawRoundedRect(QRectF(x + w * 0.12, y + h * 0.18, w * 0.76, h * 0.64), 1.8, 1.8);
-        p.drawLine(QPointF(x + w * 0.42, y + h * 0.72), QPointF(x + w * 0.58, y + h * 0.72));
-        break;
-    case DevLaptop:
-    default:
-        p.drawRoundedRect(QRectF(x + w * 0.14, y + h * 0.18, w * 0.72, h * 0.48), 1.2, 1.2);
-        p.drawLine(QPointF(x + w * 0.06, y + h * 0.72), QPointF(x + w * 0.94, y + h * 0.72));
-        p.drawLine(QPointF(x + w * 0.22, y + h * 0.72), QPointF(x + w * 0.30, y + h * 0.86));
-        p.drawLine(QPointF(x + w * 0.78, y + h * 0.72), QPointF(x + w * 0.70, y + h * 0.86));
-        p.drawLine(QPointF(x + w * 0.30, y + h * 0.86), QPointF(x + w * 0.70, y + h * 0.86));
-        break;
-    }
-}
-
-static QPixmap makeLaptopIcon(int logical = 16)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    paintDeviceGlyph(p, DevLaptop, QRectF(0, 0, logical, logical), QColor(QStringLiteral("#2563eb")));
-    return pm;
-}
-
-static QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setRenderHint(QPainter::TextAntialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(avatarColorForName(name));
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
-    QFont font = qApp->font();
-    font.setPixelSize(qMax(14, logical * 2 / 5));
-    font.setBold(true);
-    p.setFont(font);
-    p.setPen(Qt::white);
-    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, avatarInitial(name));
-    // 右下角设备类型小标（笔记本/手机/平板）
-    const int badge = qMax(14, logical * 14 / 44);
-    const QRectF badgeRect(logical - badge - 1.0, logical - badge - 1.0, badge, badge);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#dbeafe")));
-    p.drawEllipse(badgeRect);
-    DeviceKind kind = DevLaptop;
-    const int k = deviceKindFromOs(osName);
-    if (k == 1)
-        kind = DevPhone;
-    else if (k == 2)
-        kind = DevTablet;
-    paintDeviceGlyph(p, kind, badgeRect.adjusted(2.5, 2.5, -2.5, -2.5),
-                     QColor(QStringLiteral("#2563eb")));
-    return pm;
-}
-
-static QPixmap renderSvgIcon(const QString &resPath, int logical)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QSvgRenderer renderer(resPath);
-    if (!renderer.isValid())
-        return pm;
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    renderer.render(&p, QRectF(0, 0, logical, logical));
-    return pm;
-}
-
-static QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName)
-{
-    QPushButton *b = new QPushButton(text);
-    b->setObjectName(objectName);
-    b->setCursor(Qt::PointingHandCursor);
-    b->setFlat(true);
-    b->setFocusPolicy(Qt::NoFocus);
-    b->setIcon(QIcon(renderSvgIcon(svgRes, 16)));
-    b->setIconSize(QSize(16, 16));
-    return b;
-}
-
-static QPixmap makeStatusDot(bool ok, int logical = 7)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(ok ? QColor(QStringLiteral("#22c55e")) : QColor(QStringLiteral("#f59e0b")));
-    p.drawEllipse(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0));
-    return pm;
-}
-
-static QPixmap makeChatBubbleIcon(int logical = 14)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    p.drawRoundedRect(QRectF(1.5, 1.5, logical - 3.5, logical - 5.5), 2.5, 2.5);
-    p.drawLine(QPointF(4.0, logical - 3.0), QPointF(6.5, logical - 5.5));
-    return pm;
-}
-
-static QPixmap makeFileDocIcon(int logical = 14)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const QRectF body(3.0, 1.5, logical - 6.0, logical - 3.0);
-    p.drawRoundedRect(body, 1.5, 1.5);
-    p.drawLine(QPointF(5.5, 5.0), QPointF(logical - 5.5, 5.0));
-    p.drawLine(QPointF(5.5, 8.0), QPointF(logical - 5.5, 8.0));
-    p.drawLine(QPointF(5.5, 11.0), QPointF(logical - 7.0, 11.0));
-    return pm;
-}
-
-static QPixmap makeCheckCircleIcon(int logical = 14)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#059669")));
-    p.drawEllipse(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0));
-    QPen pen(Qt::white, 1.6);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    QPainterPath path;
-    path.moveTo(3.5, logical * 0.52);
-    path.lineTo(5.8, logical * 0.70);
-    path.lineTo(logical - 3.2, logical * 0.32);
-    p.drawPath(path);
-    return pm;
-}
-
-static QPixmap loadSvgPixmap(const QString &path, int logical)
-{
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logical * dpr, logical * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QSvgRenderer r(path);
-    if (r.isValid()) {
-        QPainter p(&pm);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        r.render(&p, QRectF(0, 0, logical, logical));
-    }
-    return pm;
-}
-
 static QString nowClock()
 {
     return QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
-}
-
-static QString htmlEsc(const QString &s)
-{
-    return s.toHtmlEscaped();
-}
-
-static QString humanBytesChat(qint64 n)
-{
-    if (n < 1024)
-        return QString::number(n) + QStringLiteral(" B");
-    if (n < 1024 * 1024)
-        return QString::number(n / 1024.0, 'f', 1) + QStringLiteral(" KB");
-    return QString::number(n / 1024.0 / 1024.0, 'f', 1) + QStringLiteral(" MB");
-}
-
-static QString fileSha256Short(const QString &path)
-{
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly))
-        return QString();
-    QCryptographicHash h(QCryptographicHash::Sha256);
-    if (!h.addData(&f))
-        return QString();
-    const QByteArray hex = h.result().toHex();
-    return QString::fromLatin1(hex.left(16)) + QStringLiteral("...");
-}
-
-// Qt 富文本几乎不渲染 table 的 border-radius，头像/气泡改绘成 PNG 再嵌入。
-static QString pixmapToImgHtml(const QPixmap &pm)
-{
-    QByteArray bytes;
-    QBuffer buf(&bytes);
-    buf.open(QIODevice::WriteOnly);
-    pm.save(&buf, "PNG");
-    const qreal dpr = pm.devicePixelRatio();
-    const int w = qMax(1, qRound(pm.width() / dpr));
-    const int h = qMax(1, qRound(pm.height() / dpr));
-    return QStringLiteral("<img src=\"data:image/png;base64,%1\" width=\"%2\" height=\"%3\"/>")
-        .arg(QString::fromLatin1(bytes.toBase64()))
-        .arg(w)
-        .arg(h);
-}
-
-static QString letterAvatarHtml(const QString &name, const QString &bg)
-{
-    const QString ch = avatarInitial(name);
-    const int logical = 40;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logical * dpr, logical * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setRenderHint(QPainter::TextAntialiasing, true);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(bg));
-    // 参考图：大号圆角方头像（非直角小块）
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
-    QFont font = qApp->font();
-    font.setPixelSize(18);
-    font.setBold(true);
-    p.setFont(font);
-    p.setPen(Qt::white);
-    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, ch);
-    return pixmapToImgHtml(pm);
-}
-
-static QString faceName(const ChatMsg &m)
-{
-    return m.face.trimmed().isEmpty() ? m.who : m.face;
-}
-
-static QString textBubbleImgHtml(const QString &text, bool out)
-{
-    const int maxContentW = 340;
-    const int padX = 14;
-    const int padY = 10;
-    const qreal radius = 12.0;
-    QFont font = qApp->font();
-    font.setPixelSize(14);
-    QFontMetrics fm(font);
-    const QRect textBound = fm.boundingRect(QRect(0, 0, maxContentW, 10000),
-                                           Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-                                           text);
-    const int contentW = qMax(24, qMin(maxContentW, textBound.width()));
-    const int contentH = qMax(fm.height(), textBound.height());
-    const int logicalW = contentW + padX * 2;
-    const int logicalH = contentH + padY * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setRenderHint(QPainter::TextAntialiasing, true);
-    const QRectF box(0.5, 0.5, logicalW - 1.0, logicalH - 1.0);
-    if (out) {
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(QStringLiteral("#2563eb")));
-        p.drawRoundedRect(box, radius, radius);
-        p.setPen(Qt::white);
-    } else {
-        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
-        p.setBrush(Qt::white);
-        p.drawRoundedRect(box, radius, radius);
-        p.setPen(QColor(QStringLiteral("#0f172a")));
-    }
-    p.setFont(font);
-    p.drawText(QRect(padX, padY, contentW, contentH),
-               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-               text);
-    return pixmapToImgHtml(pm);
-}
-
-static bool splitCodeFence(const QString &text, QString *lang, QString *body)
-{
-    const QString t = text;
-    if (!t.startsWith(QStringLiteral("```")))
-        return false;
-    int nl = t.indexOf(QLatin1Char('\n'));
-    if (nl < 0)
-        return false;
-    QString head = t.mid(3, nl - 3).trimmed();
-    if (head.isEmpty())
-        head = QStringLiteral("text");
-    int end = t.lastIndexOf(QStringLiteral("```"));
-    if (end <= nl)
-        return false;
-    *lang = head;
-    *body = t.mid(nl + 1, end - nl - 1);
-    if (body->endsWith(QLatin1Char('\n')))
-        body->chop(1);
-    return true;
-}
-
-static QString renderCodeBlock(const QString &lang, const QString &code)
-{
-    const QString href = QStringLiteral("landrop://copy/")
-        + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-    return QStringLiteral(
-               "<table cellspacing=\"0\" cellpadding=\"8\" bgcolor=\"#1e293b\" width=\"420\">"
-               "<tr><td>"
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-               "<td><font color=\"#94a3b8\" size=\"2\">%1</font></td>"
-               "<td align=\"right\"><a href=\"%2\" style=\"color:#93c5fd;text-decoration:none;\">"
-               "<font color=\"#93c5fd\" size=\"2\">%4</font></a></td>"
-               "</tr></table>"
-               "<pre style=\"margin:6px 0 0 0;\"><font color=\"#e2e8f0\" face=\"Consolas, Courier New, monospace\" size=\"2\">%3</font></pre>"
-               "</td></tr></table>")
-        .arg(htmlEsc(lang), href, htmlEsc(code), QString::fromUtf8(u8"复制"));
-}
-
-static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
-{
-    QString mid = htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time);
-    if (failed)
-        return mid + QString::fromUtf8(u8" <font color=\"#dc2626\" size=\"2\">发送失败</font>");
-    if (rttMs >= 0) {
-        const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
-        mid += QString::fromUtf8(u8" <font color=\"#16a34a\" size=\"2\">✓✓ 已送达 - %1ms</font>").arg(ms);
-    }
-    return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
-}
-
-// 参考图：头像与名字顶对齐；气泡在名字下方、相对头像斜对角偏下（勿把头像贴气泡底边）。
-static QString renderMsgRow(bool out, const QString &meta, const QString &body, const QString &avatarHtml)
-{
-    if (out) {
-        return QStringLiteral(
-                   "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-                   "<td></td>"
-                   "<td align=\"right\" valign=\"top\">"
-                   "<div align=\"right\">%1</div>"
-                   "<div style=\"margin-top:6px;\" align=\"right\">%2</div>"
-                   "</td>"
-                   "<td width=\"48\" valign=\"top\">%3</td>"
-                   "</tr></table>")
-            .arg(meta, body, avatarHtml);
-    }
-    return QStringLiteral(
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"4\"><tr>"
-               "<td width=\"48\" valign=\"top\">%1</td>"
-               "<td align=\"left\" valign=\"top\">"
-               "<div>%2</div>"
-               "<div style=\"margin-top:6px;\">%3</div>"
-               "</td>"
-               "<td></td>"
-               "</tr></table>")
-        .arg(avatarHtml, meta, body);
-}
-
-static QString renderTextBubble(const ChatMsg &m)
-{
-    QString lang;
-    QString code;
-    const bool out = (m.type == ChatMsg::OutText);
-    const QString avatar = letterAvatarHtml(
-        faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
-    const QString head = metaLine(m.who, m.time, out ? m.rttMs : -1, false);
-    if (splitCodeFence(m.text, &lang, &code))
-        return renderMsgRow(out, head, renderCodeBlock(lang, code), avatar);
-    QString body = textBubbleImgHtml(m.text, out);
-    if (!m.text.isEmpty()) {
-        const QString href = QStringLiteral("landrop://copy/")
-            + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-        body += QString::fromUtf8(
-                    u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#64748b\" size=\"1\">复制</font></a>")
-                    .arg(href);
-    }
-    return renderMsgRow(out, head, body, avatar);
-}
-
-static QString renderFileCard(const ChatMsg &m)
-{
-    const bool out = (m.type == ChatMsg::OutFile);
-    const bool pending = (m.type == ChatMsg::OutFile || m.type == ChatMsg::InFile) && m.progressPct >= 0;
-    const QString size = humanBytesChat(m.size);
-    QString sha = m.sha256;
-    if (!pending && sha.isEmpty() && !m.path.isEmpty())
-        sha = fileSha256Short(m.path);
-    const QString pathB64 = (!pending && !m.path.isEmpty())
-        ? QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding))
-        : QString();
-    QString actions;
-    if (!pathB64.isEmpty()) {
-        const QString openHref = QStringLiteral("landrop://open/") + pathB64;
-        const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
-        const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
-        if (out) {
-            actions = QString::fromUtf8(
-                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>")
-                          .arg(openHref, revealHref, copyPathHref);
-        } else {
-            actions = QString::fromUtf8(
-                          u8"<a href=\"%1\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#2563eb\" size=\"2\">打开文件</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%2\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">打开所在目录</font></a>"
-                          u8"&nbsp;&nbsp;"
-                          u8"<a href=\"%3\" style=\"text-decoration:none;\">"
-                          u8"<font color=\"#64748b\" size=\"2\">复制路径</font></a>"
-                          u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"1\">局域网直传 · 已存入下载目录</font>")
-                          .arg(openHref, revealHref, copyPathHref);
-        }
-    } else if (pending) {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
-    } else {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"2\">局域网直传</font>");
-    }
-    const int pct = pending ? qBound(0, 100, m.progressPct) : 100;
-    const int rest = 100 - pct;
-    QString bar;
-    if (pct <= 0) {
-        bar = QString::fromUtf8(
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#e2e8f0\">"
-            u8"<tr><td height=\"6\"></td></tr></table>");
-    } else if (rest <= 0) {
-        bar = QString::fromUtf8(
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" bgcolor=\"#2563eb\">"
-            u8"<tr><td height=\"6\"></td></tr></table>");
-    } else {
-        bar = QString::fromUtf8(
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-                 u8"<td width=\"%1%\" bgcolor=\"#2563eb\">"
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"6\"></td></tr></table></td>"
-                 u8"<td width=\"%2%\" bgcolor=\"#e2e8f0\">"
-                 u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">"
-                 u8"<tr><td height=\"6\"></td></tr></table></td>"
-                 u8"</tr></table>")
-                 .arg(pct)
-                 .arg(rest);
-    }
-    const QString status = pending
-        ? (out ? QString::fromUtf8(u8"<font color=\"#2563eb\" size=\"2\">发送中 %1%</font>").arg(pct)
-               : QString::fromUtf8(u8"<font color=\"#ea580c\" size=\"2\">接收中 %1%</font>").arg(pct))
-        : QString::fromUtf8(u8"<font color=\"#16a34a\" size=\"2\">✓✓ 传输完成 (已落盘)</font>");
-    const QString shaLine = (!pending && !sha.isEmpty())
-        ? QStringLiteral("<br/><font color=\"#94a3b8\" size=\"1\">SHA256: %1</font>").arg(htmlEsc(sha))
-        : QString();
-    const QString card =
-        QString::fromUtf8(
-            u8"<table cellspacing=\"0\" cellpadding=\"10\" bgcolor=\"#ffffff\" width=\"360\" "
-            u8"style=\"border:1px solid #e2e8f0;\">"
-            u8"<tr><td>"
-            u8"<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
-            u8"<td width=\"36\" valign=\"top\"><table cellpadding=\"4\" bgcolor=\"#ede9fe\">"
-            u8"<tr><td><font color=\"#7c3aed\" size=\"2\"><b>FILE</b></font></td></tr></table></td>"
-            u8"<td>"
-            u8"<font color=\"#0f172a\" size=\"3\"><b>%1</b></font><br/>"
-            u8"<font color=\"#94a3b8\" size=\"2\">%2</font>"
-            u8"</td></tr></table>"
-            u8"%3"
-            u8"%4"
-            u8"%5"
-            u8"<br/>%6"
-            u8"</td></tr></table>")
-            .arg(htmlEsc(m.text), size, bar, status, shaLine, actions);
-    const QString head = metaLine(m.who, m.time, pending ? -1 : m.rttMs, false);
-    const QString avatar = letterAvatarHtml(
-        faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
-    return renderMsgRow(out, head, card, avatar);
-}
-
-static QString renderSystem(const ChatMsg &m)
-{
-    const bool fail = (m.type == ChatMsg::Fail);
-    const QString bg = fail ? QStringLiteral("#fef2f2") : QStringLiteral("#fffbeb");
-    const QString fg = fail ? QStringLiteral("#b91c1c") : QStringLiteral("#b45309");
-    QString body = htmlEsc(m.text);
-    if (fail && !m.path.isEmpty()) {
-        const QString href = QStringLiteral("landrop://retry/")
-            + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-        body += QString::fromUtf8(
-                    u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                    u8"<font color=\"#2563eb\" size=\"2\">重试</font></a>")
-                    .arg(href);
-        if (!m.morePaths.isEmpty()) {
-            QStringList all;
-            all << m.path;
-            for (int i = 0; i < m.morePaths.size(); ++i) {
-                if (!m.morePaths.at(i).isEmpty() && !all.contains(m.morePaths.at(i)))
-                    all.append(m.morePaths.at(i));
-            }
-            const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
-            const QString batchHref = QStringLiteral("landrop://retrybatch/")
-                + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
-            body += QString::fromUtf8(
-                        u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                        u8"<font color=\"#2563eb\" size=\"2\">重发剩余 %2</font></a>")
-                        .arg(batchHref)
-                        .arg(all.size());
-        }
-    }
-    return QStringLiteral(
-               "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
-               "<table cellspacing=\"0\" cellpadding=\"6\" bgcolor=\"%1\">"
-               "<tr><td><font color=\"%2\" size=\"2\">%3</font></td></tr></table>"
-               "</td></tr></table>")
-        .arg(bg, fg, body);
-}
-
-static QString renderChatHtml(const QVector<ChatMsg> &msgs)
-{
-    QString html = QStringLiteral(
-        "<html><body style=\"margin:0;padding:8px;background:#f1f5f9;\">");
-    for (int i = 0; i < msgs.size(); ++i) {
-        const ChatMsg &m = msgs.at(i);
-        html += QStringLiteral("<div style=\"margin:10px 0;\">");
-        switch (m.type) {
-        case ChatMsg::OutText:
-        case ChatMsg::InText:
-            html += renderTextBubble(m);
-            break;
-        case ChatMsg::OutFile:
-        case ChatMsg::InFile:
-            html += renderFileCard(m);
-            break;
-        case ChatMsg::System:
-        case ChatMsg::Fail:
-            html += renderSystem(m);
-            break;
-        }
-        html += QStringLiteral("</div>");
-    }
-    html += QStringLiteral("</body></html>");
-    return html;
-}
-
-static int countFiles(const QVector<ChatMsg> &msgs)
-{
-    int n = 0;
-    for (int i = 0; i < msgs.size(); ++i) {
-        if (msgs.at(i).type == ChatMsg::InFile || msgs.at(i).type == ChatMsg::OutFile)
-            ++n;
-    }
-    return n;
-}
-
-static QString renderFilesHtml(const QVector<ChatMsg> &msgs)
-{
-    QString html = QStringLiteral(
-        "<html><body style=\"margin:0;padding:8px;background:#f8fafc;\">");
-    int n = 0;
-    for (int i = 0; i < msgs.size(); ++i) {
-        const ChatMsg &m = msgs.at(i);
-        if (m.type != ChatMsg::InFile && m.type != ChatMsg::OutFile)
-            continue;
-        html += QStringLiteral("<div style=\"margin:10px 0;\">");
-        html += renderFileCard(m);
-        html += QStringLiteral("</div>");
-        ++n;
-    }
-    if (n == 0) {
-        html += QStringLiteral(
-            "<p align=\"center\"><font color=\"#94a3b8\">还没有与该对端的文件传输</font></p>");
-    }
-    html += QStringLiteral("</body></html>");
-    return html;
-}
-
-static QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip)
-{
-    QPushButton *b = new QPushButton;
-    b->setObjectName(objectName);
-    b->setFixedSize(40, 32);
-    b->setFocusPolicy(Qt::NoFocus);
-    b->setFlat(true);
-    b->setCursor(Qt::ArrowCursor);
-    b->setToolTip(tip);
-    b->setIcon(makeChromeIcon(kind, QColor(QStringLiteral("#475569"))));
-    b->setIconSize(QSize(16, 16));
-    return b;
 }
 
 // 网页共享 / 聊天区共用：本地文件与文件夹顶层文件
@@ -1730,16 +961,40 @@ void MainWindow::setupTray()
     QMenu *menu = new QMenu(this);
     QAction *showAct = menu->addAction(QString::fromUtf8(u8"显示主窗口"));
     QAction *dlAct = menu->addAction(QString::fromUtf8(u8"打开下载目录"));
+    m_traySoundAct = menu->addAction(QString::fromUtf8(u8"通知声"));
+    m_traySoundAct->setCheckable(true);
+    m_traySoundAct->setChecked(m_settings.soundNotification);
     menu->addSeparator();
     QAction *quitAct = menu->addAction(QString::fromUtf8(u8"退出局域快传"));
     connect(showAct, SIGNAL(triggered()), this, SLOT(showFromTray()));
     connect(dlAct, SIGNAL(triggered()), this, SLOT(openDownloadDir()));
+    connect(m_traySoundAct, SIGNAL(toggled(bool)), this, SLOT(toggleTraySound(bool)));
     connect(quitAct, SIGNAL(triggered()), this, SLOT(quitApp()));
     m_tray->setContextMenu(menu);
     connect(m_tray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
             this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
     connect(m_tray, SIGNAL(messageClicked()), this, SLOT(showFromTrayNotify()));
     m_tray->show();
+}
+
+void MainWindow::toggleTraySound(bool on)
+{
+    m_settings.soundNotification = on;
+    m_settings.save();
+}
+
+void MainWindow::applyAlwaysOnTop()
+{
+    Qt::WindowFlags f = windowFlags();
+    const Qt::WindowFlags want = m_settings.alwaysOnTop
+        ? (f | Qt::WindowStaysOnTopHint)
+        : (f & ~Qt::WindowStaysOnTopHint);
+    if (want == f)
+        return;
+    const bool vis = isVisible();
+    setWindowFlags(want);
+    if (vis)
+        show();
 }
 
 void MainWindow::showFromTray()
@@ -1915,15 +1170,6 @@ static QPixmap makeQrPixmap(const QString &text, int logical)
     p.setRenderHint(QPainter::SmoothPixmapTransform, false);
     p.drawImage(QRect(quiet, quiet, logical - quiet * 2, logical - quiet * 2), raw);
     return pm;
-}
-
-static QString humanBytes(qint64 n)
-{
-    if (n < 1024)
-        return QString::number(n) + QStringLiteral(" B");
-    if (n < 1024 * 1024)
-        return QString::number(n / 1024.0, 'f', 1) + QStringLiteral(" KB");
-    return QString::number(n / 1024.0 / 1024.0, 'f', 1) + QStringLiteral(" MB");
 }
 
 void MainWindow::openShare()
@@ -2365,6 +1611,12 @@ void MainWindow::boot()
     updateChrome();
     applyWindowGeometry();
     applySideWidth();
+    applyAlwaysOnTop();
+    if (m_traySoundAct) {
+        const bool blocked = m_traySoundAct->blockSignals(true);
+        m_traySoundAct->setChecked(m_settings.soundNotification);
+        m_traySoundAct->blockSignals(blocked);
+    }
 }
 
 void MainWindow::persistWindowGeometry()
@@ -2810,7 +2062,18 @@ void MainWindow::refreshPeers()
     const QString filter = m_search ? m_search->text() : QString();
     m_list->blockSignals(true);
     m_list->clear();
-    const QList<Peer> list = m_disc->peers();
+    QList<Peer> list = m_disc->peers();
+    std::stable_sort(list.begin(), list.end(), [this](const Peer &a, const Peer &b) {
+        const bool ao = a.online();
+        const bool bo = b.online();
+        if (ao != bo)
+            return ao && !bo;
+        const int au = m_unread.value(a.key(), 0);
+        const int bu = m_unread.value(b.key(), 0);
+        if (au != bu)
+            return au > bu;
+        return QString::localeAwareCompare(a.label().toLower(), b.label().toLower()) < 0;
+    });
     int row = -1;
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
@@ -3000,6 +2263,9 @@ void MainWindow::setUploadProgressText(const QString &filename, int pct)
         : QString::fromUtf8(u8"正在发送 %1  %2%").arg(filename).arg(pct);
     if (m_uploadSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_uploadSpeedBps)));
+    const QString eta = formatEta(m_uploadRemainBytes, m_uploadSpeedBps);
+    if (!eta.isEmpty())
+        text += QStringLiteral(" · ") + eta;
     if (!m_uploadQueue.isEmpty())
         text += QString::fromUtf8(u8" · 排队还剩 %1 个").arg(m_uploadQueue.size());
     setProgress(text);
@@ -3014,6 +2280,9 @@ void MainWindow::setRecvProgressText(const QString &filename, int pct)
         : QString::fromUtf8(u8"正在接收 %1  %2%").arg(filename).arg(pct);
     if (m_recvSpeedBps >= 1024)
         text += QString::fromUtf8(u8" · %1/s").arg(humanBytesChat(qint64(m_recvSpeedBps)));
+    const QString eta = formatEta(m_recvRemainBytes, m_recvSpeedBps);
+    if (!eta.isEmpty())
+        text += QStringLiteral(" · ") + eta;
     setProgress(text);
 }
 
@@ -3403,6 +2672,7 @@ void MainWindow::onFileReceiving(const QString &ip, const QString &name, const Q
     m_recvBytesMark = 0;
     m_recvMsMark = 0;
     m_recvSpeedBps = 0;
+    m_recvRemainBytes = expectBytes > 0 ? expectBytes : -1;
     setRecvProgressText(name, 0);
 }
 
@@ -3435,6 +2705,8 @@ void MainWindow::onFileProgress(const QString &ip, const QString &path, qint64 r
         m_recvBytesMark = received;
         m_recvMsMark = now;
     }
+    if (expectBytes > 0)
+        m_recvRemainBytes = qMax(qint64(0), expectBytes - received);
     m_recvCurrentName = m.text;
     setRecvProgressText(m.text, pct);
     if (m.progressPct == pct)
@@ -3488,6 +2760,7 @@ void MainWindow::onFile(const QString &ip, const QString &name, const QString &p
     }
     m_recvCurrentName.clear();
     m_recvSpeedBps = 0;
+    m_recvRemainBytes = -1;
     if (!m_uploading)
         setProgress(QString());
     playNotifySound();
@@ -3521,6 +2794,7 @@ void MainWindow::onFileReceiveFailed(const QString &ip, const QString &path)
     appendMsg(key, m);
     m_recvCurrentName.clear();
     m_recvSpeedBps = 0;
+    m_recvRemainBytes = -1;
     if (!m_uploading)
         setProgress(QString());
     playNotifySound();
@@ -3653,11 +2927,13 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
     m_uploadBytesMark = 0;
     m_uploadMsMark = 0;
     m_uploadSpeedBps = 0;
+    m_uploadRemainBytes = fsize;
     setUploadProgressText(filename);
     connect(rep, &QNetworkReply::uploadProgress, this, [this, key, msgIndex, filename](qint64 sent, qint64 total) {
         if (total <= 0)
             return;
         const int pct = int(sent * 100 / total);
+        m_uploadRemainBytes = qMax(qint64(0), total - sent);
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         if (m_uploadMsMark > 0 && now > m_uploadMsMark) {
             const qint64 dt = now - m_uploadMsMark;
@@ -3685,6 +2961,7 @@ void MainWindow::startUpload(const QString &path, bool fromQueue)
         const qint64 ms = clock->elapsed();
         delete clock;
         m_uploadSpeedBps = 0;
+        m_uploadRemainBytes = -1;
         if (m_uploadCanceling) {
             m_uploadCanceling = false;
             dropUploadMsg(key, msgIndex);
@@ -4483,7 +3760,7 @@ void MainWindow::editSettings()
     titleCol->setSpacing(2);
     QLabel *title = new QLabel(QString::fromUtf8(u8"局域快传设置"));
     title->setObjectName(QStringLiteral("settingsTitle"));
-    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载目录、通知与关闭行为"));
+    QLabel *sub = new QLabel(QString::fromUtf8(u8"设备名称、下载目录、通知、关闭与置顶"));
     sub->setObjectName(QStringLiteral("settingsSub"));
     titleCol->addWidget(title);
     titleCol->addWidget(sub);
@@ -4602,12 +3879,16 @@ void MainWindow::editSettings()
     const QPair<QWidget *, QCheckBox *> trayPair =
         switchRow(QString::fromUtf8(u8"关闭窗口时最小化到托盘（后台继续收文件）"),
                   m_settings.closeToTray);
+    const QPair<QWidget *, QCheckBox *> topPair =
+        switchRow(QString::fromUtf8(u8"窗口置顶"), m_settings.alwaysOnTop);
     QCheckBox *nudgeBox = nudgePair.second;
     QCheckBox *soundBox = soundPair.second;
     QCheckBox *trayBox = trayPair.second;
+    QCheckBox *topBox = topPair.second;
     bodyLay->addWidget(nudgePair.first);
     bodyLay->addWidget(soundPair.first);
     bodyLay->addWidget(trayPair.first);
+    bodyLay->addWidget(topPair.first);
 
     QWidget *soundExtra = new QWidget;
     QVBoxLayout *soundExtraLay = new QVBoxLayout(soundExtra);
@@ -4699,12 +3980,19 @@ void MainWindow::editSettings()
         m_settings.nudgeEnabled = nudgeBox->isChecked();
         m_settings.soundNotification = soundBox->isChecked();
         m_settings.closeToTray = trayBox->isChecked();
+        m_settings.alwaysOnTop = topBox->isChecked();
         m_settings.soundFile = soundPath->text().trimmed();
         if (!m_settings.save()) {
             QMessageBox::warning(&dlg, QString::fromUtf8(u8"局域快传"),
                                  QString::fromUtf8(u8"保存设置失败"));
             return;
         }
+        if (m_traySoundAct) {
+            const bool blocked = m_traySoundAct->blockSignals(true);
+            m_traySoundAct->setChecked(m_settings.soundNotification);
+            m_traySoundAct->blockSignals(blocked);
+        }
+        applyAlwaysOnTop();
         boot();
         dlg.accept();
     });

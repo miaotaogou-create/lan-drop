@@ -24,6 +24,7 @@ struct Settings {
     bool nudgeEnabled = true;
     bool soundNotification = true; // 收文字/文件、本机发文件完成时播提示音；关则静音
     bool closeToTray = true; // 关窗进托盘；false=关窗退出
+    bool alwaysOnTop = false; // 主窗口置顶
     QString soundFile; // 自定义 wav；空=系统提示音
     QList<ManualPeerEntry> manualPeers;
     // 窗口几何；windowW/H≤0 表示未记忆，启动用默认尺寸

@@ -2,6 +2,7 @@
 
 #include "files.h"
 #include "discovery.h"
+#include "fmtutil.h"
 #include "mainwindow.h"
 #include "qrcodegen.hpp"
 #include "settings.h"
@@ -308,6 +309,24 @@ int runSelfCheck()
             return fail("removeManual clear");
         if (!Settings::loadFromFile(path).manualPeers.isEmpty())
             return fail("removeManual persist");
+        QFile::remove(path);
+        QDir().rmdir(tmpDir);
+    }
+    // formatEta：过慢不估；稳定速率出「约 N 秒」
+    if (!formatEta(1024 * 1024, 100).isEmpty())
+        return fail("eta slow");
+    if (formatEta(200 * 1024, 50 * 1024) != QString::fromUtf8(u8"约 4 秒"))
+        return fail("eta sec");
+    {
+        const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-aot-check"));
+        QDir().mkpath(tmpDir);
+        const QString path = QDir(tmpDir).filePath(QStringLiteral("settings.json"));
+        Settings s = Settings::defaults();
+        s.alwaysOnTop = true;
+        if (!s.saveToFile(path))
+            return fail("alwaysOnTop save");
+        if (!Settings::loadFromFile(path).alwaysOnTop)
+            return fail("alwaysOnTop load");
         QFile::remove(path);
         QDir().rmdir(tmpDir);
     }
