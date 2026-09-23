@@ -719,6 +719,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-141 搜索快捷键与列表拖放遮罩
+- 对应验收：S1–S3（`docs/requirements/20260922-search-hint-drop-list.md`）
+- 步骤：看搜索占位；悬停文件卡复制路径；向侧栏设备列表拖文件
+- 期望：占位含 Ctrl+F；悬停有提示；侧栏出现「拖到具体设备上…」遮罩
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

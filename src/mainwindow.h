@@ -104,6 +104,7 @@ private:
     void setupChatDrop();
     void setupPeerListDrop();
     void hideToTray();
+    void setListDropHint(bool on);
     void setChatDropHint(bool on);
     void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
     void handleDroppedUrls(const QList<QUrl> &urls);
@@ -216,6 +217,7 @@ private:
     QWidget *m_inputShell = 0;
     QWidget *m_chatPage = 0;
     QFrame *m_chatDropHint = 0;
+    QFrame *m_listDropHint = 0;
     QLabel *m_chatDropHintIcon = 0;
     QLabel *m_chatDropHintLabel = 0;
     QLabel *m_chatDropHintSub = 0;

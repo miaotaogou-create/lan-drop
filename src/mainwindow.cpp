@@ -241,6 +241,7 @@ public:
     std::function<void(const QStringList &, bool fromFolder)> onFiles;
     std::function<void(const QList<QUrl> &)> onUrls;
     std::function<void()> onMiss;
+    std::function<void(bool)> onActive;
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override
@@ -252,6 +253,9 @@ protected:
             QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
             if (de->mimeData() && de->mimeData()->hasUrls()) {
                 de->acceptProposedAction();
+                ++m_depth;
+                if (m_depth == 1 && onActive)
+                    onActive(true);
                 return true;
             }
         }
@@ -267,8 +271,17 @@ protected:
                 return true;
             }
         }
+        if (event->type() == QEvent::DragLeave) {
+            m_depth = qMax(0, m_depth - 1);
+            if (m_depth == 0 && onActive)
+                onActive(false);
+            return false;
+        }
         if (event->type() == QEvent::Drop) {
             QDropEvent *de = static_cast<QDropEvent *>(event);
+            m_depth = 0;
+            if (onActive)
+                onActive(false);
             const QPoint pos = (watched == m_list->viewport())
                 ? de->pos()
                 : m_list->viewport()->mapFrom(m_list, de->pos());
@@ -298,6 +311,7 @@ protected:
 
 private:
     QListWidget *m_list = 0;
+    int m_depth = 0;
 };
 
 // 弹窗/空卡浮起阴影（与 #emptyCard 参数一致）
@@ -537,7 +551,7 @@ void MainWindow::buildUi()
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
-    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…"));
+    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…（Ctrl+F）"));
     m_search->setClearButtonEnabled(true);
     m_search->installEventFilter(this);
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
@@ -563,7 +577,27 @@ void MainWindow::buildUi()
 
     sideLay->addLayout(sideHead);
     sideLay->addWidget(m_search);
-    sideLay->addWidget(m_list, 1);
+    QWidget *listHost = new QWidget;
+    listHost->setObjectName(QStringLiteral("peerListHost"));
+    QVBoxLayout *listHostLay = new QVBoxLayout(listHost);
+    listHostLay->setContentsMargins(0, 0, 0, 0);
+    listHostLay->setSpacing(0);
+    listHostLay->addWidget(m_list, 1);
+    m_listDropHint = new QFrame(listHost);
+    m_listDropHint->setObjectName(QStringLiteral("listDropHint"));
+    m_listDropHint->setAttribute(Qt::WA_StyledBackground, true);
+    m_listDropHint->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_listDropHint->hide();
+    QVBoxLayout *listDropLay = new QVBoxLayout(m_listDropHint);
+    listDropLay->setContentsMargins(16, 16, 16, 16);
+    QLabel *listDropLab = new QLabel(QString::fromUtf8(u8"拖到具体设备上松手发送"));
+    listDropLab->setObjectName(QStringLiteral("listDropHintLabel"));
+    listDropLab->setAlignment(Qt::AlignCenter);
+    listDropLab->setWordWrap(true);
+    listDropLay->addStretch(1);
+    listDropLay->addWidget(listDropLab, 0, Qt::AlignCenter);
+    listDropLay->addStretch(1);
+    sideLay->addWidget(listHost, 1);
 
     QWidget *right = new QWidget;
     right->setObjectName(QStringLiteral("right"));
@@ -997,6 +1031,9 @@ void MainWindow::applyStyle()
         " color: #0f172a; selection-background-color: #bfdbfe; }"
         "#search:focus { background: #ffffff; border: 1px solid #3b82f6; }"
         "#peerList { background: transparent; outline: none; }"
+        "#peerListHost { background: transparent; }"
+        "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
+        "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#peerList::item { background: transparent; border: 1px solid transparent;"
         " border-left: 3px solid transparent; border-radius: 12px;"
         " padding: 8px 10px; margin: 3px 4px; color: #0f172a; }"
@@ -3071,6 +3108,8 @@ void MainWindow::onChatLinkHovered(const QUrl &url)
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制路径"), m_chat);
     else if (url.host() == QLatin1String("open"))
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击打开"), m_chat);
+    else if (url.host() == QLatin1String("reveal"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"打开所在目录"), m_chat);
     else
         QToolTip::hideText();
 }
@@ -3775,10 +3814,24 @@ void MainWindow::setupPeerListDrop()
     filter->onMiss = [this]() {
         setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
     };
+    filter->onActive = [this](bool on) { setListDropHint(on); };
     m_list->setAcceptDrops(true);
     m_list->viewport()->setAcceptDrops(true);
     m_list->installEventFilter(filter);
     m_list->viewport()->installEventFilter(filter);
+}
+
+void MainWindow::setListDropHint(bool on)
+{
+    if (!m_listDropHint || !m_list)
+        return;
+    if (!on) {
+        m_listDropHint->hide();
+        return;
+    }
+    m_listDropHint->setGeometry(m_list->geometry());
+    m_listDropHint->show();
+    m_listDropHint->raise();
 }
 
 void MainWindow::setChatDropHint(bool on)

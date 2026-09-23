@@ -222,9 +222,9 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
                code);
     const QString img = pixmapToImgHtml(pm);
     return QString::fromUtf8(
-               u8"%1<br/><a href=\"%2\" style=\"text-decoration:none;\">"
+               u8"%1<br/><a href=\"%2\" title=\"%3\" style=\"text-decoration:none;\">"
                u8"<font color=\"#93c5fd\" size=\"3\">复制</font></a>")
-        .arg(img, href);
+        .arg(img, href, QString::fromUtf8(u8"点击复制"));
 }
 
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed)
@@ -453,15 +453,18 @@ static QString renderFileCard(const ChatMsg &m)
         const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
         const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
         actions = QString::fromUtf8(
-                      u8"<a href=\"%1\" style=\"text-decoration:none;\">"
+                      u8"<a href=\"%1\" title=\"%4\" style=\"text-decoration:none;\">"
                       u8"<font color=\"#2563eb\" size=\"3\">打开文件</font></a>"
                       u8"&nbsp;&nbsp;"
-                      u8"<a href=\"%2\" style=\"text-decoration:none;\">"
+                      u8"<a href=\"%2\" title=\"%5\" style=\"text-decoration:none;\">"
                       u8"<font color=\"#3b82f6\" size=\"3\">打开所在目录</font></a>"
                       u8"&nbsp;&nbsp;"
-                      u8"<a href=\"%3\" style=\"text-decoration:none;\">"
+                      u8"<a href=\"%3\" title=\"%6\" style=\"text-decoration:none;\">"
                       u8"<font color=\"#475569\" size=\"3\">复制路径</font></a>")
-                      .arg(openHref, revealHref, copyPathHref);
+                      .arg(openHref, revealHref, copyPathHref,
+                           QString::fromUtf8(u8"点击打开"),
+                           QString::fromUtf8(u8"打开所在目录"),
+                           QString::fromUtf8(u8"点击复制路径"));
         if (!out) {
             actions += QString::fromUtf8(
                 u8"&nbsp;&nbsp;<font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>");
@@ -474,8 +477,8 @@ static QString renderFileCard(const ChatMsg &m)
     QString shell = fileCardShellImgHtml(m.text, size, asImage, pending, out, pct,
                                          pending ? QString() : sha);
     if (!openHref.isEmpty()) {
-        shell = QStringLiteral("<a href=\"%1\" style=\"text-decoration:none;\">%2</a>")
-                    .arg(openHref, shell);
+        shell = QStringLiteral("<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
+                    .arg(openHref, QString::fromUtf8(u8"点击打开"), shell);
     }
     QString thumbHtml;
     if (!pending && !m.path.isEmpty()) {
