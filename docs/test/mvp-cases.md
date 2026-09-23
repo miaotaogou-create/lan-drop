@@ -635,6 +635,20 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-129 气泡轻阴影
+- 对应验收：S1–S2（`docs/requirements/20260922-bubble-soft-shadow.md`）
+- 步骤：发文字、看文件卡与系统提示
+- 期望：气泡/文件卡/系统条相对灰底略有浮起感
+- 类型：手测
+- 结果：待手测
+
+### TC-130 空态白卡与输入字号
+- 对应验收：E1–E3（`docs/requirements/20260922-empty-card-input-type.md`）
+- 步骤：未选对端看空态；搜索无结果；看输入区字号
+- 期望：居中白卡分层；搜索无结果同风格；输入字更大
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

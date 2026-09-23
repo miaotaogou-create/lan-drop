@@ -61,6 +61,19 @@ static QString pixmapToImgHtml(const QPixmap &pm)
         .arg(h);
 }
 
+// 位图卡片四周留白画轻阴影（Qt 富文本无 CSS box-shadow）
+static const int kShadowPad = 5;
+
+static void paintSoftShadow(QPainter &p, const QRectF &box, qreal radius)
+{
+    p.setPen(Qt::NoPen);
+    for (int i = 3; i >= 1; --i) {
+        QColor c(15, 23, 42, 6 + i * 5);
+        p.setBrush(c);
+        p.drawRoundedRect(box.translated(0.0, qreal(i) * 0.7), radius, radius);
+    }
+}
+
 static QString letterAvatarHtml(const QString &name, const QString &bg)
 {
     const QString ch = avatarInitial(name);
@@ -92,7 +105,7 @@ static QString faceName(const ChatMsg &m)
 
 static QString textBubbleImgHtml(const QString &text, bool out)
 {
-    // 对齐参考图：更大字号/留白 + 更柔和圆角（无尾巴）
+    // 对齐参考图：更大字号/留白 + 更柔和圆角（无尾巴）+ 轻阴影
     const int maxContentW = 400;
     const int padX = 18;
     const int padY = 13;
@@ -105,8 +118,10 @@ static QString textBubbleImgHtml(const QString &text, bool out)
                                            text);
     const int contentW = qMax(28, qMin(maxContentW, textBound.width()));
     const int contentH = qMax(fm.height(), textBound.height());
-    const int logicalW = contentW + padX * 2;
-    const int logicalH = contentH + padY * 2;
+    const int innerW = contentW + padX * 2;
+    const int innerH = contentH + padY * 2;
+    const int logicalW = innerW + kShadowPad * 2;
+    const int logicalH = innerH + kShadowPad * 2;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     QPixmap pm(logicalW * dpr, logicalH * dpr);
     pm.setDevicePixelRatio(dpr);
@@ -114,7 +129,8 @@ static QString textBubbleImgHtml(const QString &text, bool out)
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
-    const QRectF box(0.5, 0.5, logicalW - 1.0, logicalH - 1.0);
+    const QRectF box(kShadowPad + 0.5, kShadowPad + 0.5, innerW - 1.0, innerH - 1.0);
+    paintSoftShadow(p, box, radius);
     if (out) {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(QStringLiteral("#2563eb")));
@@ -127,7 +143,7 @@ static QString textBubbleImgHtml(const QString &text, bool out)
         p.setPen(QColor(QStringLiteral("#0f172a")));
     }
     p.setFont(font);
-    p.drawText(QRect(padX, padY, contentW, contentH),
+    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY, contentW, contentH),
                Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
                text);
     return pixmapToImgHtml(pm);
@@ -179,8 +195,10 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     const int headH = headFm.height();
     const int gap = 8;
     const int contentH = headH + gap + qMax(codeFm.height(), codeBound.height());
-    const int logicalW = contentW + padX * 2;
-    const int logicalH = contentH + padY * 2;
+    const int innerW = contentW + padX * 2;
+    const int innerH = contentH + padY * 2;
+    const int logicalW = innerW + kShadowPad * 2;
+    const int logicalH = innerH + kShadowPad * 2;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     QPixmap pm(logicalW * dpr, logicalH * dpr);
     pm.setDevicePixelRatio(dpr);
@@ -188,16 +206,18 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
-    const QRectF box(0.5, 0.5, logicalW - 1.0, logicalH - 1.0);
+    const QRectF box(kShadowPad + 0.5, kShadowPad + 0.5, innerW - 1.0, innerH - 1.0);
+    paintSoftShadow(p, box, radius);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(QStringLiteral("#1e293b")));
     p.drawRoundedRect(box, radius, radius);
     p.setFont(headFont);
     p.setPen(QColor(QStringLiteral("#94a3b8")));
-    p.drawText(QRect(padX, padY, contentW, headH), Qt::AlignLeft | Qt::AlignVCenter, lang);
+    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY, contentW, headH),
+               Qt::AlignLeft | Qt::AlignVCenter, lang);
     p.setFont(codeFont);
     p.setPen(QColor(QStringLiteral("#e2e8f0")));
-    p.drawText(QRect(padX, padY + headH + gap, contentW, codeBound.height()),
+    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY + headH + gap, contentW, codeBound.height()),
                Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
                code);
     const QString img = pixmapToImgHtml(pm);
@@ -328,15 +348,18 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int topH = qMax(badgeH, nameH + 4 + metaH);
     const int statusH = metaH;
     const int shaH = (!pending && !shaShort.isEmpty()) ? (4 + metaH) : 0;
-    const int logicalH = pad + topH + gap + barH + 8 + statusH + shaH + pad;
+    const int innerH = pad + topH + gap + barH + 8 + statusH + shaH + pad;
+    const int logicalW = cardW + kShadowPad * 2;
+    const int logicalH = innerH + kShadowPad * 2;
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(cardW * dpr, logicalH * dpr);
+    QPixmap pm(logicalW * dpr, logicalH * dpr);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
-    const QRectF box(1.0, 1.0, cardW - 2.0, logicalH - 2.0);
+    const QRectF box(kShadowPad + 1.0, kShadowPad + 1.0, cardW - 2.0, innerH - 2.0);
+    paintSoftShadow(p, box, radius);
     p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
     p.setBrush(Qt::white);
     p.drawRoundedRect(box, radius, radius);
@@ -346,7 +369,9 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const QColor badgeFg = asImage ? QColor(QStringLiteral("#047857"))
                                    : QColor(QStringLiteral("#7c3aed"));
     const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
-    const QRectF badgeRect(pad, pad + (topH - badgeH) / 2.0, badgeW, badgeH);
+    const qreal ox = kShadowPad;
+    const qreal oy = kShadowPad;
+    const QRectF badgeRect(ox + pad, oy + pad + (topH - badgeH) / 2.0, badgeW, badgeH);
     p.setPen(Qt::NoPen);
     p.setBrush(badgeBg);
     p.drawRoundedRect(badgeRect, 8.0, 8.0);
@@ -357,17 +382,17 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     p.setPen(badgeFg);
     p.drawText(badgeRect, Qt::AlignCenter, badge);
 
-    const int textX = pad + badgeW + gap;
+    const int textX = int(ox) + pad + badgeW + gap;
     p.setFont(nameFont);
     p.setPen(QColor(QStringLiteral("#0f172a")));
-    p.drawText(QRect(textX, pad, nameMaxW, nameH), Qt::AlignLeft | Qt::AlignVCenter, elided);
+    p.drawText(QRect(textX, int(oy) + pad, nameMaxW, nameH), Qt::AlignLeft | Qt::AlignVCenter, elided);
     p.setFont(metaFont);
     p.setPen(QColor(QStringLiteral("#94a3b8")));
-    p.drawText(QRect(textX, pad + nameH + 4, nameMaxW, metaH), Qt::AlignLeft | Qt::AlignVCenter,
+    p.drawText(QRect(textX, int(oy) + pad + nameH + 4, nameMaxW, metaH), Qt::AlignLeft | Qt::AlignVCenter,
                sizeLabel);
 
-    const int barY = pad + topH + gap;
-    const QRectF track(pad, barY, cardW - pad * 2, barH);
+    const int barY = int(oy) + pad + topH + gap;
+    const QRectF track(ox + pad, barY, cardW - pad * 2, barH);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(QStringLiteral("#e2e8f0")));
     p.drawRoundedRect(track, barH / 2.0, barH / 2.0);
@@ -392,11 +417,11 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int statusY = barY + barH + 8;
     p.setFont(metaFont);
     p.setPen(statusColor);
-    p.drawText(QRect(pad, statusY, cardW - pad * 2, statusH), Qt::AlignLeft | Qt::AlignVCenter,
+    p.drawText(QRect(int(ox) + pad, statusY, cardW - pad * 2, statusH), Qt::AlignLeft | Qt::AlignVCenter,
                status);
     if (shaH > 0) {
         p.setPen(QColor(QStringLiteral("#94a3b8")));
-        p.drawText(QRect(pad, statusY + statusH + 4, cardW - pad * 2, metaH),
+        p.drawText(QRect(int(ox) + pad, statusY + statusH + 4, cardW - pad * 2, metaH),
                    Qt::AlignLeft | Qt::AlignVCenter,
                    QStringLiteral("SHA256: %1").arg(shaShort));
     }
@@ -466,26 +491,64 @@ static QString renderFileCard(const ChatMsg &m)
     return renderMsgRow(out, head, card, avatar);
 }
 
+static QString systemCapsuleImgHtml(const QString &text, bool fail)
+{
+    const int maxW = 420;
+    const int padX = 14;
+    const int padY = 8;
+    const qreal radius = 14.0;
+    QFont font = qApp->font();
+    font.setPixelSize(13);
+    QFontMetrics fm(font);
+    const QRect bound = fm.boundingRect(QRect(0, 0, maxW - padX * 2, 10000),
+                                        Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter,
+                                        text);
+    const int contentW = qMax(40, qMin(maxW - padX * 2, bound.width()));
+    const int contentH = qMax(fm.height(), bound.height());
+    const int innerW = contentW + padX * 2;
+    const int innerH = contentH + padY * 2;
+    const int logicalW = innerW + kShadowPad * 2;
+    const int logicalH = innerH + kShadowPad * 2;
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    QPixmap pm(logicalW * dpr, logicalH * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    const QRectF box(kShadowPad + 0.5, kShadowPad + 0.5, innerW - 1.0, innerH - 1.0);
+    paintSoftShadow(p, box, radius);
+    const QColor bg = fail ? QColor(QStringLiteral("#fef2f2")) : QColor(QStringLiteral("#fffbeb"));
+    const QColor border = fail ? QColor(QStringLiteral("#fecaca")) : QColor(QStringLiteral("#fde68a"));
+    const QColor fg = fail ? QColor(QStringLiteral("#b91c1c")) : QColor(QStringLiteral("#b45309"));
+    p.setPen(QPen(border, 1.0));
+    p.setBrush(bg);
+    p.drawRoundedRect(box, radius, radius);
+    p.setFont(font);
+    p.setPen(fg);
+    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY, contentW, contentH),
+               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter, text);
+    return pixmapToImgHtml(pm);
+}
+
 static QString renderSystem(const ChatMsg &m)
 {
     const bool fail = (m.type == ChatMsg::Fail);
-    const QString bg = fail ? QStringLiteral("#fef2f2") : QStringLiteral("#fffbeb");
-    const QString fg = fail ? QStringLiteral("#b91c1c") : QStringLiteral("#b45309");
-    QString body = htmlEsc(m.text);
+    QString links;
     if (fail && !m.path.isEmpty()) {
         if (m.path.startsWith(QLatin1String("text:"))) {
             const QString rawText = m.path.mid(5);
             const QString href = QStringLiteral("landrop://retrytext/")
                 + QString::fromLatin1(rawText.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-            body += QString::fromUtf8(
-                        u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+            links = QString::fromUtf8(
+                        u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
                         u8"<font color=\"#2563eb\" size=\"3\">重发</font></a>")
                         .arg(href);
         } else {
             const QString href = QStringLiteral("landrop://retry/")
                 + QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-            body += QString::fromUtf8(
-                        u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+            links = QString::fromUtf8(
+                        u8"<br/><a href=\"%1\" style=\"text-decoration:none;\">"
                         u8"<font color=\"#2563eb\" size=\"3\">重试</font></a>")
                         .arg(href);
             if (!m.morePaths.isEmpty()) {
@@ -498,20 +561,20 @@ static QString renderSystem(const ChatMsg &m)
                 const QByteArray joined = all.join(QStringLiteral("\n")).toUtf8();
                 const QString batchHref = QStringLiteral("landrop://retrybatch/")
                     + QString::fromLatin1(joined.toBase64(QByteArray::Base64UrlEncoding));
-                body += QString::fromUtf8(
-                            u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
-                            u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
-                            .arg(batchHref)
-                            .arg(all.size());
+                links += QString::fromUtf8(
+                             u8"&nbsp;&nbsp;<a href=\"%1\" style=\"text-decoration:none;\">"
+                             u8"<font color=\"#2563eb\" size=\"3\">重发剩余 %2</font></a>")
+                             .arg(batchHref)
+                             .arg(all.size());
             }
         }
     }
+    const QString capsule = systemCapsuleImgHtml(m.text, fail);
     return QStringLiteral(
                "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"6\"><tr><td align=\"center\">"
-               "<table cellspacing=\"0\" cellpadding=\"6\" bgcolor=\"%1\">"
-               "<tr><td><font color=\"%2\" size=\"3\">%3</font></td></tr></table>"
+               "%1%2"
                "</td></tr></table>")
-        .arg(bg, fg, body);
+        .arg(capsule, links);
 }
 
 QString renderChatHtml(const QVector<ChatMsg> &msgs)
@@ -542,8 +605,9 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
     }
     if (!hasUserContent) {
         html += QString::fromUtf8(
-            u8"<p align=\"center\" style=\"margin:48px 16px;\">"
-            u8"<font color=\"#94a3b8\" size=\"3\">发消息，或把文件拖到这里</font></p>");
+            u8"<p align=\"center\" style=\"margin:56px 24px;\">"
+            u8"<font color=\"#64748b\" size=\"4\">发消息，或把文件拖到这里</font><br/>"
+            u8"<font color=\"#94a3b8\" size=\"3\">Enter 发送 · 支持拖放与粘贴截图</font></p>");
     }
     html += QStringLiteral("</body></html>");
     return html;

@@ -558,14 +558,33 @@ void MainWindow::buildUi()
     rightLay->setSpacing(0);
 
     m_pages = new QStackedWidget;
-    m_emptyHint = new QLabel(QString::fromUtf8(
-        u8"还没有可聊的设备\n\n"
-        u8"1. 同一网段等待自动发现\n"
-        u8"2. 或点左侧「+ 加 IP」手动添加\n"
-        u8"3. 选中后即可发消息或拖文件"));
+    QWidget *emptyPage = new QWidget;
+    emptyPage->setObjectName(QStringLiteral("emptyHost"));
+    QVBoxLayout *emptyLay = new QVBoxLayout(emptyPage);
+    emptyLay->setContentsMargins(24, 24, 24, 24);
+    emptyLay->addStretch(1);
+    QFrame *emptyCard = new QFrame;
+    emptyCard->setObjectName(QStringLiteral("emptyCard"));
+    emptyCard->setMaximumWidth(440);
+    QVBoxLayout *emptyCardLay = new QVBoxLayout(emptyCard);
+    emptyCardLay->setContentsMargins(28, 28, 28, 28);
+    emptyCardLay->setSpacing(0);
+    m_emptyHint = new QLabel;
     m_emptyHint->setObjectName(QStringLiteral("emptyHint"));
-    m_emptyHint->setAlignment(Qt::AlignCenter);
+    m_emptyHint->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_emptyHint->setWordWrap(true);
+    m_emptyHint->setTextFormat(Qt::RichText);
+    m_emptyHint->setText(
+        QString::fromUtf8(
+            u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
+            u8"还没有可聊的设备</p>"
+            u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
+            u8"1. 同一网段等待自动发现<br/>"
+            u8"2. 或点左侧「<span style=\"color:#2563eb;font-weight:600;\">+ 加 IP</span>」手动添加<br/>"
+            u8"3. 选中后即可发消息或拖文件</p>"));
+    emptyCardLay->addWidget(m_emptyHint);
+    emptyLay->addWidget(emptyCard, 0, Qt::AlignHCenter);
+    emptyLay->addStretch(1);
 
     QWidget *chatPage = new QWidget;
     m_chatPage = chatPage;
@@ -851,7 +870,7 @@ void MainWindow::buildUi()
     dropHintLay->addWidget(m_chatDropHintLabel, 0, Qt::AlignCenter);
     dropHintLay->addStretch(1);
 
-    m_pages->addWidget(m_emptyHint);
+    m_pages->addWidget(emptyPage);
     m_pages->addWidget(chatPage);
     rightLay->addWidget(m_pages, 1);
 
@@ -916,7 +935,9 @@ void MainWindow::applyStyle()
         "#peerList::item:selected { background: #eff6ff; border-color: #bfdbfe;"
         " border-left: 3px solid #2563eb; color: #0f172a; }"
         "#right { background: #f1f5f9; }"
-        "#emptyHint { color: #64748b; font-size: 14px; padding: 48px 56px; background: #f1f5f9; }"
+        "#emptyHost { background: #f1f5f9; }"
+        "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
+        "#emptyHint { color: #64748b; background: transparent; padding: 0; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #e2e8f0; }"
         "#peerName { color: #0f172a; font-size: 14px; font-weight: 700; }"
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
@@ -959,7 +980,7 @@ void MainWindow::applyStyle()
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
-        "#input { background: transparent; border: none; color: #0f172a; font-size: 13px;"
+        "#input { background: transparent; border: none; color: #0f172a; font-size: 15px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
         "#sendFab { background: #2563eb; border: none; border-radius: 18px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"
@@ -2318,16 +2339,22 @@ void MainWindow::updateEmpty()
     if (m_emptyHint) {
         if (!q.isEmpty() && visible == 0) {
             m_emptyHint->setText(
-                QString::fromUtf8(u8"没有匹配「%1」的设备。\n"
-                                  u8"可按 Esc 清除搜索，或改用名称 / IP / 标签再试。")
-                    .arg(q));
+                QString::fromUtf8(
+                    u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
+                    u8"没有匹配的设备</p>"
+                    u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
+                    u8"没有匹配「<span style=\"color:#0f172a;font-weight:600;\">%1</span>」的设备。<br/>"
+                    u8"可按 Esc 清除搜索，或改用名称 / IP / 标签再试。</p>")
+                    .arg(q.toHtmlEscaped()));
         } else {
             m_emptyHint->setText(
                 QString::fromUtf8(
-                    u8"还没有可聊的设备\n\n"
-                    u8"1. 同一网段等待自动发现\n"
-                    u8"2. 或点左侧「+ 加 IP」手动添加\n"
-                    u8"3. 选中后即可发消息或拖文件"));
+                    u8"<p style=\"margin:0 0 14px 0; font-size:18px; font-weight:700; color:#0f172a;\">"
+                    u8"还没有可聊的设备</p>"
+                    u8"<p style=\"margin:0; font-size:13px; color:#64748b; line-height:1.85;\">"
+                    u8"1. 同一网段等待自动发现<br/>"
+                    u8"2. 或点左侧「<span style=\"color:#2563eb;font-weight:600;\">+ 加 IP</span>」手动添加<br/>"
+                    u8"3. 选中后即可发消息或拖文件</p>"));
         }
     }
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
