@@ -1190,6 +1190,7 @@ void MainWindow::applyStyle()
         "#jumpBottomBtn { background: #ffffff; color: #1d4ed8; border: 1px solid #e2e8f0; border-radius: 16px;"
         " padding: 6px 14px; font-size: 12px; font-weight: 600; }"
         "#jumpBottomBtn:hover { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }"
+        "#jumpBottomBtn:pressed { background: #dbeafe; border-color: #60a5fa; color: #1e3a8a; }"
         "#composer { background: #f1f5f9; border-top: none; }"
         "#chatDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 16px; }"
         "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
@@ -1205,9 +1206,11 @@ void MainWindow::applyStyle()
         "#cancelUploadBtn { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 12px;"
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#cancelUploadBtn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }"
+        "#cancelUploadBtn:pressed { background: #fecaca; color: #991b1b; border-color: #f87171; }"
         "#clearQueueBtn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 12px;"
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
+        "#clearQueueBtn:pressed { background: #fde68a; color: #78350f; border-color: #fbbf24; }"
         "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #f1f5f9;"
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
         "#inputShell[xfer=\"true\"] #composerToolBar {"
@@ -1216,8 +1219,10 @@ void MainWindow::applyStyle()
         " padding: 5px 9px; font-weight: 600; }"
         "#toolBtn:hover { background: #eff6ff; color: #1d4ed8; }"
         "#toolBtn:pressed { background: #dbeafe; color: #1e40af; }"
+        "#toolBtn:disabled { color: #cbd5e1; background: transparent; }"
         "#inputPad { background: transparent; }"
         "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
+        "#inputHint:disabled { color: #e2e8f0; }"
         "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
         " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
@@ -1645,6 +1650,7 @@ void MainWindow::showTrayToast(const QString &title, const QString &body)
         m_trayToast->setStyleSheet(QStringLiteral(
             "#trayToast { background: transparent; }"
             "#trayToastCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
+            "#trayToastCard:hover { border-color: #93c5fd; background: #f8fbff; }"
             "#trayToastTitle { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
             "#trayToastBody { color: #475569; font-size: 12px; background: transparent; }"
             "#trayToastHint { color: #2563eb; font-size: 11px; font-weight: 600; background: transparent; }"));
@@ -2509,7 +2515,7 @@ void MainWindow::clearSelectedPeerChat()
                     QString::fromUtf8(u8"清空与「%1」的聊天记录？\n"
                                         u8"不会删除对端节点，也不会删除已下载的文件。")
                         .arg(label),
-                    QString::fromUtf8(u8"清空"), QString::fromUtf8(u8"取消"), false)) {
+                    QString::fromUtf8(u8"清空"), QString::fromUtf8(u8"取消"), false, true)) {
         return;
     }
     m_log.remove(key);
@@ -2699,7 +2705,7 @@ void MainWindow::removeSelectedManualPeer()
     const QString label = name.isEmpty() ? (ip + QLatin1Char(':') + QString::number(port)) : name;
     if (!appConfirm(this,
                     QString::fromUtf8(u8"删除手动节点「%1」？\n重启后也不会再出现。").arg(label),
-                    QString::fromUtf8(u8"删除"), QString::fromUtf8(u8"取消"), false)) {
+                    QString::fromUtf8(u8"删除"), QString::fromUtf8(u8"取消"), false, true)) {
         return;
     }
     if (!m_disc->removeManual(ip, port))
@@ -3091,7 +3097,7 @@ void MainWindow::showChat()
         m_settings.save();
     }
     clearUnread(key);
-    m_chatNewBelow = false;
+    m_chatNewBelowCount = 0;
     if (m_jumpBottomBtn)
         m_jumpBottomBtn->hide();
     m_pages->setCurrentIndex(1);
@@ -3415,7 +3421,7 @@ bool MainWindow::isChatNearBottom() const
 void MainWindow::markChatNewBelowIfAway()
 {
     if (!isChatNearBottom())
-        m_chatNewBelow = true;
+        ++m_chatNewBelowCount;
 }
 
 void MainWindow::placeJumpBottomBtn()
@@ -3437,15 +3443,16 @@ void MainWindow::syncJumpBottomBtn()
     if (!m_jumpBottomBtn)
         return;
     if (isChatNearBottom()) {
-        m_chatNewBelow = false;
+        m_chatNewBelowCount = 0;
         m_jumpBottomBtn->hide();
         return;
     }
-    if (!m_chatNewBelow) {
+    if (m_chatNewBelowCount <= 0) {
         m_jumpBottomBtn->hide();
         return;
     }
-    m_jumpBottomBtn->setText(QString::fromUtf8(u8"有新消息 ↓"));
+    m_jumpBottomBtn->setText(
+        QString::fromUtf8(u8"%1 条新消息 ↓").arg(m_chatNewBelowCount));
     placeJumpBottomBtn();
     m_jumpBottomBtn->show();
     m_jumpBottomBtn->raise();
@@ -3453,7 +3460,7 @@ void MainWindow::syncJumpBottomBtn()
 
 void MainWindow::jumpChatToBottom()
 {
-    m_chatNewBelow = false;
+    m_chatNewBelowCount = 0;
     if (m_jumpBottomBtn)
         m_jumpBottomBtn->hide();
     refreshChatHtml(true);
@@ -3478,7 +3485,7 @@ void MainWindow::refreshChatHtml(bool forceBottom)
         QTextCursor c = m_chat->textCursor();
         c.movePosition(QTextCursor::End);
         m_chat->setTextCursor(c);
-        m_chatNewBelow = false;
+        m_chatNewBelowCount = 0;
         if (m_jumpBottomBtn)
             m_jumpBottomBtn->hide();
     } else {

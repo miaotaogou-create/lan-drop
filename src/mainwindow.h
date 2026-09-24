@@ -207,7 +207,7 @@ private:
     QTextBrowser *m_chat = 0;
     QWidget *m_chatHost = 0;
     QPushButton *m_jumpBottomBtn = 0;
-    bool m_chatNewBelow = false;
+    int m_chatNewBelowCount = 0;
     QTextBrowser *m_files = 0;
     QLabel *m_fileLive = 0;
     QWidget *m_fileLiveHost = 0;

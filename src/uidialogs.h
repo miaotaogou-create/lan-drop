@@ -23,11 +23,13 @@ QWidget *showDialogDim(QWidget *anchor);
 void appInfo(QWidget *parent, const QString &text);
 void appWarn(QWidget *parent, const QString &text);
 
-// 确认：accept 为确认钮文案；cancel 为取消；defaultAccept=false 时默认焦点在取消
+// 确认：accept 为确认钮文案；cancel 为取消；defaultAccept=false 时默认焦点在取消；
+// danger=true 时确认钮为红（危险操作）
 bool appConfirm(QWidget *parent, const QString &text,
                 const QString &acceptText = QString(),
                 const QString &cancelText = QString(),
-                bool defaultAccept = false);
+                bool defaultAccept = false,
+                bool danger = false);
 
 // 多选：返回点中的按钮下标；取消/关窗返回 -1
 int appChoice(QWidget *parent, const QString &text, const QStringList &labels,

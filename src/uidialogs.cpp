@@ -134,11 +134,15 @@ static QString cardDialogStyle()
         + QStringLiteral(
               "#appDlgPrimary { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
               " padding: 8px 16px; font-weight: 600; }"
-              "#appDlgPrimary:hover { background: #1d4ed8; }");
+              "#appDlgPrimary:hover { background: #1d4ed8; }"
+              "#appDlgDanger { background: #dc2626; border: none; border-radius: 8px; color: #ffffff;"
+              " padding: 8px 16px; font-weight: 600; }"
+              "#appDlgDanger:hover { background: #b91c1c; }"
+              "#appDlgDanger:pressed { background: #991b1b; }");
 }
 
 static int runCardDialog(QWidget *parent, const QString &text, const QStringList &labels,
-                         int defaultIndex, bool firstIsPrimary)
+                         int defaultIndex, bool firstIsPrimary, bool firstIsDanger = false)
 {
     QWidget *dim = showDialogDim(parent);
     QDialog dlg(parent);
@@ -180,7 +184,9 @@ static int runCardDialog(QWidget *parent, const QString &text, const QStringList
         const bool primary = firstIsPrimary && i == 0;
         const bool ghost = (!firstIsPrimary && i == labels.size() - 1)
             || (firstIsPrimary && i == labels.size() - 1 && labels.size() > 1);
-        if (primary)
+        if (primary && firstIsDanger)
+            btn->setObjectName(QStringLiteral("appDlgDanger"));
+        else if (primary)
             btn->setObjectName(QStringLiteral("appDlgPrimary"));
         else if (ghost && labels.size() > 1)
             btn->setObjectName(QStringLiteral("appDlgGhost"));
@@ -224,12 +230,12 @@ void appWarn(QWidget *parent, const QString &text)
 }
 
 bool appConfirm(QWidget *parent, const QString &text, const QString &acceptText,
-                const QString &cancelText, bool defaultAccept)
+                const QString &cancelText, bool defaultAccept, bool danger)
 {
     const QString ok = acceptText.isEmpty() ? QString::fromUtf8(u8"确定") : acceptText;
     const QString cancel = cancelText.isEmpty() ? QString::fromUtf8(u8"取消") : cancelText;
     const int picked = runCardDialog(parent, text, QStringList() << ok << cancel,
-                                     defaultAccept ? 0 : 1, true);
+                                     defaultAccept ? 0 : 1, true, danger);
     return picked == 0;
 }
 
