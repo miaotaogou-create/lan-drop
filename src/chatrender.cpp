@@ -503,24 +503,6 @@ static void paintDoubleCheck(QPainter &p, qreal x, qreal y, qreal s, const QColo
     one(x + s * 0.32);
 }
 
-static void paintDownloadGlyph(QPainter &p, const QRectF &box, const QColor &color)
-{
-    QPen pen(color, qMax(1.5, box.width() * 0.12));
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    const qreal cx = box.center().x();
-    const qreal top = box.top() + box.height() * 0.12;
-    const qreal mid = box.top() + box.height() * 0.55;
-    const qreal bot = box.bottom() - box.height() * 0.12;
-    p.drawLine(QPointF(cx, top), QPointF(cx, mid));
-    p.drawLine(QPointF(cx - box.width() * 0.28, mid - box.height() * 0.18), QPointF(cx, mid));
-    p.drawLine(QPointF(cx + box.width() * 0.28, mid - box.height() * 0.18), QPointF(cx, mid));
-    p.drawLine(QPointF(box.left() + box.width() * 0.12, bot),
-               QPointF(box.right() - box.width() * 0.12, bot));
-}
-
 static QPixmap cropLogical(const QPixmap &pm, const QRect &logicalRect)
 {
     const qreal dpr = chatDpr();
