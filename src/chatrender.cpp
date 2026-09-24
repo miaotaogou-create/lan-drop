@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
+#include <QFontDatabase>
 #include <QFontMetrics>
 #include <QImage>
 #include <QLinearGradient>
@@ -331,14 +332,28 @@ static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QCo
                                 const QColor &border)
 {
     QFont font = qApp->font();
+    const QStringList prefer = QStringList()
+        << QStringLiteral("Microsoft YaHei UI")
+        << QStringLiteral("Microsoft YaHei")
+        << QString::fromUtf8(u8"微软雅黑")
+        << QStringLiteral("Segoe UI")
+        << QStringLiteral("Noto Sans CJK SC");
+    const QStringList fams = QFontDatabase().families();
+    for (int i = 0; i < prefer.size(); ++i) {
+        if (fams.contains(prefer.at(i))) {
+            font.setFamily(prefer.at(i));
+            break;
+        }
+    }
     font.setPixelSize(11);
-    font.setBold(true);
+    font.setBold(false);
+    font.setStyleStrategy(QFont::PreferAntialias);
     QFontMetrics fm(font);
-    const int padX = 7;
-    const int padY = 2;
-    const int innerH = qMax(18, fm.height() + padY * 2);
+    const int padX = 8;
+    const int padY = 3;
+    const int innerH = qMax(20, fm.height() + padY * 2);
     const int innerW = fm.horizontalAdvance(text) + padX * 2;
-    const qreal radius = 6.0;
+    const qreal radius = innerH / 2.0;
     QPixmap pm = makeDprPixmap(innerW, innerH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
@@ -349,16 +364,50 @@ static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QCo
     p.drawRoundedRect(box, radius, radius);
     p.setFont(font);
     p.setPen(fg);
-    p.drawText(QRect(0, 0, innerW, innerH), Qt::AlignCenter, text);
+    // 基线居中：中英混排比 AlignVCenter 更不容易高低错位
+    const int baseline = (innerH + fm.ascent() - fm.descent()) / 2;
+    p.drawText(padX, baseline, text);
+    return pixmapToImgHtml(pm);
+}
+
+// 发出 meta 时间：等宽感数字 + 次级灰，避免 HTML font 发虚
+static QString metaPlainImgHtml(const QString &text)
+{
+    QFont font = qApp->font();
+    const QStringList prefer = QStringList()
+        << QStringLiteral("Segoe UI")
+        << QStringLiteral("Consolas")
+        << QStringLiteral("Microsoft YaHei UI")
+        << QStringLiteral("Microsoft YaHei");
+    const QStringList fams = QFontDatabase().families();
+    for (int i = 0; i < prefer.size(); ++i) {
+        if (fams.contains(prefer.at(i))) {
+            font.setFamily(prefer.at(i));
+            break;
+        }
+    }
+    font.setPixelSize(11);
+    font.setStyleStrategy(QFont::PreferAntialias);
+    QFontMetrics fm(font);
+    const int padY = 2;
+    const int innerH = qMax(16, fm.height() + padY * 2);
+    const int innerW = qMax(1, fm.horizontalAdvance(text));
+    QPixmap pm = makeDprPixmap(innerW, innerH);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.setFont(font);
+    p.setPen(QColor(QStringLiteral("#94a3b8")));
+    const int baseline = (innerH + fm.ascent() - fm.descent()) / 2;
+    p.drawText(0, baseline, text);
     return pixmapToImgHtml(pm);
 }
 
 static QString metaLine(const QString &who, const QString &time, qint64 rttMs, bool failed,
                         bool showSendState = false)
 {
-    QString mid = who.isEmpty()
-        ? htmlEsc(time)
-        : (htmlEsc(who) + QStringLiteral(" ") + htmlEsc(time));
+    const QString clock = who.isEmpty() ? time : (who + QLatin1Char(' ') + time);
+    QString mid = metaPlainImgHtml(clock);
     QString badge;
     if (failed) {
         badge = metaBadgeImgHtml(QString::fromUtf8(u8"发送失败"),
@@ -371,15 +420,15 @@ static QString metaLine(const QString &who, const QString &time, qint64 rttMs, b
                                  QColor(QStringLiteral("#64748b")),
                                  QColor(QStringLiteral("#e2e8f0")));
     } else if (rttMs >= 0) {
-        const QString ms = (rttMs < 1) ? QStringLiteral("<1") : QString::number(rttMs);
-        badge = metaBadgeImgHtml(QString::fromUtf8(u8"已送达 · %1ms").arg(ms),
-                                 QColor(QStringLiteral("#ecfdf5")),
-                                 QColor(QStringLiteral("#16a34a")),
-                                 QColor(QStringLiteral("#86efac")));
+        badge = metaBadgeImgHtml(
+            QString::fromUtf8(u8"已送达 · %1").arg(formatDurationMs(rttMs)),
+            QColor(QStringLiteral("#ecfdf5")),
+            QColor(QStringLiteral("#059669")),
+            QColor(QStringLiteral("#a7f3d0")));
     }
     if (!badge.isEmpty())
-        mid += QStringLiteral(" ") + badge;
-    return QStringLiteral("<font color=\"#64748b\" size=\"2\">%1</font>").arg(mid);
+        mid += QStringLiteral("&nbsp;") + badge;
+    return mid;
 }
 
 // 参考图：头像与名字顶对齐；气泡在名字下方、相对头像斜对角偏下（勿把头像贴气泡底边）。

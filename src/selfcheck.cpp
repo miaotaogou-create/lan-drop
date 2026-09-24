@@ -321,6 +321,11 @@ int runSelfCheck()
         return fail("eta slow");
     if (formatEta(200 * 1024, 50 * 1024) != QString::fromUtf8(u8"约 4 秒"))
         return fail("eta sec");
+    if (formatDurationMs(0) != QStringLiteral("<1ms")
+        || formatDurationMs(850) != QStringLiteral("850ms")
+        || formatDurationMs(37371) != QStringLiteral("37.4s")
+        || formatDurationMs(65000) != QStringLiteral("1m 5s"))
+        return fail("duration ms");
     {
         // 图片缩略：完成态文件卡应含 img
         const QString tmpDir = QDir::temp().filePath(QStringLiteral("landrop-thumb-check"));
