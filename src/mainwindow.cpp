@@ -1264,7 +1264,7 @@ void MainWindow::applyStyle()
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
         "#clearQueueBtn:pressed { background: #fde68a; color: #78350f; border-color: #fbbf24; }"
-        "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #f1f5f9;"
+        "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #e2e8f0;"
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
         "#inputShell[xfer=\"true\"] #composerToolBar {"
         " border-top-left-radius: 0; border-top-right-radius: 0; }"
