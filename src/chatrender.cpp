@@ -572,8 +572,9 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int shaH = (!pending && !shaShort.isEmpty()) ? (6 + metaH) : 0;
     const int btnH = 30;
     const int actionGap = 10;
-    // 主按钮行 + 次要 chip 行 + 底边距
-    const int actionBlock = hasActions ? (actionGap + btnH + 8 + btnH) : 0;
+    const int footerH = hasActions && !out ? (6 + metaH) : 0;
+    // 三钮同行 + 可选脚注
+    const int actionBlock = hasActions ? (actionGap + btnH + footerH) : 0;
     const int bodyH = pad + topH + gap + barH + 10 + statusH + shaH;
     const int innerH = bodyH + actionBlock + pad;
     const int logicalW = cardW + kShadowPad * 2;
@@ -669,129 +670,93 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
         shaBottom = shaY + metaH;
     }
 
-    QRect primaryRect;
+    QRect openRect;
     QRect revealRect;
     QRect copyRect;
-    int actRow1Bottom = 0;
-    int actRow2Top = 0;
+    int actBottom = 0;
     if (hasActions) {
         const int actY = shaBottom + actionGap;
-        const QString primaryLabel = out ? QString::fromUtf8(u8"打开文件")
-                                         : QString::fromUtf8(u8"下载保存至本地");
-        const int glyph = 14;
-        const int primaryW = glyph + 8 + btnFm.horizontalAdvance(primaryLabel) + 20;
-        primaryRect = QRect(int(ox) + pad, actY, qMin(primaryW, contentW), btnH);
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(QStringLiteral("#dbeafe")));
-        p.drawRoundedRect(QRectF(primaryRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
-        paintDownloadGlyph(p, QRectF(primaryRect.x() + 10, primaryRect.y() + (btnH - glyph) / 2.0,
-                                     glyph, glyph),
-                           QColor(QStringLiteral("#2563eb")));
-        p.setFont(btnFont);
-        p.setPen(QColor(QStringLiteral("#2563eb")));
-        p.drawText(QRect(primaryRect.x() + 10 + glyph + 6, primaryRect.y(),
-                         primaryRect.width() - 16 - glyph, btnH),
-                   Qt::AlignLeft | Qt::AlignVCenter, primaryLabel);
-
-        // 脚注与主按钮同行（对齐参考图）
-        if (!out) {
-            const int footX = primaryRect.right() + 10;
-            const int footW = int(ox) + pad + contentW - footX;
-            if (footW > 40) {
-                p.setFont(metaFont);
-                p.setPen(QColor(QStringLiteral("#94a3b8")));
-                p.drawText(QRect(footX, actY, footW, btnH), Qt::AlignLeft | Qt::AlignVCenter,
-                           QString::fromUtf8(u8"局域网直传 · 已存入下载目录"));
-            }
-        }
-
-        // 次要操作仍在卡内第二行
-        const int row2Y = actY + btnH + 8;
         const int chipGap = 6;
         const int chipPadX = 10;
         auto chipW = [&](const QString &t) { return btnFm.horizontalAdvance(t) + chipPadX * 2; };
+        const QString openLabel = QString::fromUtf8(u8"打开");
         const QString revealLabel = QString::fromUtf8(u8"目录");
         const QString copyLabel = QString::fromUtf8(u8"复制路径");
-        revealRect = QRect(int(ox) + pad, row2Y, chipW(revealLabel), btnH);
-        p.setBrush(QColor(QStringLiteral("#f1f5f9")));
-        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
-        p.drawRoundedRect(QRectF(revealRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
-        p.setFont(btnFont);
-        p.setPen(QColor(QStringLiteral("#334155")));
-        p.drawText(revealRect, Qt::AlignCenter, revealLabel);
-        copyRect = QRect(revealRect.right() + chipGap, row2Y, chipW(copyLabel), btnH);
-        p.setBrush(QColor(QStringLiteral("#f1f5f9")));
-        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
-        p.drawRoundedRect(QRectF(copyRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
-        p.setPen(QColor(QStringLiteral("#334155")));
-        p.drawText(copyRect, Qt::AlignCenter, copyLabel);
-        actRow1Bottom = actY + btnH;
-        actRow2Top = row2Y;
+        openRect = QRect(int(ox) + pad, actY, chipW(openLabel), btnH);
+        revealRect = QRect(openRect.right() + chipGap, actY, chipW(revealLabel), btnH);
+        copyRect = QRect(revealRect.right() + chipGap, actY, chipW(copyLabel), btnH);
+
+        auto paintChip = [&](const QRect &r, const QString &label, bool primary) {
+            p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+            p.setBrush(primary ? QColor(QStringLiteral("#dbeafe")) : QColor(QStringLiteral("#f1f5f9")));
+            p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
+            p.setFont(btnFont);
+            p.setPen(primary ? QColor(QStringLiteral("#2563eb")) : QColor(QStringLiteral("#334155")));
+            p.drawText(r, Qt::AlignCenter, label);
+        };
+        paintChip(openRect, openLabel, true);
+        paintChip(revealRect, revealLabel, false);
+        paintChip(copyRect, copyLabel, false);
+
+        if (!out) {
+            const int footY = actY + btnH + 6;
+            p.setFont(metaFont);
+            p.setPen(QColor(QStringLiteral("#94a3b8")));
+            p.drawText(QRect(int(ox) + pad, footY, contentW, metaH), Qt::AlignLeft | Qt::AlignVCenter,
+                       QString::fromUtf8(u8"局域网直传 · 已存入下载目录"));
+        }
+        actBottom = actY + btnH;
     }
 
     if (!hasActions)
         return pixmapToImgHtml(pm);
 
     const int bodyBottom = int(oy) + bodyH;
-    const int row1Top = bodyBottom;
-    const int row1Bottom = actRow1Bottom;
-    const int row2Bottom = actRow2Top + btnH;
-    const int footBottom = int(oy) + innerH;
+    const int rowTop = bodyBottom;
+    const int rowBottom = actBottom;
+    const int cardBottom = int(oy) + innerH;
     QString html = QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;\">");
     html += QStringLiteral("<tr><td>")
         + linkedImg(openHref, QString::fromUtf8(u8"点击打开"),
-                    cropLogical(pm, QRect(0, 0, logicalW, row1Top)))
+                    cropLogical(pm, QRect(0, 0, logicalW, rowTop)))
         + QStringLiteral("</td></tr>");
 
-    // 主按钮行：左垫 + 主钮可点 + 右侧脚注不可点
     {
-        const int rowH = row1Bottom - row1Top;
-        const int leftW = primaryRect.x();
+        const int rowH = rowBottom - rowTop;
+        const int g1 = revealRect.x() - openRect.right();
+        const int g2 = copyRect.x() - revealRect.right();
         html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\"><tr>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(0, row1Top, leftW, rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, rowTop, openRect.x(), rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(openHref, QString::fromUtf8(u8"点击打开"),
-                        cropLogical(pm, QRect(primaryRect.x(), row1Top, primaryRect.width(), rowH)))
+                        cropLogical(pm, QRect(openRect.x(), rowTop, openRect.width(), rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(primaryRect.right(), row1Top,
-                                                    logicalW - primaryRect.right(), rowH)))
-            + QStringLiteral("</td>");
-        html += QStringLiteral("</tr></table></td></tr>");
-    }
-
-    // 目录 / 复制路径行
-    {
-        const int rowH = row2Bottom - actRow1Bottom;
-        const int y0 = actRow1Bottom;
-        html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\"><tr>");
-        html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(0, y0, revealRect.x(), rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(openRect.right(), rowTop, g1, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(revealHref, QString::fromUtf8(u8"打开所在目录"),
-                        cropLogical(pm, QRect(revealRect.x(), y0, revealRect.width(), rowH)))
+                        cropLogical(pm, QRect(revealRect.x(), rowTop, revealRect.width(), rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(revealRect.right(), y0,
-                                                    copyRect.x() - revealRect.right(), rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(revealRect.right(), rowTop, g2, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(copyPathHref, QString::fromUtf8(u8"点击复制路径"),
-                        cropLogical(pm, QRect(copyRect.x(), y0, copyRect.width(), rowH)))
+                        cropLogical(pm, QRect(copyRect.x(), rowTop, copyRect.width(), rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(copyRect.right(), y0,
+            + pixmapToImgHtml(cropLogical(pm, QRect(copyRect.right(), rowTop,
                                                     logicalW - copyRect.right(), rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("</tr></table></td></tr>");
     }
 
-    if (footBottom > row2Bottom) {
+    if (cardBottom > rowBottom) {
         html += QStringLiteral("<tr><td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(0, row2Bottom, logicalW, footBottom - row2Bottom)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, rowBottom, logicalW, cardBottom - rowBottom)))
             + QStringLiteral("</td></tr>");
     }
     html += QStringLiteral("</table>");
