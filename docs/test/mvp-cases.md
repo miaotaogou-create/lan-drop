@@ -929,6 +929,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-171 文件手型、搜索镜与缩略图
+- 对应验收：F1–F4（`docs/requirements/20260922-files-hand-search-thumb.md`）
+- 步骤：文件 Tab 悬停打开/目录芯片；看侧栏搜索左侧图标；发图完成后看缩略图；点顶栏复制本机地址看 toast 位置
+- 期望：文件 Tab 手型与 tooltip 正常；搜索有灰放大镜；缩略图圆角浅边；toast 在输入区上方不跟鼠标
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

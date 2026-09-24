@@ -14,6 +14,7 @@
 #include <QFontMetrics>
 #include <QImage>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
 #include <QUrl>
 
@@ -354,9 +355,11 @@ static QString imageThumbFile(const QString &path)
         return QString();
     if (!isImageFileName(fi.fileName()))
         return QString();
+    // |r2：圆角浅边版本，强制旧直角缓存失效
     const QByteArray keySrc = (fi.absoluteFilePath() + QLatin1Char('|')
                                + QString::number(fi.size()) + QLatin1Char('|')
-                               + QString::number(fi.lastModified().toMSecsSinceEpoch()))
+                               + QString::number(fi.lastModified().toMSecsSinceEpoch())
+                               + QStringLiteral("|r2"))
                                   .toUtf8();
     const QString key = QString::fromLatin1(
         QCryptographicHash::hash(keySrc, QCryptographicHash::Sha1).toHex().left(16));
@@ -369,7 +372,26 @@ static QString imageThumbFile(const QString &path)
     if (img.isNull())
         return QString();
     const QImage scaled = img.scaled(240, 160, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    if (!scaled.save(out, "PNG"))
+    if (scaled.isNull())
+        return QString();
+    const int pad = 1;
+    QImage canvas(scaled.width() + pad * 2, scaled.height() + pad * 2,
+                  QImage::Format_ARGB32_Premultiplied);
+    canvas.fill(Qt::transparent);
+    QPainter tp(&canvas);
+    tp.setRenderHint(QPainter::Antialiasing, true);
+    tp.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const QRectF box(0.5, 0.5, canvas.width() - 1.0, canvas.height() - 1.0);
+    QPainterPath clip;
+    clip.addRoundedRect(box, 10.0, 10.0);
+    tp.setClipPath(clip);
+    tp.drawImage(pad, pad, scaled);
+    tp.setClipping(false);
+    tp.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+    tp.setBrush(Qt::NoBrush);
+    tp.drawRoundedRect(box, 10.0, 10.0);
+    tp.end();
+    if (!canvas.save(out, "PNG"))
         return QString();
     return out;
 }

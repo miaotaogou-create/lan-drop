@@ -29,6 +29,7 @@ QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QStri
 QPixmap makeStatusDot(bool ok, int logical = 7);
 QPixmap makeAlertTriangleIcon(int logical = 16);
 QPixmap makeChatBubbleIcon(int logical = 14);
+QPixmap makeSearchIcon(int logical = 16);
 QPixmap makeFileDocIcon(int logical = 14);
 QPixmap makeCheckCircleIcon(int logical = 14);
 QPixmap loadSvgPixmap(const QString &path, int logical);

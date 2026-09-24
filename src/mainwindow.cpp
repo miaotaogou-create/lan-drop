@@ -592,8 +592,13 @@ void MainWindow::buildUi()
     m_searchShell->setObjectName(QStringLiteral("searchShell"));
     applyFloatingShadow(m_searchShell);
     QHBoxLayout *searchLay = new QHBoxLayout(m_searchShell);
-    searchLay->setContentsMargins(10, 0, 6, 0);
-    searchLay->setSpacing(0);
+    searchLay->setContentsMargins(12, 0, 6, 0);
+    searchLay->setSpacing(6);
+    QLabel *searchIcon = new QLabel;
+    searchIcon->setObjectName(QStringLiteral("searchIcon"));
+    searchIcon->setFixedSize(16, 16);
+    searchIcon->setPixmap(makeSearchIcon(16));
+    searchLay->addWidget(searchIcon, 0, Qt::AlignVCenter);
     searchLay->addWidget(m_search);
 
     m_list = new QListWidget;
@@ -1009,6 +1014,7 @@ void MainWindow::buildUi()
     m_files->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_files->setLineWrapMode(QTextEdit::WidgetWidth);
     connect(m_files, SIGNAL(anchorClicked(QUrl)), this, SLOT(onChatAnchor(QUrl)));
+    connect(m_files, SIGNAL(highlighted(QUrl)), this, SLOT(onChatLinkHovered(QUrl)));
     filesLay->addWidget(m_fileLiveHost);
     filesLay->addWidget(m_files, 1);
 
@@ -1120,6 +1126,7 @@ void MainWindow::applyStyle()
         "#addBtn:hover { background: #dbeafe; }"
         "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#searchShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
+        "#searchIcon { background: transparent; border: none; }"
         "#search { background: transparent; border: none; padding: 8px 4px;"
         " color: #0f172a; selection-background-color: #bfdbfe; }"
         "#search:focus { background: transparent; border: none; }"
@@ -1555,7 +1562,16 @@ void MainWindow::showMiniToast(const QString &text)
     }
     m_miniToast->setText(text);
     m_miniToast->adjustSize();
-    const QPoint pos = QCursor::pos() + QPoint(14, 18);
+    QPoint pos;
+    if (m_inputShell && m_inputShell->isVisible()) {
+        const QPoint mid = m_inputShell->mapToGlobal(
+            QPoint(m_inputShell->width() / 2, 0));
+        pos = QPoint(mid.x() - m_miniToast->width() / 2,
+                     mid.y() - m_miniToast->height() - 12);
+    } else {
+        pos = mapToGlobal(QPoint((width() - m_miniToast->width()) / 2,
+                                 height() - m_miniToast->height() - 72));
+    }
     m_miniToast->move(pos);
     m_miniToast->show();
     m_miniToast->raise();
@@ -3516,7 +3532,14 @@ void MainWindow::measurePing()
 
 void MainWindow::onChatLinkHovered(const QUrl &url)
 {
-    QWidget *vp = m_chat ? m_chat->viewport() : 0;
+    QTextBrowser *browser = qobject_cast<QTextBrowser *>(sender());
+    if (!browser)
+        browser = m_chat;
+    QWidget *vp = browser ? browser->viewport() : 0;
+    if (m_chat && browser != m_chat && m_chat->viewport())
+        m_chat->viewport()->unsetCursor();
+    if (m_files && browser != m_files && m_files->viewport())
+        m_files->viewport()->unsetCursor();
     if (url.scheme() != QLatin1String("landrop")) {
         QToolTip::hideText();
         if (vp)
@@ -3526,17 +3549,18 @@ void MainWindow::onChatLinkHovered(const QUrl &url)
     if (vp)
         vp->setCursor(Qt::PointingHandCursor);
     if (url.host() == QLatin1String("copy"))
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制"), m_chat);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制"), browser);
     else if (url.host() == QLatin1String("copypath"))
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制路径"), m_chat);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制路径"), browser);
     else if (url.host() == QLatin1String("open"))
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击打开"), m_chat);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击打开"), browser);
     else if (url.host() == QLatin1String("reveal"))
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"打开所在目录"), m_chat);
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"打开所在目录"), browser);
     else if (url.host() == QLatin1String("retrytext")
              || url.host() == QLatin1String("retryfile")
-             || url.host() == QLatin1String("retryremain"))
-        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击重试"), m_chat);
+             || url.host() == QLatin1String("retryremain")
+             || url.host() == QLatin1String("retrybatch"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击重试"), browser);
     else
         QToolTip::hideText();
 }

@@ -365,6 +365,29 @@ QPixmap makeChatBubbleIcon(int logical)
     return pm;
 }
 
+QPixmap makeSearchIcon(int logical)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const qreal s = logical;
+    QPen pen(QColor(QStringLiteral("#94a3b8")), qMax(1.4, s * 0.10));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal r = s * 0.28;
+    const QPointF c(s * 0.42, s * 0.42);
+    p.drawEllipse(c, r, r);
+    p.drawLine(QPointF(c.x() + r * 0.72, c.y() + r * 0.72),
+               QPointF(s * 0.82, s * 0.82));
+    return pm;
+}
+
 QPixmap makeFileDocIcon(int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
