@@ -179,6 +179,7 @@ private:
     QLabel *m_hostIp = 0;
     QLabel *m_statusDot = 0;
     QLabel *m_statusLabel = 0;
+    QWidget *m_statusPill = 0;
     QLabel *m_peerCount = 0;
     QLabel *m_emptyHint = 0;
     QLineEdit *m_search = 0;
@@ -195,6 +196,7 @@ private:
     QLabel *m_peerMeta = 0;
     QPushButton *m_tabChat = 0;
     QPushButton *m_tabFiles = 0;
+    QLabel *m_filesTabBadge = 0;
     QWidget *m_connBannerHost = 0;
     QWidget *m_connBanner = 0;
     QLabel *m_connBannerText = 0;

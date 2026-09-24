@@ -915,6 +915,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-169 顶栏状态胶囊与文件数角标
+- 对应验收：T1–T4（`docs/requirements/20260922-status-pill-files-badge.md`）
+- 步骤：看顶栏状态胶囊；悬停看 tooltip；选无 hostname 的对端看顶栏；有文件后看「文件」旁角标
+- 期望：正常绿/异常琥珀；无副行空隙；有文件见蓝数字角标
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

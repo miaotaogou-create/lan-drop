@@ -140,9 +140,21 @@ static QStringList topFilesInDir(const QString &dir)
 
 static QString filesTabLabel(int n)
 {
-    if (n <= 0)
-        return QString::fromUtf8(u8"文件");
-    return QString::fromUtf8(u8"文件 · %1").arg(n);
+    Q_UNUSED(n);
+    return QString::fromUtf8(u8"文件");
+}
+
+static void syncFilesTabBadge(QLabel *badge, int n)
+{
+    if (!badge)
+        return;
+    if (n <= 0) {
+        badge->hide();
+        badge->clear();
+        return;
+    }
+    badge->setText(n > 99 ? QStringLiteral("99+") : QString::number(n));
+    badge->show();
 }
 
 enum FolderSendChoice { FolderSendTop = 0, FolderSendZip, FolderSendCancel };
@@ -401,10 +413,11 @@ void MainWindow::buildUi()
     brand->setObjectName(QStringLiteral("brand"));
     brand->setFixedHeight(20);
     brand->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    QWidget *statusWrap = new QWidget;
-    statusWrap->setFixedHeight(15);
-    QHBoxLayout *statusRow = new QHBoxLayout(statusWrap);
-    statusRow->setContentsMargins(0, 0, 0, 0);
+    m_statusPill = new QWidget;
+    m_statusPill->setObjectName(QStringLiteral("statusPill"));
+    m_statusPill->setFixedHeight(18);
+    QHBoxLayout *statusRow = new QHBoxLayout(m_statusPill);
+    statusRow->setContentsMargins(6, 0, 8, 0);
     statusRow->setSpacing(5);
     m_statusDot = new QLabel;
     m_statusDot->setFixedSize(7, 7);
@@ -414,9 +427,8 @@ void MainWindow::buildUi()
     m_statusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     statusRow->addWidget(m_statusDot, 0, Qt::AlignVCenter);
     statusRow->addWidget(m_statusLabel, 0, Qt::AlignVCenter);
-    statusRow->addStretch(1);
     brandCol->addWidget(brand, 0, Qt::AlignLeft | Qt::AlignTop);
-    brandCol->addWidget(statusWrap, 0, Qt::AlignLeft | Qt::AlignBottom);
+    brandCol->addWidget(m_statusPill, 0, Qt::AlignLeft | Qt::AlignBottom);
 
     QHBoxLayout *brandRow = new QHBoxLayout;
     brandRow->setSpacing(10);
@@ -725,6 +737,19 @@ void MainWindow::buildUi()
     connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
     connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
 
+    m_filesTabBadge = new QLabel;
+    m_filesTabBadge->setObjectName(QStringLiteral("sessionTabBadge"));
+    m_filesTabBadge->setAlignment(Qt::AlignCenter);
+    m_filesTabBadge->hide();
+
+    QWidget *filesTabWrap = new QWidget;
+    filesTabWrap->setObjectName(QStringLiteral("sessionTabWrap"));
+    QHBoxLayout *filesTabLay = new QHBoxLayout(filesTabWrap);
+    filesTabLay->setContentsMargins(0, 0, 0, 0);
+    filesTabLay->setSpacing(4);
+    filesTabLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
+    filesTabLay->addWidget(m_filesTabBadge, 0, Qt::AlignVCenter);
+
     QFrame *tabBar = new QFrame;
     tabBar->setObjectName(QStringLiteral("sessionTabBar"));
     tabBar->setAttribute(Qt::WA_StyledBackground, true);
@@ -732,7 +757,7 @@ void MainWindow::buildUi()
     tabBarLay->setContentsMargins(2, 2, 2, 2);
     tabBarLay->setSpacing(2);
     tabBarLay->addWidget(m_tabChat);
-    tabBarLay->addWidget(m_tabFiles);
+    tabBarLay->addWidget(filesTabWrap);
 
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
@@ -1060,7 +1085,10 @@ void MainWindow::applyStyle()
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
         "#brandWrap { background: transparent; }"
         "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
-        "#statusOnline { color: #b45309; font-size: 11px; padding: 0; margin: 0; }"
+        "#statusPill { background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; }"
+        "#statusPill[ok=\"true\"] { background: #ecfdf5; border-color: #86efac; }"
+        "#statusOnline { color: #b45309; font-size: 11px; font-weight: 600; padding: 0; margin: 0;"
+        " background: transparent; }"
         "#statusOnline[ok=\"true\"] { color: #047857; }"
         "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
@@ -1134,6 +1162,9 @@ void MainWindow::applyStyle()
         "#sessionTabActive { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
         " color: #1d4ed8; padding: 5px 9px; font-size: 12px; font-weight: 700; }"
         "#sessionTabActive:hover { background: #ffffff; color: #1e40af; }"
+        "#sessionTabWrap { background: transparent; }"
+        "#sessionTabBadge { background: #eff6ff; color: #1d4ed8; border-radius: 8px;"
+        " padding: 1px 6px; font-size: 10px; font-weight: 700; min-width: 14px; }"
         "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0; }"
         "#sessionIconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
         "#connBannerHost { background: transparent; }"
@@ -2103,6 +2134,13 @@ void MainWindow::setStatusOnline(const QString &text, bool ok)
         m_statusLabel->style()->polish(m_statusLabel);
         m_statusLabel->update();
     }
+    if (m_statusPill) {
+        m_statusPill->setProperty("ok", ok);
+        m_statusPill->setToolTip(text);
+        m_statusPill->style()->unpolish(m_statusPill);
+        m_statusPill->style()->polish(m_statusPill);
+        m_statusPill->update();
+    }
 }
 
 void MainWindow::boot()
@@ -2129,12 +2167,20 @@ void MainWindow::boot()
     updateHostPill();
     refreshShareBtn();
     if (!httpOk) {
-        setStatusOnline(QString::fromUtf8(u8"传输端口占用，请在设置里改端口"), false);
+        setStatusOnline(QString::fromUtf8(u8"传输端口占用"), false);
+        if (m_statusPill)
+            m_statusPill->setToolTip(
+                QString::fromUtf8(u8"传输端口占用，请在设置里改端口"));
         appWarn(this, QString::fromUtf8(u8"端口 %1 被占用，其他电脑连不上这台机器。请在设置里改端口后重启。").arg(m_settings.port));
     } else if (!discOk) {
-        setStatusOnline(QString::fromUtf8(u8"在线 · 发现端口占用，仍可手动加 IP"), false);
+        setStatusOnline(QString::fromUtf8(u8"发现端口占用"), false);
+        if (m_statusPill)
+            m_statusPill->setToolTip(
+                QString::fromUtf8(u8"在线，但发现端口占用，仍可手动加 IP"));
     } else {
-        setStatusOnline(QString::fromUtf8(u8"在线 · 局域网自动发现中"), true);
+        setStatusOnline(QString::fromUtf8(u8"自动发现中"), true);
+        if (m_statusPill)
+            m_statusPill->setToolTip(QString::fromUtf8(u8"在线 · 局域网自动发现中"));
     }
     refreshPeers();
     showChat();
@@ -2941,12 +2987,15 @@ void MainWindow::updatePeerSession()
         metaVisible = hostOnly;
     else if (!tagOnly.isEmpty())
         metaVisible = tagOnly;
-    if (metaVisible.isEmpty())
+    if (metaVisible.isEmpty()) {
         m_peerMeta->clear();
-    else
+        m_peerMeta->hide();
+    } else {
         m_peerMeta->setText(
             QString::fromUtf8(u8"<span style=\"color:#94a3b8;\">%1</span>")
                 .arg(metaVisible.toHtmlEscaped()));
+        m_peerMeta->show();
+    }
     QStringList tipBits;
     tipBits << (online ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线"));
     tipBits << (QString::fromUtf8(u8"Ping %1").arg(pingText));
@@ -2999,7 +3048,8 @@ void MainWindow::updatePeerSession()
         m_connBannerHost->show();
     }
     if (m_tabFiles)
-        m_tabFiles->setText(filesTabLabel(countFiles(m_log.value(currentKey()))));
+        m_tabFiles->setText(filesTabLabel(0));
+    syncFilesTabBadge(m_filesTabBadge, countFiles(m_log.value(currentKey())));
     updateHostPill();
 }
 
@@ -3417,7 +3467,8 @@ void MainWindow::refreshFilesView()
     if (m_files)
         m_files->setHtml(renderFilesHtml(msgs));
     if (m_tabFiles)
-        m_tabFiles->setText(filesTabLabel(countFiles(msgs)));
+        m_tabFiles->setText(filesTabLabel(0));
+    syncFilesTabBadge(m_filesTabBadge, countFiles(msgs));
 }
 
 void MainWindow::measurePing()
