@@ -31,6 +31,7 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QAbstractScrollArea>
+#include <QAbstractItemView>
 #include <QElapsedTimer>
 #include <QShowEvent>
 #ifdef Q_OS_WIN
@@ -565,8 +566,8 @@ void MainWindow::buildUi()
     side->setMinimumWidth(220);
     side->setMaximumWidth(480);
     QVBoxLayout *sideLay = new QVBoxLayout(side);
-    sideLay->setContentsMargins(16, 16, 16, 16);
-    sideLay->setSpacing(12);
+    sideLay->setContentsMargins(12, 16, 12, 16);
+    sideLay->setSpacing(10);
 
     QHBoxLayout *sideHead = new QHBoxLayout;
     sideHead->setContentsMargins(0, 0, 0, 0);
@@ -614,9 +615,10 @@ void MainWindow::buildUi()
     m_searchShell = new QWidget;
     m_searchShell->setObjectName(QStringLiteral("searchShell"));
     m_searchShell->setAttribute(Qt::WA_StyledBackground, true);
+    m_searchShell->setFixedHeight(32);
     applyFloatingShadow(m_searchShell);
     QHBoxLayout *searchLay = new QHBoxLayout(m_searchShell);
-    searchLay->setContentsMargins(12, 2, 8, 2);
+    searchLay->setContentsMargins(10, 0, 8, 0);
     searchLay->setSpacing(8);
     QLabel *searchIcon = new QLabel;
     searchIcon->setObjectName(QStringLiteral("searchIcon"));
@@ -630,9 +632,11 @@ void MainWindow::buildUi()
     m_list->setObjectName(QStringLiteral("peerList"));
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_list->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_list->setIconSize(QSize(48, 48));
-    m_list->setSpacing(4);
+    m_list->setSpacing(0); // 项间距用 QSS margin，避免 ListMode 两侧内缩
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_list->viewport()->setAutoFillBackground(false);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
     connect(m_list, SIGNAL(customContextMenuRequested(QPoint)),
             this, SLOT(peerListContextMenu(QPoint)));
@@ -1210,25 +1214,26 @@ void MainWindow::applyStyle()
         " margin-top: 2px; }"
         "#btnAddIp:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }"
         "#btnAddIp:pressed { background: #bfdbfe; border-color: #60a5fa; color: #1e40af; }"
-        "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
-        "#searchShell[focused=\"true\"] { background: #ffffff; border: 1.5px solid #3b82f6; }"
+        "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#searchShell[focused=\"true\"] { background: #ffffff; border: 1px solid #3b82f6; }"
         "#searchIcon { background: transparent; border: none; }"
-        "#search { background: transparent; border: none; padding: 8px 4px;"
+        "#search { background: transparent; border: none; padding: 6px 4px;"
         " color: #334155; selection-background-color: #bfdbfe; }"
         "#search:focus { background: transparent; border: none; }"
         "#search QToolButton { background: transparent; border: none; border-radius: 6px; padding: 2px; }"
         "#search QToolButton:hover { background: #f1f5f9; }"
-        "#peerList { background: transparent; outline: none; padding: 2px 0; }"
+        "#peerList { background: transparent; outline: none; border: none; padding: 0; margin: 0; }"
         "#peerListHost { background: transparent; }"
         "#listEmptyHint { color: #94a3b8; background: transparent; padding: 16px 8px; }"
-        "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
+        "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 10px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
-        "#peerList::item { background: #ffffff; border: 1px solid #e2e8f0;"
-        " border-radius: 12px; padding: 2px 4px; margin: 3px 0; color: transparent; }"
-        "#peerList::item:hover { background: #ffffff; border-color: #cbd5e1; }"
-        "#peerList::item:selected { background: #ffffff; border: 1px solid #3b82f6; color: transparent; }"
-        "#peerList::item:selected:hover { background: #ffffff; border-color: #2563eb; }"
+        /* 设备行：无硬边框，与搜索框同宽同圆角；悬停淡灰、选中浅蓝底 */
+        "#peerList::item { background: transparent; border: none;"
+        " border-radius: 10px; padding: 0; margin: 0 0 6px 0; color: transparent; }"
+        "#peerList::item:hover { background: #f1f5f9; }"
+        "#peerList::item:selected { background: #eff6ff; border: none; color: transparent; }"
+        "#peerList::item:selected:hover { background: #dbeafe; }"
         "#peerRow { background: transparent; }"
         "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
         "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
