@@ -783,34 +783,42 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
         + QStringLiteral("</td></tr>");
 
     {
+        // 切片用半开区间 [x, x+w)，勿用 QRect::right()（闭区间会让各列宽合计超出 logicalW，右缘多出竖条）
         const int rowH = rowBottom - rowTop;
-        const int g1 = revealRect.x() - openRect.right();
-        const int g2 = copyRect.x() - revealRect.right();
-        html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\"><tr>");
+        const int openX = openRect.x();
+        const int openW = openRect.width();
+        const int revealX = revealRect.x();
+        const int revealW = revealRect.width();
+        const int copyX = copyRect.x();
+        const int copyW = copyRect.width();
+        const int openEnd = openX + openW;
+        const int revealEnd = revealX + revealW;
+        const int copyEnd = copyX + copyW;
+        html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\""
+                               " style=\"border-collapse:collapse;\"><tr>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(0, rowTop, openRect.x(), rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, rowTop, openX, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(openHref, QString::fromUtf8(u8"点击打开"),
-                        cropLogical(pm, QRect(openRect.x(), rowTop, openRect.width(), rowH)))
+                        cropLogical(pm, QRect(openX, rowTop, openW, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(openRect.right(), rowTop, g1, rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(openEnd, rowTop, revealX - openEnd, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(revealHref, QString::fromUtf8(u8"打开所在目录"),
-                        cropLogical(pm, QRect(revealRect.x(), rowTop, revealRect.width(), rowH)))
+                        cropLogical(pm, QRect(revealX, rowTop, revealW, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(revealRect.right(), rowTop, g2, rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(revealEnd, rowTop, copyX - revealEnd, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
             + linkedImg(copyPathHref, QString::fromUtf8(u8"点击复制路径"),
-                        cropLogical(pm, QRect(copyRect.x(), rowTop, copyRect.width(), rowH)))
+                        cropLogical(pm, QRect(copyX, rowTop, copyW, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("<td>")
-            + pixmapToImgHtml(cropLogical(pm, QRect(copyRect.right(), rowTop,
-                                                    logicalW - copyRect.right(), rowH)))
+            + pixmapToImgHtml(cropLogical(pm, QRect(copyEnd, rowTop, logicalW - copyEnd, rowH)))
             + QStringLiteral("</td>");
         html += QStringLiteral("</tr></table></td></tr>");
     }
