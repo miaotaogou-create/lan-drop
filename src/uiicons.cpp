@@ -409,6 +409,22 @@ QPixmap renderSvgIcon(const QString &resPath, int logical)
     return pm;
 }
 
+QPixmap renderSvgIconColored(const QString &resPath, int logical, const QColor &color)
+{
+    QPixmap src = renderSvgIcon(resPath, logical);
+    if (src.isNull() || !color.isValid())
+        return src;
+    QPixmap pm(src.size());
+    pm.setDevicePixelRatio(src.devicePixelRatio());
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.drawPixmap(0, 0, src);
+    p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    p.fillRect(QRect(QPoint(0, 0), pm.size()), color);
+    return pm;
+}
+
 QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName)
 {
     QPushButton *b = new QPushButton(text);
@@ -416,7 +432,9 @@ QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QStri
     b->setCursor(Qt::PointingHandCursor);
     b->setFlat(true);
     b->setFocusPolicy(Qt::NoFocus);
-    b->setIcon(QIcon(renderSvgIcon(svgRes, 16)));
+    b->setProperty("svgRes", svgRes);
+    // 默认与字色同为 slate，悬停只靠 QSS 改字/底
+    b->setIcon(QIcon(renderSvgIconColored(svgRes, 16, QColor(QStringLiteral("#64748b")))));
     b->setIconSize(QSize(16, 16));
     return b;
 }

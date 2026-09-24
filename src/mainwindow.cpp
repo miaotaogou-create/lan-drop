@@ -1652,6 +1652,19 @@ void MainWindow::refreshChromePixmaps()
     }
     if (m_clearChatBtn)
         applyClearChatIcon(m_clearChatBtn);
+    const QList<QPushButton *> tools = findChildren<QPushButton *>();
+    for (int i = 0; i < tools.size(); ++i) {
+        QPushButton *b = tools.at(i);
+        if (b->objectName() != QLatin1String("toolBtnFile")
+            && b->objectName() != QLatin1String("toolBtnFolder")
+            && b->objectName() != QLatin1String("toolBtnNudge"))
+            continue;
+        const QString res = b->property("svgRes").toString();
+        if (res.isEmpty())
+            continue;
+        b->setIcon(QIcon(renderSvgIconColored(res, 16, QColor(QStringLiteral("#64748b")))));
+        b->setIconSize(QSize(16, 16));
+    }
     updateChrome();
     syncPinBtn();
     refreshShareBtn();
