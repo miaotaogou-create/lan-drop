@@ -1082,11 +1082,13 @@ void MainWindow::applyStyle()
         "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
         "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
         "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+        "QScrollBar::handle:vertical:pressed { background: #64748b; }"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
         "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
         "QScrollBar:horizontal { background: transparent; height: 8px; margin: 2px; }"
         "QScrollBar::handle:horizontal { background: #cbd5e1; border-radius: 4px; min-width: 28px; }"
         "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
+        "QScrollBar::handle:horizontal:pressed { background: #64748b; }"
         "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
         "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
         "#root { background: #f8fafc; border: 1px solid #e2e8f0; }"
@@ -1102,6 +1104,7 @@ void MainWindow::applyStyle()
         "#statusOnline[ok=\"true\"] { color: #047857; }"
         "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
+        "#hostPill[pressed=\"true\"] { background: #dbeafe; border-color: #60a5fa; }"
         "#hostPill[copied=\"true\"] { background: #ecfdf5; border-color: #86efac; }"
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
@@ -1109,10 +1112,13 @@ void MainWindow::applyStyle()
         "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 6px 12px; font-size: 12px; font-weight: 600; min-height: 32px; }"
         "#shareBtn:hover { background: #dbeafe; }"
+        "#shareBtn:pressed { background: #bfdbfe; }"
         "#shareBtn[sharing=\"true\"] { background: #ecfdf5; border-color: #86efac; color: #047857; }"
         "#shareBtn[sharing=\"true\"]:hover { background: #d1fae5; }"
+        "#shareBtn[sharing=\"true\"]:pressed { background: #a7f3d0; }"
         "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0; }"
         "#iconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
+        "#iconBtn:pressed { background: #e2e8f0; }"
         "#minBtn, #maxBtn, #closeBtn, #pinBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
         "#minBtn:hover, #maxBtn:hover, #pinBtn:hover { background: #f1f5f9; }"
         "#pinBtn:checked { background: #eff6ff; }"
@@ -1165,6 +1171,7 @@ void MainWindow::applyStyle()
         "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
         " background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 8px; }"
         "#peerAddr:hover { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }"
+        "#peerAddr[pressed=\"true\"] { color: #1e40af; background: #dbeafe; border-color: #60a5fa; }"
         "#peerAddr[copied=\"true\"] { color: #047857; background: #ecfdf5; border-color: #86efac; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
         "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
@@ -1184,6 +1191,7 @@ void MainWindow::applyStyle()
         " border-radius: 16px; }"
         "#connBanner[offline=\"true\"] { background-color: #fffbeb; border: 1px solid #fbbf24; }"
         "#connBannerText { color: #64748b; font-size: 12px; background: transparent; }"
+        "#connBanner[offline=\"true\"] #connBannerText { color: #b45309; }"
         "#filesView { background: #f1f5f9; border: none; }"
         "#chat { background: #f1f5f9; color: #0f172a; font-size: 13px; padding: 8px 12px; border: none; }"
         "#chatHost { background: #f1f5f9; }"
@@ -1251,20 +1259,46 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (m_chatHost && watched == m_chatHost && event->type() == QEvent::Resize) {
         placeJumpBottomBtn();
     }
-    if (m_hostPill && watched == m_hostPill
-        && event->type() == QEvent::MouseButtonPress) {
-        QMouseEvent *me = static_cast<QMouseEvent *>(event);
-        if (me->button() == Qt::LeftButton) {
-            copyLocalAddr();
-            return true;
+    if (m_hostPill && watched == m_hostPill) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_hostPill->setProperty("pressed", true);
+                m_hostPill->style()->unpolish(m_hostPill);
+                m_hostPill->style()->polish(m_hostPill);
+                m_hostPill->update();
+                copyLocalAddr();
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease
+                   || event->type() == QEvent::Leave) {
+            if (m_hostPill->property("pressed").toBool()) {
+                m_hostPill->setProperty("pressed", false);
+                m_hostPill->style()->unpolish(m_hostPill);
+                m_hostPill->style()->polish(m_hostPill);
+                m_hostPill->update();
+            }
         }
     }
-    if (m_peerAddr && watched == m_peerAddr
-        && event->type() == QEvent::MouseButtonPress) {
-        QMouseEvent *me = static_cast<QMouseEvent *>(event);
-        if (me->button() == Qt::LeftButton) {
-            copyPeerAddr();
-            return true;
+    if (m_peerAddr && watched == m_peerAddr) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_peerAddr->setProperty("pressed", true);
+                m_peerAddr->style()->unpolish(m_peerAddr);
+                m_peerAddr->style()->polish(m_peerAddr);
+                m_peerAddr->update();
+                copyPeerAddr();
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease
+                   || event->type() == QEvent::Leave) {
+            if (m_peerAddr->property("pressed").toBool()) {
+                m_peerAddr->setProperty("pressed", false);
+                m_peerAddr->style()->unpolish(m_peerAddr);
+                m_peerAddr->style()->polish(m_peerAddr);
+                m_peerAddr->update();
+            }
         }
     }
     if (m_trayToast && watched == m_trayToast
@@ -2459,7 +2493,7 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     QAction *sendFileAct = menu.addAction(QString::fromUtf8(u8"发送文件…"));
     QAction *copyAddr = menu.addAction(QString::fromUtf8(u8"复制 IP:端口"));
     menu.addSeparator();
-    QAction *clearChat = menu.addAction(QString::fromUtf8(u8"清空聊天记录"));
+    QAction *clearChat = addDangerMenuAction(&menu, QString::fromUtf8(u8"清空聊天记录"));
     const QString key = ip + QLatin1Char(':') + QString::number(port);
     const bool pinned = m_settings.pinnedPeers.contains(key);
     QAction *pinAct = menu.addAction(pinned ? QString::fromUtf8(u8"取消置顶")
@@ -2468,7 +2502,7 @@ void MainWindow::peerListContextMenu(const QPoint &pos)
     edit->setEnabled(manual);
     if (!manual)
         edit->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可编辑"));
-    QAction *del = menu.addAction(QString::fromUtf8(u8"删除手动节点"));
+    QAction *del = addDangerMenuAction(&menu, QString::fromUtf8(u8"删除手动节点"));
     del->setEnabled(manual);
     if (!manual)
         del->setToolTip(QString::fromUtf8(u8"仅手动添加的节点可删除"));
@@ -3072,9 +3106,11 @@ void MainWindow::updatePeerSession()
         }
         m_connBannerText->setText(
             QString::fromUtf8(
-                u8"<span style=\"color:#b45309;\">对方当前离线：</span>"
-                "<span style=\"color:#92400e;font-weight:700;\">%1</span>"
-                "<span style=\"color:#b45309;\"> (%2)</span>")
+                u8"<span style=\"color:#d97706;\">对方当前离线</span>"
+                u8"<span style=\"color:#b45309;\"> · </span>"
+                u8"<span style=\"color:#92400e;font-weight:700;\">%1</span>"
+                u8"<span style=\"color:#a8a29e;font-family:Consolas,'Courier New',monospace;\">"
+                u8"  %2</span>")
                 .arg(label.toHtmlEscaped())
                 .arg(addr.toHtmlEscaped()));
         m_connBannerHost->show();

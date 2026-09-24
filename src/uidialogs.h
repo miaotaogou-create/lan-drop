@@ -6,9 +6,12 @@
 
 class QWidget;
 class QMenu;
+class QAction;
 
 void applyFloatingShadow(QWidget *w);
 void styleAppMenu(QMenu *menu);
+// 危险菜单项：红字 + 浅红悬停；返回的 QAction 可与 menu.exec 比较
+QAction *addDangerMenuAction(QMenu *menu, const QString &text);
 
 // 表单弹窗共用头脚/字段/主次钮；ns 对应 objectName 前缀（如 addPeer、settings）
 QString formDialogChromeQss(const QString &ns,

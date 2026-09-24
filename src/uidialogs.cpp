@@ -1,5 +1,6 @@
 #include "uidialogs.h"
 
+#include <QAction>
 #include <QColor>
 #include <QDialog>
 #include <QFrame>
@@ -8,9 +9,11 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QStyle>
 #include <QStyleFactory>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 
 void applyFloatingShadow(QWidget *w)
 {
@@ -38,7 +41,45 @@ void styleAppMenu(QMenu *menu)
         "QMenu::item:selected { background: #eff6ff; color: #1d4ed8; }"
         "QMenu::item:disabled { color: #94a3b8; background: transparent; }"
         "QMenu::separator { height: 1px; background: #eef2f7; margin: 5px 8px; }"
-        "QMenu::indicator { width: 14px; height: 14px; margin-left: 8px; }"));
+        "QMenu::indicator { width: 14px; height: 14px; margin-left: 8px; }"
+        "#menuDangerBtn { text-align: left; padding: 7px 24px 7px 14px; border: none;"
+        " border-radius: 6px; color: #dc2626; background: transparent; font-size: 12px; font-weight: 600; }"
+        "#menuDangerBtn:hover { background: #fef2f2; color: #b91c1c; }"
+        "#menuDangerBtn:pressed { background: #fee2e2; color: #991b1b; }"
+        "#menuDangerBtn:disabled { color: #fca5a5; background: transparent; }"
+        "#menuDangerHost { background: transparent; }"));
+}
+
+QAction *addDangerMenuAction(QMenu *menu, const QString &text)
+{
+    if (!menu)
+        return 0;
+    QWidget *host = new QWidget(menu);
+    host->setObjectName(QStringLiteral("menuDangerHost"));
+    QHBoxLayout *lay = new QHBoxLayout(host);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(0);
+    QPushButton *btn = new QPushButton(text, host);
+    btn->setObjectName(QStringLiteral("menuDangerBtn"));
+    btn->setCursor(Qt::PointingHandCursor);
+    btn->setFlat(true);
+    btn->setFocusPolicy(Qt::NoFocus);
+    btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    lay->addWidget(btn);
+    QWidgetAction *act = new QWidgetAction(menu);
+    act->setDefaultWidget(host);
+    QObject::connect(act, &QAction::changed, btn, [act, btn]() {
+        btn->setEnabled(act->isEnabled());
+    });
+    QObject::connect(btn, &QPushButton::clicked, menu, [menu, act]() {
+        if (!act->isEnabled())
+            return;
+        menu->setActiveAction(act);
+        act->trigger();
+        menu->close();
+    });
+    menu->addAction(act);
+    return act;
 }
 
 QString formDialogChromeQss(const QString &ns, const QString &primarySuffix,
