@@ -32,6 +32,14 @@
 #include <QDropEvent>
 #include <QAbstractScrollArea>
 #include <QElapsedTimer>
+#include <QShowEvent>
+#ifdef Q_OS_WIN
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#  include <shellapi.h>
+#endif
 #include <QEvent>
 #include <QEventLoop>
 #include <QFile>
@@ -82,6 +90,7 @@
 #include <QTime>
 #include <QToolTip>
 #include <QUrl>
+#include <QVector>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -201,7 +210,8 @@ protected:
         if (event->type() == QEvent::DragEnter) {
             QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
             if (de->mimeData() && de->mimeData()->hasUrls()) {
-                de->acceptProposedAction();
+                de->setDropAction(Qt::CopyAction);
+                de->accept();
                 ++m_depth;
                 if (m_depth == 1 && onActive)
                     onActive(true);
@@ -211,7 +221,8 @@ protected:
         if (event->type() == QEvent::DragMove) {
             QDragMoveEvent *de = static_cast<QDragMoveEvent *>(event);
             if (de->mimeData() && de->mimeData()->hasUrls()) {
-                de->acceptProposedAction();
+                de->setDropAction(Qt::CopyAction);
+                de->accept();
                 return true;
             }
         }
@@ -230,7 +241,8 @@ protected:
                 return false;
             if (onUrls) {
                 onUrls(de->mimeData()->urls());
-                de->acceptProposedAction();
+                de->setDropAction(Qt::CopyAction);
+                de->accept();
                 return true;
             }
             QStringList paths;
@@ -238,9 +250,92 @@ protected:
             paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
             if (!paths.isEmpty() && onFiles) {
                 onFiles(paths, hadDir);
-                de->acceptProposedAction();
+                de->setDropAction(Qt::CopyAction);
+                de->accept();
                 return true;
             }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    int m_depth = 0;
+};
+
+// 主窗口：任何子控件上的文件拖放都强制接受（避免 QTextBrowser viewport 拒绝后父级收不到）
+class WindowUrlDropFilter : public QObject
+{
+public:
+    explicit WindowUrlDropFilter(QObject *parent = 0) : QObject(parent) {}
+    std::function<void(const QPoint &)> onMove;
+    std::function<void()> onLeave;
+    std::function<void(const QList<QUrl> &, const QPoint &)> onDrop;
+
+    static bool mimeHasFiles(const QMimeData *md)
+    {
+        if (!md)
+            return false;
+        if (md->hasUrls()) {
+            const QList<QUrl> urls = md->urls();
+            for (int i = 0; i < urls.size(); ++i) {
+                if (urls.at(i).isLocalFile())
+                    return true;
+            }
+            // Explorer 有时先给 uri-list，仍当可拖入
+            if (!urls.isEmpty())
+                return true;
+        }
+        return md->hasFormat(QStringLiteral("text/uri-list"));
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::DragEnter) {
+            QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
+            if (!mimeHasFiles(de->mimeData()))
+                return false;
+            de->setDropAction(Qt::CopyAction);
+            de->accept();
+            ++m_depth;
+            if (m_depth == 1 && onMove) {
+                QWidget *w = qobject_cast<QWidget *>(watched);
+                onMove(w ? w->mapToGlobal(de->pos()) : QCursor::pos());
+            }
+            return true;
+        }
+        if (event->type() == QEvent::DragMove) {
+            QDragMoveEvent *de = static_cast<QDragMoveEvent *>(event);
+            if (!mimeHasFiles(de->mimeData()))
+                return false;
+            de->setDropAction(Qt::CopyAction);
+            de->accept();
+            if (onMove) {
+                QWidget *w = qobject_cast<QWidget *>(watched);
+                onMove(w ? w->mapToGlobal(de->pos()) : QCursor::pos());
+            }
+            return true;
+        }
+        if (event->type() == QEvent::DragLeave) {
+            m_depth = qMax(0, m_depth - 1);
+            if (m_depth == 0 && onLeave)
+                onLeave();
+            return false;
+        }
+        if (event->type() == QEvent::Drop) {
+            QDropEvent *de = static_cast<QDropEvent *>(event);
+            m_depth = 0;
+            if (onLeave)
+                onLeave();
+            if (!mimeHasFiles(de->mimeData()))
+                return false;
+            QWidget *w = qobject_cast<QWidget *>(watched);
+            const QPoint globalPos = w ? w->mapToGlobal(de->pos()) : QCursor::pos();
+            if (onDrop)
+                onDrop(de->mimeData()->urls(), globalPos);
+            de->setDropAction(Qt::CopyAction);
+            de->accept();
+            return true;
         }
         return QObject::eventFilter(watched, event);
     }
@@ -1336,6 +1431,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result)
 {
+    if (handleNativeFileDrop(message, result))
+        return true;
     if (m_chrome && m_chrome->handleNativeEvent(eventType, message, result))
         return true;
     return QMainWindow::nativeEvent(eventType, message, result);
@@ -2923,12 +3020,23 @@ void MainWindow::refreshPeers()
     else
         updateEmpty();
     updateHostPill();
-    // 列表重建后确保 viewport 不抢主窗口 drop
+#ifdef Q_OS_WIN
     if (m_list) {
         m_list->setAcceptDrops(false);
         if (m_list->viewport())
             m_list->viewport()->setAcceptDrops(false);
     }
+#else
+    if (m_list) {
+        wireDropTarget(m_list);
+        if (m_list->viewport())
+            wireDropTarget(m_list->viewport());
+        for (int i = 0; i < m_list->count(); ++i) {
+            if (QWidget *row = m_list->itemWidget(m_list->item(i)))
+                wireDropTarget(row);
+        }
+    }
+#endif
 }
 
 void MainWindow::setSessionTab(int index)
@@ -4293,32 +4401,117 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
         pumpUploadQueue();
 }
 
-void MainWindow::silenceChildDrops(QWidget *root)
+void MainWindow::wireDropTarget(QWidget *w)
 {
-    if (!root)
+    if (!w || !m_windowDropFilter)
         return;
-    root->setAcceptDrops(false);
-    const QList<QWidget *> kids = root->findChildren<QWidget *>();
-    for (int i = 0; i < kids.size(); ++i)
-        kids.at(i)->setAcceptDrops(false);
-    const QList<QAbstractScrollArea *> areas = root->findChildren<QAbstractScrollArea *>();
-    for (int i = 0; i < areas.size(); ++i) {
-        QAbstractScrollArea *sa = areas.at(i);
-        sa->setAcceptDrops(false);
-        if (sa->viewport())
-            sa->viewport()->setAcceptDrops(false);
-    }
+    w->setAcceptDrops(true);
+    w->installEventFilter(m_windowDropFilter);
 }
 
 void MainWindow::setupWindowDrop()
 {
-    // QTextBrowser/QPlainTextEdit 的 viewport 默认抢 drop，Explorer 拖入无反应。
-    // 子控件全部关闭 acceptDrops，由主窗口统一接收。
+#ifdef Q_OS_WIN
+    // 无边框窗口上 Qt OLE IDropTarget 常整窗显示禁止圆圈，且会屏蔽 WM_DROPFILES。
+    // Windows：关闭 Qt acceptDrops，仅用 DragAcceptFiles。
+    setAcceptDrops(false);
+    if (QWidget *root = centralWidget()) {
+        root->setAcceptDrops(false);
+        const QList<QWidget *> kids = root->findChildren<QWidget *>();
+        for (int i = 0; i < kids.size(); ++i)
+            kids.at(i)->setAcceptDrops(false);
+        const QList<QAbstractScrollArea *> areas = root->findChildren<QAbstractScrollArea *>();
+        for (int i = 0; i < areas.size(); ++i) {
+            areas.at(i)->setAcceptDrops(false);
+            if (areas.at(i)->viewport())
+                areas.at(i)->viewport()->setAcceptDrops(false);
+        }
+    }
+#else
+    // X11：挂过滤器强制接受文件 URL
+    if (!m_windowDropFilter) {
+        WindowUrlDropFilter *filter = new WindowUrlDropFilter(this);
+        filter->onMove = [this](const QPoint &gp) { updateDropChrome(gp); };
+        filter->onLeave = [this]() {
+            setChatDropHint(false);
+            setListDropHint(false);
+        };
+        filter->onDrop = [this](const QList<QUrl> &urls, const QPoint &gp) {
+            bool overListBlank = false;
+            selectPeerAtGlobalPos(gp, &overListBlank);
+            if (overListBlank) {
+                setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
+                return;
+            }
+            handleDroppedUrls(urls);
+        };
+        m_windowDropFilter = filter;
+    }
     setAcceptDrops(true);
-    if (centralWidget())
-        silenceChildDrops(centralWidget());
+    installEventFilter(m_windowDropFilter);
+    if (QWidget *root = centralWidget()) {
+        wireDropTarget(root);
+        const QList<QWidget *> kids = root->findChildren<QWidget *>();
+        for (int i = 0; i < kids.size(); ++i)
+            wireDropTarget(kids.at(i));
+        const QList<QAbstractScrollArea *> areas = root->findChildren<QAbstractScrollArea *>();
+        for (int i = 0; i < areas.size(); ++i) {
+            wireDropTarget(areas.at(i));
+            if (areas.at(i)->viewport())
+                wireDropTarget(areas.at(i)->viewport());
+        }
+    }
+#endif
     if (m_chat)
         m_chat->installEventFilter(this); // Ctrl+V 粘贴发文件
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    // 先关掉 Qt OLE，再 show，最后 DragAcceptFiles，避免 IDropTarget 压掉 WM_DROPFILES
+    setupWindowDrop();
+    QMainWindow::showEvent(event);
+#ifdef Q_OS_WIN
+    if (HWND hwnd = reinterpret_cast<HWND>(winId()))
+        DragAcceptFiles(hwnd, TRUE);
+#endif
+}
+
+bool MainWindow::handleNativeFileDrop(void *message, long *result)
+{
+#ifdef Q_OS_WIN
+    if (!message)
+        return false;
+    MSG *msg = static_cast<MSG *>(message);
+    if (msg->message != WM_DROPFILES)
+        return false;
+    HDROP hdrop = reinterpret_cast<HDROP>(msg->wParam);
+    const UINT n = DragQueryFileW(hdrop, 0xFFFFFFFF, NULL, 0);
+    QList<QUrl> urls;
+    for (UINT i = 0; i < n; ++i) {
+        const UINT len = DragQueryFileW(hdrop, i, NULL, 0);
+        QVector<wchar_t> buf(static_cast<int>(len) + 1);
+        DragQueryFileW(hdrop, i, buf.data(), len + 1);
+        urls.append(QUrl::fromLocalFile(QString::fromWCharArray(buf.constData())));
+    }
+    POINT pt;
+    DragQueryPoint(hdrop, &pt);
+    DragFinish(hdrop);
+    const QPoint globalPos = mapToGlobal(QPoint(pt.x, pt.y));
+    bool overListBlank = false;
+    selectPeerAtGlobalPos(globalPos, &overListBlank);
+    if (overListBlank)
+        setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
+    else if (!urls.isEmpty())
+        handleDroppedUrls(urls);
+    if (result)
+        *result = 0;
+    return true;
+#else
+    Q_UNUSED(message);
+    Q_UNUSED(result);
+    return false;
+#endif
 }
 
 void MainWindow::updateDropChrome(const QPoint &globalPos)
@@ -4367,21 +4560,23 @@ bool MainWindow::selectPeerAtGlobalPos(const QPoint &globalPos, bool *overListBl
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+    if (!WindowUrlDropFilter::mimeHasFiles(event->mimeData())) {
         event->ignore();
         return;
     }
-    event->acceptProposedAction();
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
     updateDropChrome(mapToGlobal(event->pos()));
 }
 
 void MainWindow::dragMoveEvent(QDragMoveEvent *event)
 {
-    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+    if (!WindowUrlDropFilter::mimeHasFiles(event->mimeData())) {
         event->ignore();
         return;
     }
-    event->acceptProposedAction();
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
     updateDropChrome(mapToGlobal(event->pos()));
 }
 
@@ -4396,7 +4591,7 @@ void MainWindow::dropEvent(QDropEvent *event)
 {
     setChatDropHint(false);
     setListDropHint(false);
-    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+    if (!WindowUrlDropFilter::mimeHasFiles(event->mimeData())) {
         event->ignore();
         return;
     }
@@ -4405,11 +4600,13 @@ void MainWindow::dropEvent(QDropEvent *event)
     selectPeerAtGlobalPos(globalPos, &overListBlank);
     if (overListBlank) {
         setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
-        event->acceptProposedAction();
+        event->setDropAction(Qt::CopyAction);
+        event->accept();
         return;
     }
     handleDroppedUrls(event->mimeData()->urls());
-    event->acceptProposedAction();
+    event->setDropAction(Qt::CopyAction);
+    event->accept();
 }
 
 void MainWindow::setListDropHint(bool on)
