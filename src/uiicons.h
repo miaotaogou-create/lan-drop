@@ -39,8 +39,8 @@ QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString
 QIcon makePinIcon(bool pinned, const QColor &color);
 QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &fg,
                            const QColor &border);
-QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pinned,
-                        const QString &osName, const QString &tag, int maxLogicalW = 168);
+// 按 OS 着色的右侧胶囊（Linux 暖橙 / ARM 绿 / Windows 蓝）
+QPixmap makeOsStatusChip(const QString &osName);
 
 // 自绘图标按窗口当前屏 DPR 出图（换屏后需重设并刷新）
 void setUiIconDevicePixelRatio(qreal dpr);

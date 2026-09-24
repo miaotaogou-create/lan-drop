@@ -511,136 +511,28 @@ QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &
     return pm;
 }
 
-QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pinned,
-                        const QString &osName, const QString &tag, int maxLogicalW)
+QPixmap makeOsStatusChip(const QString &osName)
 {
-    QList<QPixmap> chips;
-    if (offline)
-        chips << makePeerStatusChip(QString::fromUtf8(u8"离线"),
-                                    QColor(QStringLiteral("#f1f5f9")),
-                                    QColor(QStringLiteral("#64748b")),
-                                    QColor(QStringLiteral("#e2e8f0")));
-    if (manual)
-        chips << makePeerStatusChip(QString::fromUtf8(u8"手动"),
-                                    QColor(QStringLiteral("#eff6ff")),
-                                    QColor(QStringLiteral("#1d4ed8")),
-                                    QColor(QStringLiteral("#bfdbfe")));
-    if (pinned)
-        chips << makePeerStatusChip(QString::fromUtf8(u8"置顶"),
-                                    QColor(QStringLiteral("#fffbeb")),
-                                    QColor(QStringLiteral("#b45309")),
-                                    QColor(QStringLiteral("#fde68a")));
-    // OS 放最后：空间不够时整颗丢掉，绝不截成 linu
-    const QString osLabel = osDisplayLabel(osName);
-    QPixmap osChip;
-    if (!osLabel.isEmpty()) {
-        osChip = makePeerStatusChip(osLabel,
-                                    QColor(QStringLiteral("#f8fafc")),
-                                    QColor(QStringLiteral("#64748b")),
-                                    QColor(QStringLiteral("#e2e8f0")));
-        chips << osChip;
+    const QString label = osDisplayLabel(osName);
+    if (label.isEmpty())
+        return QPixmap();
+    const QString o = osName.trimmed().toLower();
+    QColor bg(QStringLiteral("#f1f5f9"));
+    QColor fg(QStringLiteral("#475569"));
+    QColor border(QStringLiteral("#e2e8f0"));
+    if (label == QLatin1String("Linux") || o.contains(QLatin1String("ubuntu"))
+        || o.contains(QLatin1String("kylin"))) {
+        bg = QColor(QStringLiteral("#fff7ed"));
+        fg = QColor(QStringLiteral("#ea580c"));
+        border = QColor(QStringLiteral("#fed7aa"));
+    } else if (label == QLatin1String("ARM64") || o.contains(QLatin1String("arm"))) {
+        bg = QColor(QStringLiteral("#ecfdf5"));
+        fg = QColor(QStringLiteral("#059669"));
+        border = QColor(QStringLiteral("#a7f3d0"));
+    } else if (label == QLatin1String("Windows") || o.startsWith(QLatin1String("win"))) {
+        bg = QColor(QStringLiteral("#eff6ff"));
+        fg = QColor(QStringLiteral("#2563eb"));
+        border = QColor(QStringLiteral("#bfdbfe"));
     }
-
-    // 部门标签：放不下则整段省略，不半截字
-    const QString tagDraw = tag.trimmed();
-
-    QFont addrFont = qApp->font();
-    addrFont.setPixelSize(11);
-    QFont trailFont = qApp->font();
-    trailFont.setPixelSize(11);
-    QFontMetrics addrFm(addrFont);
-    QFontMetrics trailFm(trailFont);
-    const int gap = 5;
-    const int chipGap = 4;
-
-    auto chipLogicalW = [](const QPixmap &c) {
-        return c.width() / qMax(1, qRound(c.devicePixelRatio()));
-    };
-    auto chipLogicalH = [](const QPixmap &c) {
-        return c.height() / qMax(1, qRound(c.devicePixelRatio()));
-    };
-
-    auto measureChips = [&](const QList<QPixmap> &list, int *outW, int *outH) {
-        int w = 0;
-        int h = 16;
-        for (int i = 0; i < list.size(); ++i) {
-            w += chipLogicalW(list.at(i));
-            h = qMax(h, chipLogicalH(list.at(i)));
-            if (i + 1 < list.size())
-                w += chipGap;
-        }
-        *outW = w;
-        *outH = h;
-    };
-
-    QString addrDraw = addr.trimmed();
-    QString trailDraw = tagDraw;
-    int addrW = addrDraw.isEmpty() ? 0 : addrFm.horizontalAdvance(addrDraw);
-    int trailW = trailDraw.isEmpty() ? 0 : trailFm.horizontalAdvance(trailDraw);
-    int chipsW = 0;
-    int chipH = 16;
-    measureChips(chips, &chipsW, &chipH);
-
-    auto totalW = [&]() {
-        int t = addrW;
-        if (addrW && chipsW)
-            t += gap;
-        t += chipsW;
-        if ((addrW || chipsW) && trailW)
-            t += gap;
-        t += trailW;
-        return t;
-    };
-
-    // 先丢标签，再从末尾丢胶囊（先 OS），最后再缩短 IP
-    if (totalW() > maxLogicalW && !trailDraw.isEmpty()) {
-        trailDraw.clear();
-        trailW = 0;
-    }
-    while (totalW() > maxLogicalW && !chips.isEmpty()) {
-        chips.removeLast();
-        measureChips(chips, &chipsW, &chipH);
-    }
-    while (totalW() > maxLogicalW && addrDraw.size() > 5) {
-        addrDraw.chop(1);
-        addrW = addrFm.horizontalAdvance(addrDraw + QString::fromUtf8(u8"…"));
-    }
-    if (!addrDraw.isEmpty() && addrDraw != addr.trimmed())
-        addrDraw += QString::fromUtf8(u8"…");
-    addrW = addrDraw.isEmpty() ? 0 : addrFm.horizontalAdvance(addrDraw);
-
-    const int logicalW = qMax(1, qMin(maxLogicalW, qMax(1, totalW())));
-    const int logicalH = qMax(chipH, qMax(addrFm.height(), trailFm.height()));
-    QPixmap pm = makeDprPixmap(logicalW, logicalH);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setRenderHint(QPainter::TextAntialiasing, true);
-    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-
-    int x = 0;
-    if (!addrDraw.isEmpty()) {
-        p.setFont(addrFont);
-        p.setPen(QColor(QStringLiteral("#94a3b8")));
-        p.drawText(QRect(x, 0, addrW, logicalH), Qt::AlignLeft | Qt::AlignVCenter, addrDraw);
-        x += addrW;
-        if (chipsW || trailW)
-            x += gap;
-    }
-    for (int i = 0; i < chips.size(); ++i) {
-        const int cw = chipLogicalW(chips.at(i));
-        const int ch = chipLogicalH(chips.at(i));
-        p.drawPixmap(x, (logicalH - ch) / 2, chips.at(i));
-        x += cw;
-        if (i + 1 < chips.size())
-            x += chipGap;
-    }
-    if (!trailDraw.isEmpty()) {
-        if (chipsW || addrW)
-            x += gap;
-        p.setFont(trailFont);
-        p.setPen(QColor(QStringLiteral("#94a3b8")));
-        p.drawText(QRect(x, 0, qMax(0, logicalW - x), logicalH),
-                   Qt::AlignLeft | Qt::AlignVCenter, trailDraw);
-    }
-    return pm;
+    return makePeerStatusChip(label, bg, fg, border);
 }

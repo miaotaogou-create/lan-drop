@@ -146,6 +146,7 @@ private:
     void refreshChromePixmaps();
     void updateEmpty();
     void updatePeerRowIndicators();
+    void updatePeerListPings();
     void updateHostPill();
     void updatePeerSession();
     void setSessionTab(int index);
@@ -293,6 +294,7 @@ private:
     bool m_pingBusy = false;
     QString m_pingKey;
     QString m_pingText;
+    QHash<QString, QString> m_peerPing; // ip:port → 延迟文案
     QPoint m_dragOrigin;
     bool m_dragging = false;
     WindowChrome *m_chrome = 0;

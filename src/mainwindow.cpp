@@ -1194,19 +1194,23 @@ void MainWindow::applyStyle()
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
         /* 选中条改由行内 peerRowIndicator 绘制，避免 round+border-left 破皮 */
-        "#peerList::item { background: transparent; border: 1px solid transparent;"
-        " border-radius: 12px; padding: 2px 4px; margin: 2px 0; color: transparent; }"
-        "#peerList::item:hover { background: #f1f5f9; border-color: transparent; }"
-        "#peerList::item:selected { background: #f0f7ff; border: 1px solid #bfdbfe; color: transparent; }"
-        "#peerList::item:selected:hover { background: #e8f1ff; border-color: #93c5fd; }"
+        "#peerList::item { background: #ffffff; border: 1px solid #eef2f7;"
+        " border-radius: 12px; padding: 2px 4px; margin: 3px 0; color: transparent; }"
+        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
+        "#peerList::item:selected { background: #f0f7ff; border: 1px solid #93c5fd; color: transparent; }"
+        "#peerList::item:selected:hover { background: #e8f1ff; border-color: #60a5fa; }"
         "#peerRow { background: transparent; }"
         "#peerRowIndicator { background: transparent; border: none; border-radius: 2px; min-width: 3px;"
         " max-width: 3px; }"
         "#peerRowIndicator[active=\"true\"] { background: #2563eb; }"
         "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
         "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
+        "#peerRowIp { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
+        " background: transparent; border: none; }"
+        "#peerRowOs { background: transparent; border: none; }"
+        "#peerRowPing { color: #10b981; font-size: 11px; font-weight: 600; background: transparent; border: none; }"
+        "#peerRowPing[offline=\"true\"] { color: #f59e0b; }"
         "#peerRowSub { background: transparent; }"
-        "#peerOnlineDot { background: transparent; border: none; }"
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
@@ -2949,6 +2953,37 @@ void MainWindow::updatePeerRowIndicators()
     }
 }
 
+void MainWindow::updatePeerListPings()
+{
+    if (!m_list)
+        return;
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem *it = m_list->item(i);
+        QWidget *row = m_list->itemWidget(it);
+        if (!row || !it)
+            continue;
+        QLabel *pingLab = row->findChild<QLabel *>(QStringLiteral("peerRowPing"));
+        if (!pingLab)
+            continue;
+        const QString key = it->data(Qt::UserRole).toString() + QLatin1Char(':')
+            + QString::number(it->data(Qt::UserRole + 1).toInt());
+        Peer peer;
+        const bool found = m_disc && m_disc->find(it->data(Qt::UserRole).toString(),
+                                                 it->data(Qt::UserRole + 1).toInt(), &peer);
+        const bool online = found && peer.online();
+        pingLab->setProperty("offline", !online);
+        if (!online) {
+            pingLab->setText(QString::fromUtf8(u8"离线"));
+        } else if (m_peerPing.contains(key)) {
+            pingLab->setText(QString::fromUtf8(u8"⚡ %1").arg(m_peerPing.value(key)));
+        } else {
+            pingLab->setText(QString::fromUtf8(u8"⚡ —"));
+        }
+        pingLab->style()->unpolish(pingLab);
+        pingLab->style()->polish(pingLab);
+    }
+}
+
 void MainWindow::refreshPeers()
 {
     const QString keep = currentKey();
@@ -3024,8 +3059,7 @@ void MainWindow::refreshPeers()
         const int unread = m_unread.value(p.key(), 0);
         // 搜索串进 UserRole+5；item 明文不画，避免与 itemWidget 叠字
         QListWidgetItem *it = new QListWidgetItem;
-        it->setSizeHint(QSize(0, 60));
-        it->setToolTip(fullAddr);
+        it->setSizeHint(QSize(0, 64));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
@@ -3040,7 +3074,7 @@ void MainWindow::refreshPeers()
         rowHost->setObjectName(QStringLiteral("peerRow"));
         rowHost->setAttribute(Qt::WA_TranslucentBackground, true);
         QHBoxLayout *rowLay = new QHBoxLayout(rowHost);
-        rowLay->setContentsMargins(6, 4, 8, 4);
+        rowLay->setContentsMargins(6, 6, 10, 6);
         rowLay->setSpacing(10);
         // 内嵌 3px 指示条：与圆角卡片解耦，避免 QSS border-left 破皮
         QLabel *ind = new QLabel;
@@ -3057,7 +3091,7 @@ void MainWindow::refreshPeers()
         av->setPixmap(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned));
         QVBoxLayout *textCol = new QVBoxLayout;
         textCol->setContentsMargins(0, 1, 0, 1);
-        textCol->setSpacing(2);
+        textCol->setSpacing(3);
         QLabel *nameLab = new QLabel(p.label());
         nameLab->setObjectName(QStringLiteral("peerRowName"));
         nameLab->setProperty("offline", !online);
@@ -3068,22 +3102,54 @@ void MainWindow::refreshPeers()
             f.setBold(true);
             nameLab->setFont(f);
         }
-        QLabel *subLab = new QLabel;
-        subLab->setObjectName(QStringLiteral("peerRowSub"));
-        const int subMax = qMax(100, m_list->viewport()->width() - 96);
-        subLab->setPixmap(makePeerSubline(addrShort, !online, p.manual, pinned, p.osName, p.tag,
-                                          subMax));
+        // 参考图：副行只留 IP，主机名/链路描述不进列表
+        QLabel *ipLab = new QLabel(addrShort);
+        ipLab->setObjectName(QStringLiteral("peerRowIp"));
         textCol->addWidget(nameLab);
-        textCol->addWidget(subLab);
-        QLabel *dot = new QLabel;
-        dot->setObjectName(QStringLiteral("peerOnlineDot"));
-        dot->setFixedSize(8, 8);
-        dot->setPixmap(makeStatusDot(online, 8));
-        dot->setToolTip(online ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线"));
+        textCol->addWidget(ipLab);
+
+        QVBoxLayout *rightCol = new QVBoxLayout;
+        rightCol->setContentsMargins(0, 0, 0, 0);
+        rightCol->setSpacing(4);
+        QLabel *osLab = new QLabel;
+        osLab->setObjectName(QStringLiteral("peerRowOs"));
+        osLab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        const QPixmap osChip = makeOsStatusChip(p.osName);
+        if (!osChip.isNull()) {
+            osLab->setPixmap(osChip);
+            osLab->show();
+        } else {
+            osLab->hide();
+        }
+        QLabel *pingLab = new QLabel;
+        pingLab->setObjectName(QStringLiteral("peerRowPing"));
+        pingLab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        pingLab->setProperty("offline", !online);
+        if (!online) {
+            pingLab->setText(QString::fromUtf8(u8"离线"));
+        } else if (m_peerPing.contains(p.key())) {
+            pingLab->setText(QString::fromUtf8(u8"⚡ %1").arg(m_peerPing.value(p.key())));
+        } else {
+            pingLab->setText(QString::fromUtf8(u8"⚡ —"));
+        }
+        pingLab->style()->unpolish(pingLab);
+        pingLab->style()->polish(pingLab);
+        rightCol->addWidget(osLab, 0, Qt::AlignRight);
+        rightCol->addWidget(pingLab, 0, Qt::AlignRight);
+
+        QString tip = fullAddr;
+        if (!p.tag.trimmed().isEmpty())
+            tip += QString::fromUtf8(u8"\n标签 ") + p.tag.trimmed();
+        if (p.manual)
+            tip += QString::fromUtf8(u8"\n手动添加");
+        if (pinned)
+            tip += QString::fromUtf8(u8"\n已置顶");
+        it->setToolTip(tip);
+
         rowLay->addWidget(ind, 0, Qt::AlignVCenter);
         rowLay->addWidget(av, 0, Qt::AlignVCenter);
         rowLay->addLayout(textCol, 1);
-        rowLay->addWidget(dot, 0, Qt::AlignVCenter);
+        rowLay->addLayout(rightCol, 0);
         m_list->setItemWidget(it, rowHost);
 
         if (!want.isEmpty() && p.key() == want)
@@ -3756,6 +3822,8 @@ void MainWindow::measurePing()
                           o.value(QStringLiteral("os")).toString(),
                           o.value(QStringLiteral("hostname")).toString());
         }
+        m_peerPing.insert(key, m_pingText);
+        updatePeerListPings();
         if (key == currentKey())
             updatePeerSession();
     });
