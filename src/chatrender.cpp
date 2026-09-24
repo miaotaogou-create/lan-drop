@@ -174,13 +174,22 @@ static QString textBubbleImgHtml(const QString &text, bool out)
 
 static bool splitCodeFence(const QString &text, QString *lang, QString *body)
 {
-    const QString t = text;
+    QString t = text.trimmed();
+    t.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    t.replace(QLatin1Char('\r'), QLatin1Char('\n'));
     if (!t.startsWith(QStringLiteral("```")))
         return false;
     int nl = t.indexOf(QLatin1Char('\n'));
     if (nl < 0)
         return false;
     QString head = t.mid(3, nl - 3).trimmed();
+    // 允许 ```cpp 后带多余空格；空语言当 text
+    if (head.isEmpty())
+        head = QStringLiteral("text");
+    // 去掉语言行里误带的尾部反引号
+    if (head.endsWith(QStringLiteral("```")))
+        head.chop(3);
+    head = head.trimmed();
     if (head.isEmpty())
         head = QStringLiteral("text");
     int end = t.lastIndexOf(QStringLiteral("```"));
@@ -193,31 +202,55 @@ static bool splitCodeFence(const QString &text, QString *lang, QString *body)
     return true;
 }
 
+static bool looksLikeCommentLine(const QString &line)
+{
+    const QString s = line.trimmed();
+    if (s.isEmpty())
+        return false;
+    if (s.startsWith(QLatin1Char('#')))
+        return true;
+    if (s.startsWith(QStringLiteral("//")))
+        return true;
+    if (s.startsWith(QStringLiteral("/*")) || s.startsWith(QStringLiteral("*"))
+        || s.startsWith(QStringLiteral("*/")))
+        return true;
+    return false;
+}
+
 static QString renderCodeBlock(const QString &lang, const QString &code)
 {
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-    // Qt 富文本无圆角：整块绘成深色圆角卡，复制链仍用 HTML
+    // Qt 富文本无可靠圆角：整块绘成深色圆角卡；「复制」画在顶栏右侧，整卡可点
     const int maxW = 420;
     const int padX = 14;
     const int padY = 12;
     const qreal radius = 14.0;
+    const QString copyLabel = QString::fromUtf8(u8"复制");
     QFont headFont = qApp->font();
     headFont.setPixelSize(13);
+    QFont copyFont = qApp->font();
+    copyFont.setPixelSize(12);
+    copyFont.setBold(true);
     QFont codeFont(QStringLiteral("Consolas"));
     if (!codeFont.exactMatch())
         codeFont = QFont(QStringLiteral("Courier New"));
     codeFont.setPixelSize(14);
     codeFont.setStyleHint(QFont::Monospace);
     QFontMetrics headFm(headFont);
+    QFontMetrics copyFm(copyFont);
     QFontMetrics codeFm(codeFont);
-    const QRect codeBound = codeFm.boundingRect(QRect(0, 0, maxW - padX * 2, 10000),
-                                               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-                                               code);
-    const int contentW = qMax(160, qMin(maxW - padX * 2, qMax(headFm.horizontalAdvance(lang) + 48, codeBound.width())));
-    const int headH = headFm.height();
+    const QStringList lines = code.split(QLatin1Char('\n'));
+    int codeTextW = 0;
+    for (int i = 0; i < lines.size(); ++i)
+        codeTextW = qMax(codeTextW, codeFm.horizontalAdvance(lines.at(i)));
+    const int codeTextH = qMax(codeFm.height(), lines.size() * codeFm.lineSpacing());
+    const int copyW = copyFm.horizontalAdvance(copyLabel);
+    const int contentW = qMax(160, qMin(maxW - padX * 2,
+                                        qMax(headFm.horizontalAdvance(lang) + copyW + 24, codeTextW)));
+    const int headH = qMax(headFm.height(), copyFm.height());
     const int gap = 8;
-    const int contentH = headH + gap + qMax(codeFm.height(), codeBound.height());
+    const int contentH = headH + gap + codeTextH;
     const int innerW = contentW + padX * 2;
     const int innerH = contentH + padY * 2;
     const int logicalW = innerW + kShadowPad * 2;
@@ -231,19 +264,30 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(QStringLiteral("#1e293b")));
     p.drawRoundedRect(box, radius, radius);
+    const int headY = kShadowPad + padY;
     p.setFont(headFont);
     p.setPen(QColor(QStringLiteral("#94a3b8")));
-    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY, contentW, headH),
+    p.drawText(QRect(kShadowPad + padX, headY, contentW - copyW - 12, headH),
                Qt::AlignLeft | Qt::AlignVCenter, lang);
+    // 顶栏右侧「复制」字样（整卡包在复制链里，故可点）
+    p.setFont(copyFont);
+    p.setPen(QColor(QStringLiteral("#93c5fd")));
+    p.drawText(QRect(kShadowPad + padX, headY, contentW, headH),
+               Qt::AlignRight | Qt::AlignVCenter, copyLabel);
+    int y = kShadowPad + padY + headH + gap;
     p.setFont(codeFont);
-    p.setPen(QColor(QStringLiteral("#e2e8f0")));
-    p.drawText(QRect(kShadowPad + padX, kShadowPad + padY + headH + gap, contentW, codeBound.height()),
-               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-               code);
+    for (int i = 0; i < lines.size(); ++i) {
+        const QString &line = lines.at(i);
+        p.setPen(looksLikeCommentLine(line) ? QColor(QStringLiteral("#94a3b8"))
+                                            : QColor(QStringLiteral("#e2e8f0")));
+        p.drawText(QRect(kShadowPad + padX, y, contentW, codeFm.height()),
+                   Qt::AlignLeft | Qt::AlignVCenter, line);
+        y += codeFm.lineSpacing();
+    }
     const QString img = pixmapToImgHtml(pm);
-    return QStringLiteral("%1<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>%2</tr></table>")
-        .arg(img, actionChipHtml(href, QString::fromUtf8(u8"复制"),
-                                 QString::fromUtf8(u8"点击复制"), true));
+    return QStringLiteral(
+               "<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
+        .arg(href, QString::fromUtf8(u8"点击复制"), img);
 }
 
 static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QColor &fg,
