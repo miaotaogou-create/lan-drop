@@ -243,7 +243,7 @@ QPixmap makeLaptopIcon(int logical)
     return pm;
 }
 
-QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
+QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical, bool withOsBadge)
 {
     QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
@@ -252,9 +252,8 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.setPen(Qt::NoPen);
     const QColor base = avatarColorForName(name);
-    // 角标约 46%，悬出主体约 1/3；用镂空咬合白底，不画白盘/阴影以免露边
-    const int badge = qMax(18, qRound(logical * 0.46));
-    const qreal hang = badge * 0.32;
+    const int badge = withOsBadge ? qMax(18, qRound(logical * 0.46)) : 0;
+    const qreal hang = withOsBadge ? badge * 0.32 : 0;
     const QRectF body(0.5, 0.5, logical - hang - 0.5, logical - hang - 0.5);
     QLinearGradient grad(body.topLeft(), body.bottomLeft());
     grad.setColorAt(0.0, base.lighter(112));
@@ -267,7 +266,11 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
-    p.drawText(body.adjusted(0, -1, 0, -hang * 0.35), Qt::AlignCenter, avatarInitial(name));
+    p.drawText(body.adjusted(0, -1, 0, withOsBadge ? -hang * 0.35 : 0),
+               Qt::AlignCenter, avatarInitial(name));
+
+    if (!withOsBadge)
+        return pm;
 
     const QRectF badgeRect(logical - badge, logical - badge, badge, badge);
     // 挖透明圆：与卡片白底融为一体，只剩 >_ 浮在缺口上
@@ -292,7 +295,7 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
 QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread, int logical,
                            bool pinned)
 {
-    QPixmap base = makePeerAvatar(name, osName, logical);
+    QPixmap base = makePeerAvatar(name, osName, logical, true);
     if (unread <= 0 && !pinned)
         return base;
     QPixmap pm = base;

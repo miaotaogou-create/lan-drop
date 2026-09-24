@@ -22,7 +22,8 @@ QPixmap makeGlobeBadge(int logical = 36);
 QPixmap makeRadioLogo(int logical = 36);
 QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
 QPixmap makeLaptopIcon(int logical = 16);
-QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44);
+QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44,
+                       bool withOsBadge = false);
 // unread>0 时在头像右上角画未读角标（99+ 封顶）
 QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unread,
                            int logical = 44, bool pinned = false);
