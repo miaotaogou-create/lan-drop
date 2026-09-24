@@ -727,12 +727,12 @@ void MainWindow::buildUi()
     m_peerName = new QLabel;
     m_peerName->setObjectName(QStringLiteral("peerName"));
     m_peerName->setMinimumWidth(40);
-    m_peerName->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_peerName->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // 在线状态靠名称着色；顶栏不再放绿点，避免和名字叠在一起
     m_peerOnlineDot = new QLabel;
     m_peerOnlineDot->setFixedSize(7, 7);
-    peerTitleRow->addWidget(m_peerName, 0, Qt::AlignVCenter);
-    peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
-    peerTitleRow->addStretch(1);
+    m_peerOnlineDot->hide();
+    peerTitleRow->addWidget(m_peerName, 1, Qt::AlignVCenter);
     // 地址放名称下方：保留点按复制，避免顶栏右侧药丸抢注意力
     m_peerAddr = new QLabel;
     m_peerAddr->setObjectName(QStringLiteral("peerAddr"));
@@ -915,11 +915,20 @@ void MainWindow::buildUi()
     progLay->addWidget(m_clearQueueBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     progLay->addWidget(m_cancelUploadBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
 
+    // 阴影挂在外层：避免 QGraphicsDropShadowEffect 裁掉 inputShell 顶边焦点描边
+    QWidget *shellHost = new QWidget;
+    shellHost->setObjectName(QStringLiteral("inputShellHost"));
+    applyFloatingShadow(shellHost);
+    QVBoxLayout *shellHostLay = new QVBoxLayout(shellHost);
+    shellHostLay->setContentsMargins(0, 0, 0, 0);
+    shellHostLay->setSpacing(0);
+
     m_inputShell = new QWidget;
     m_inputShell->setObjectName(QStringLiteral("inputShell"));
-    applyFloatingShadow(m_inputShell);
+    m_inputShell->setAttribute(Qt::WA_StyledBackground, true);
     QVBoxLayout *shellLay = new QVBoxLayout(m_inputShell);
-    shellLay->setContentsMargins(0, 0, 0, 0);
+    // 1px 内边距：工具栏白底不盖住圆角边框
+    shellLay->setContentsMargins(1, 1, 1, 1);
     shellLay->setSpacing(0);
 
     QFrame *toolBar = new QFrame;
@@ -964,19 +973,13 @@ void MainWindow::buildUi()
     m_sendBtn->setCursor(Qt::PointingHandCursor);
     m_sendBtn->setFocusPolicy(Qt::NoFocus);
     m_sendBtn->setToolTip(QString::fromUtf8(u8"发送（Enter）"));
-    m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
     m_sendBtn->setIconSize(QSize(18, 18));
-    applyFloatingShadow(m_sendBtn);
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
     connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
     syncSendBtn();
-    QLabel *inputHint = new QLabel(QString::fromUtf8(u8"回车发送 · Shift+回车换行"));
-    inputHint->setObjectName(QStringLiteral("inputHint"));
-    m_inputHint = inputHint;
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 2, 2);
-    sendRow->addWidget(inputHint, 0, Qt::AlignVCenter);
     sendRow->addStretch(1);
     sendRow->addWidget(m_sendBtn, 0, Qt::AlignVCenter);
     padLay->setContentsMargins(12, 8, 12, 12);
@@ -987,8 +990,9 @@ void MainWindow::buildUi()
     shellLay->addWidget(progressHost);
     shellLay->addWidget(toolBar);
     shellLay->addWidget(inputPad, 1);
+    shellHostLay->addWidget(m_inputShell);
 
-    compCol->addWidget(m_inputShell);
+    compCol->addWidget(shellHost);
 
     chatBodyLay->addWidget(m_chatHost, 1);
     chatBodyLay->addWidget(m_composer);
@@ -1270,18 +1274,15 @@ void MainWindow::applyStyle()
         "#toolBtn:pressed { background: #dbeafe; color: #1e40af; }"
         "#toolBtn:disabled { color: #cbd5e1; background: transparent; }"
         "#inputPad { background: transparent; }"
-        "#inputHint { color: #94a3b8; font-size: 12px; background: transparent; border: none; }"
-        "#inputHint:disabled { color: #e2e8f0; }"
-        "#keycap { color: #475569; background: #f8fafc; border: 1px solid #94a3b8;"
-        " border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; }"
+        "#inputShellHost { background: transparent; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
         "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
         "#input { background: transparent; border: none; color: #0f172a; font-size: 15px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
-        "#sendFab { background: #2563eb; border: none; border-radius: 18px; padding: 0; }"
+        "#sendFab { background: #2563eb; border: none; border-radius: 10px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"
         "#sendFab:pressed { background: #1e40af; }"
-        "#sendFab:disabled { background: #e2e8f0; }"
+        "#sendFab:disabled { background: #93c5fd; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
@@ -1489,8 +1490,8 @@ void MainWindow::refreshChromePixmaps()
     if (m_chatDropHintIcon)
         m_chatDropHintIcon->setPixmap(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 36));
     if (m_sendBtn) {
-        m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
         m_sendBtn->setIconSize(QSize(18, 18));
+        syncSendBtn();
     }
     updateChrome();
     syncPinBtn();
@@ -3137,11 +3138,11 @@ void MainWindow::updatePeerSession()
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 36));
     m_peerTitleFull = label;
     m_peerAddrFull = addr;
-    m_peerName->setToolTip(label);
     m_peerName->setStyleSheet(online
                                   ? QStringLiteral("color:#0f172a;")
                                   : QStringLiteral("color:#94a3b8;"));
-    m_peerOnlineDot->setPixmap(makeStatusDot(online, 7));
+    if (m_peerOnlineDot)
+        m_peerOnlineDot->setPixmap(makeStatusDot(online, 7));
     elidePeerHeader();
     const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
         ? m_pingText
@@ -3163,6 +3164,7 @@ void MainWindow::updatePeerSession()
     if (!hostOnly.isEmpty() && hostOnly.compare(label, Qt::CaseInsensitive) != 0)
         tipBits << hostOnly;
     const QString tip = tipBits.join(QString::fromUtf8(u8" · "));
+    m_peerName->setToolTip(QStringLiteral("%1\n%2").arg(label, tip));
     m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口\n%1\n%2").arg(addr, tip));
     if (m_peerOnlineDot)
         m_peerOnlineDot->setToolTip(tip);
@@ -3371,33 +3373,20 @@ void MainWindow::syncSendBtn()
     const bool on = hasPeer && hasText;
     m_sendBtn->setEnabled(on);
     m_sendBtn->setCursor(on ? Qt::PointingHandCursor : Qt::ArrowCursor);
-    QPixmap icon = renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18);
-    if (!on) {
-        QPixmap faded(icon.size());
-        faded.setDevicePixelRatio(icon.devicePixelRatio());
-        faded.fill(Qt::transparent);
-        QPainter p(&faded);
-        p.setOpacity(0.4);
-        p.drawPixmap(0, 0, icon);
-        icon = faded;
-    }
-    m_sendBtn->setIcon(QIcon(icon));
-    if (m_inputHint) {
-        if (!hasPeer)
-            m_inputHint->setText(QString::fromUtf8(u8"选择设备后发送"));
-        else if (!hasText)
-            m_inputHint->setText(QString::fromUtf8(u8"输入消息后发送"));
-        else
-            m_inputHint->setText(QString::fromUtf8(u8"回车发送 · Shift+回车换行"));
-    }
+    // Disabled 态也用白飞机：避免系统把图标洗成浅灰，浅蓝底上仍可辨认
+    const QPixmap plane = renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18);
+    QIcon icon;
+    icon.addPixmap(plane, QIcon::Normal);
+    icon.addPixmap(plane, QIcon::Disabled);
+    m_sendBtn->setIcon(icon);
 }
 
 void MainWindow::elidePeerHeader()
 {
     if (!m_peerHeader || !m_peerName || !m_peerAddr)
         return;
-    // 名称行：头像 + 在线点 + 右侧清空/Tab；地址单独占副行，不再和名称抢宽
-    int reserved = 14 + 14 + 36 + 10 + 7 + 6 + 10;
+    // 名称行：头像 + 右侧清空/Tab；地址单独占副行
+    int reserved = 14 + 14 + 36 + 10 + 10;
     if (m_clearChatBtn)
         reserved += m_clearChatBtn->width() + 10;
     if (m_sessionTabBar)

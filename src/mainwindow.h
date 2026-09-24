@@ -233,7 +233,6 @@ private:
     QWidget *m_fileLiveHost = 0;
     QWidget *m_progressHost = 0;
     QPlainTextEdit *m_input = 0;
-    QLabel *m_inputHint = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
     QProgressBar *m_xferBar = 0;
