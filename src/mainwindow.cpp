@@ -1092,10 +1092,16 @@ void MainWindow::buildUi()
         m_input->setFont(inFont);
         m_input->document()->setDocumentMargin(2);
         applyInputTextPalette(m_input);
-        // 空卡视觉锚点：淡灰占位（具体文案由 updateInputPlaceholder 按对端刷新）
-        m_input->setPlaceholderText(
-            QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
+        // 原生 placeholder 在整窗 QSS 下经常不绘；改用叠字
+        m_input->setPlaceholderText(QString());
     }
+    m_inputPh = new QLabel(inputPad);
+    m_inputPh->setObjectName(QStringLiteral("inputPlaceholder"));
+    m_inputPh->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_inputPh->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_inputPh->setWordWrap(true);
+    m_inputPh->setFont(m_input->font());
+    m_inputPh->setText(QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
     m_input->setToolTip(QString::fromUtf8(
         u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿；Ctrl+V 粘贴文件/截图"));
     m_input->installEventFilter(this);
@@ -1108,7 +1114,10 @@ void MainWindow::buildUi()
     m_sendBtn->setIconSize(QSize(18, 18));
     connect(m_sendBtn, SIGNAL(clicked()), this, SLOT(sendText()));
     m_cancelUploadBtn->setToolTip(QString::fromUtf8(u8"中止当前发送并清空全部排队"));
-    connect(m_input, &QPlainTextEdit::textChanged, this, [this]() { syncSendBtn(); });
+    connect(m_input, &QPlainTextEdit::textChanged, this, [this]() {
+        syncSendBtn();
+        syncInputPlaceholder();
+    });
     syncSendBtn();
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 2, 2);
@@ -1116,6 +1125,7 @@ void MainWindow::buildUi()
     sendRow->addWidget(m_sendBtn, 0, Qt::AlignVCenter);
     padLay->addWidget(m_input, 1);
     padLay->addLayout(sendRow);
+    QTimer::singleShot(0, this, [this]() { syncInputPlaceholder(); });
 
     // 进度顶条并入同一张输入白卡，避免卡外再叠一层浮卡
     shellLay->addWidget(progressHost);
@@ -1411,9 +1421,10 @@ void MainWindow::applyStyle()
         "#inputShellHost { background: transparent; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
         "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
-        /* 勿写 color：会盖掉 PlaceholderText，占位发虚/看不见 */
+        /* 勿写 color：会盖掉正文 palette；占位改由 #inputPlaceholder 叠字 */
         "#input { background: transparent; border: none; font-size: 14px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
+        "#inputPlaceholder { color: #94a3b8; background: transparent; border: none; }"
         "#sendFab { background: #2563eb; border: none; border-radius: 10px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"
         "#sendFab:pressed { background: #1e40af; }"
@@ -1425,8 +1436,9 @@ void MainWindow::applyStyle()
         " padding: 8px 12px; }"
         "#secondaryBtn:hover { background: #f8fafc; }"
     ));
-    // 样式表之后重上占位色，避免被盖掉
+    // 样式表之后重上正文字色；占位叠字不依赖 PlaceholderText
     applyInputTextPalette(m_input);
+    syncInputPlaceholder();
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -1515,6 +1527,11 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
             m_inputShell->style()->polish(m_inputShell);
             m_inputShell->update();
         }
+    }
+    if (m_input && watched == m_input
+        && (event->type() == QEvent::Resize || event->type() == QEvent::Show
+            || event->type() == QEvent::Move)) {
+        syncInputPlaceholder();
     }
     if (m_search && watched == m_search
         && (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut)) {
@@ -5406,19 +5423,43 @@ void MainWindow::shakeWindow()
     t->start();
 }
 
+void MainWindow::syncInputPlaceholder()
+{
+    if (!m_inputPh || !m_input)
+        return;
+    const bool empty = m_input->toPlainText().isEmpty();
+    m_inputPh->setVisible(empty);
+    if (!empty)
+        return;
+    QWidget *parent = m_inputPh->parentWidget();
+    if (!parent)
+        return;
+    const QPoint tl = m_input->mapTo(parent, QPoint(0, 0));
+    const int padX = 2;
+    const int padY = 2;
+    m_inputPh->setGeometry(tl.x() + padX, tl.y() + padY,
+                           qMax(40, m_input->width() - padX * 2),
+                           qMax(24, m_input->height() - padY * 2));
+    m_inputPh->raise();
+}
+
 void MainWindow::updateInputPlaceholder()
 {
     if (!m_input)
         return;
+    applyInputTextPalette(m_input);
+    m_input->setPlaceholderText(QString()); // 原生占位不可靠，文案走叠字
+    if (!m_inputPh)
+        return;
     QString name;
     if (!currentPeer(0, 0, &name) || name.trimmed().isEmpty()) {
-        m_input->setPlaceholderText(
-            QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
+        m_inputPh->setText(QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
     } else {
-        m_input->setPlaceholderText(
+        m_inputPh->setText(
             QString::fromUtf8(u8"向 %1 发送消息…（Enter 发送）").arg(name.trimmed()));
     }
-    applyInputTextPalette(m_input);
+    m_inputPh->setFont(m_input->font());
+    syncInputPlaceholder();
 }
 
 void MainWindow::addPeer()

@@ -162,6 +162,7 @@ private:
                   const QStringList &morePaths = QStringList());
     void refreshShareBtn();
     void updateInputPlaceholder();
+    void syncInputPlaceholder();
     void syncSendBtn();
     void shakeWindow();
     void playNotifySound();
@@ -233,6 +234,7 @@ private:
     QWidget *m_fileLiveHost = 0;
     QWidget *m_progressHost = 0;
     QPlainTextEdit *m_input = 0;
+    QLabel *m_inputPh = 0; // QSS 会吃掉 QPlainTextEdit 原生占位，叠一层淡灰字
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
     QProgressBar *m_xferBar = 0;

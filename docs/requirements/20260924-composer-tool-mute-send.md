@@ -1,25 +1,25 @@
 # Composer 工具钮静音、占位与发送禁用态
 
 - 状态：已实现（待手测）
-- 背景：一体化输入卡方向正确；中间缺清晰占位；空草稿时发送钮偏亮。
+- 背景：一体化输入卡方向正确；中间缺清晰占位；空草稿时发送钮偏亮。整窗 QSS 下 `QPlainTextEdit::setPlaceholderText` 经常不绘。
 - 目标：工具钮默认图标+文字同为 slate 静音灰；空输入有淡灰占位作视觉锚点；无字时发送钮明显静音。
 - 非目标：改发送/文件夹/抖动业务逻辑；重做输入卡结构。
 
 ## 行为
 
 1. 文件/文件夹/抖动：默认图标与文字 `#64748b`；悬停分别亮蓝/琥珀底与字色（图标保持静音灰）。
-2. 占位（`QPalette::PlaceholderText = #94a3b8`）：
+2. 占位：在输入区上叠 `#inputPlaceholder` 标签（色 `#94a3b8`），不依赖原生 PlaceholderText。
    - 有对端：`向 {名} 发送消息…（Enter 发送）`
    - 无对端：`向对方发送消息…（Enter 发送）`
-   - Shift+Enter 换行仍写在输入框 tooltip，不挤进占位。
+   - 有字时隐藏；Shift+Enter 换行仍写在输入框 tooltip。
 3. 发送钮：无草稿 `#bfdbfe`；有字 `#2563eb`。
 
 ## 验收
 
 - [ ] C1：三工具钮默认同为 `#64748b` 静音灰（图标与文字一致）。
-- [ ] C2：空输入时中间可见淡灰占位，含「Enter 发送」。
+- [ ] C2：空输入时中间可见淡灰占位，含「Enter 发送」（非纯白空卡）。
 - [ ] C3：空输入时发送钮明显淡于有字态，且不可点。
 
 ## 影响范围
 
-- `src/uiicons.{h,cpp}`、`src/mainwindow.cpp`
+- `src/uiicons.{h,cpp}`、`src/mainwindow.cpp` / `mainwindow.h`
