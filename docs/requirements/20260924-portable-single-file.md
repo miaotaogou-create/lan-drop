@@ -1,6 +1,6 @@
 # Windows / ARM 麒麟单文件便携版
 
-- 状态：实现中（脚本与产物已通；麒麟 AppImage 待甲方机手测）
+- 状态：已交付（GitHub Release `v0.1.0`，可现场分发）
 - 背景：现有产物为目录包（Windows `dist/windows-x64`；麒麟 `dist/linux-arm64` + `landrop.sh`）。希望只拷一个可执行文件即可运行。
 - 目标：各平台交付**单个可执行文件**；Linux 侧在技术可行范围内**尽量自带库**；目标机为**有图形桌面**的 ARM 麒麟。
 - 非目标：不做成 MSI/deb；不改变协议与业务；不做无桌面场景。
@@ -29,10 +29,10 @@
 
 - [x] W1：Windows 单文件 `--self-check` 通过；本机可启动（无旁路 Qt DLL）。
 - [x] W2：exe 含官方 ICO（目录版已 `RC_ICONS`；装箱继承输入 exe 图标）。
-- [ ] L1：甲方 ARM 麒麟桌面双击/执行 AppImage 可启动，文字/小文件互通。
-- [ ] L2：AppImage 上 fcitx 中文输入仍可用。
+- [x] L1：甲方 ARM 麒麟桌面双击/执行 AppImage 可启动，文字/小文件互通（22 机已验）。
+- [x] L2：AppImage 上 fcitx 中文输入可用（22 机已验）。
 - [x] D1：`README` 已写目录版与单文件版路径及生成命令。
-
+- [x] D2：Release `v0.1.0` 已挂两个便携产物，供现场下载。
 ## 生成命令
 
 ```powershell
