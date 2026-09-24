@@ -214,7 +214,6 @@ private:
     QWidget *m_sessionTabBar = 0;
     QPushButton *m_tabChat = 0;
     QPushButton *m_tabFiles = 0;
-    QLabel *m_filesTabBadge = 0;
     QString m_peerTitleFull;
     QString m_peerAddrFull;
     QWidget *m_connBannerHost = 0;

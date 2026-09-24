@@ -163,23 +163,9 @@ static QStringList topFilesInDir(const QString &dir)
     return out;
 }
 
-static QString filesTabLabel(int n)
+static QString filesTabLabel()
 {
-    Q_UNUSED(n);
     return QString::fromUtf8(u8"文件");
-}
-
-static void syncFilesTabBadge(QLabel *badge, int n)
-{
-    if (!badge)
-        return;
-    if (n <= 0) {
-        badge->hide();
-        badge->clear();
-        return;
-    }
-    badge->setText(n > 99 ? QStringLiteral("99+") : QString::number(n));
-    badge->show();
 }
 
 enum FolderSendChoice { FolderSendTop = 0, FolderSendZip, FolderSendCancel };
@@ -776,7 +762,7 @@ void MainWindow::buildUi()
     m_tabChat->setFlat(true);
     m_tabChat->setIcon(QIcon(makeChatBubbleIcon(13)));
     m_tabChat->setIconSize(QSize(13, 13));
-    m_tabFiles = new QPushButton(filesTabLabel(0));
+    m_tabFiles = new QPushButton(filesTabLabel());
     m_tabFiles->setObjectName(QStringLiteral("sessionTab"));
     m_tabFiles->setCursor(Qt::PointingHandCursor);
     m_tabFiles->setFocusPolicy(Qt::NoFocus);
@@ -786,19 +772,6 @@ void MainWindow::buildUi()
     connect(m_tabChat, SIGNAL(clicked()), this, SLOT(showChatTab()));
     connect(m_tabFiles, SIGNAL(clicked()), this, SLOT(showFilesTab()));
 
-    m_filesTabBadge = new QLabel;
-    m_filesTabBadge->setObjectName(QStringLiteral("sessionTabBadge"));
-    m_filesTabBadge->setAlignment(Qt::AlignCenter);
-    m_filesTabBadge->hide();
-
-    QWidget *filesTabWrap = new QWidget;
-    filesTabWrap->setObjectName(QStringLiteral("sessionTabWrap"));
-    QHBoxLayout *filesTabLay = new QHBoxLayout(filesTabWrap);
-    filesTabLay->setContentsMargins(0, 0, 0, 0);
-    filesTabLay->setSpacing(4);
-    filesTabLay->addWidget(m_tabFiles, 0, Qt::AlignVCenter);
-    filesTabLay->addWidget(m_filesTabBadge, 0, Qt::AlignVCenter);
-
     QFrame *tabBar = new QFrame;
     m_sessionTabBar = tabBar;
     tabBar->setObjectName(QStringLiteral("sessionTabBar"));
@@ -807,7 +780,7 @@ void MainWindow::buildUi()
     tabBarLay->setContentsMargins(2, 2, 2, 2);
     tabBarLay->setSpacing(2);
     tabBarLay->addWidget(m_tabChat);
-    tabBarLay->addWidget(filesTabWrap);
+    tabBarLay->addWidget(m_tabFiles);
 
     m_clearChatBtn = new QPushButton;
     m_clearChatBtn->setObjectName(QStringLiteral("btnClearChat"));
@@ -3336,8 +3309,7 @@ void MainWindow::updatePeerSession()
         m_connBannerHost->show();
     }
     if (m_tabFiles)
-        m_tabFiles->setText(filesTabLabel(0));
-    syncFilesTabBadge(m_filesTabBadge, countFiles(m_log.value(currentKey())));
+        m_tabFiles->setText(filesTabLabel());
     updateHostPill();
 }
 
@@ -3804,8 +3776,7 @@ void MainWindow::refreshFilesView()
         m_files->setHtml(renderFilesHtml(msgs));
     }
     if (m_tabFiles)
-        m_tabFiles->setText(filesTabLabel(0));
-    syncFilesTabBadge(m_filesTabBadge, countFiles(msgs));
+        m_tabFiles->setText(filesTabLabel());
 }
 
 void MainWindow::measurePing()
