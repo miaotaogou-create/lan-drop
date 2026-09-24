@@ -529,15 +529,19 @@ QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pin
                                     QColor(QStringLiteral("#fffbeb")),
                                     QColor(QStringLiteral("#b45309")),
                                     QColor(QStringLiteral("#fde68a")));
-
-    QString trail;
-    if (!osName.trimmed().isEmpty())
-        trail = osName.trimmed();
-    if (!tag.trimmed().isEmpty()) {
-        if (!trail.isEmpty())
-            trail += QString::fromUtf8(u8" · ");
-        trail += tag.trimmed();
+    // OS 放最后：空间不够时整颗丢掉，绝不截成 linu
+    const QString osLabel = osDisplayLabel(osName);
+    QPixmap osChip;
+    if (!osLabel.isEmpty()) {
+        osChip = makePeerStatusChip(osLabel,
+                                    QColor(QStringLiteral("#f8fafc")),
+                                    QColor(QStringLiteral("#64748b")),
+                                    QColor(QStringLiteral("#e2e8f0")));
+        chips << osChip;
     }
+
+    // 部门标签：放不下则整段省略，不半截字
+    const QString tagDraw = tag.trimmed();
 
     QFont addrFont = qApp->font();
     addrFont.setPixelSize(11);
@@ -555,19 +559,26 @@ QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pin
         return c.height() / qMax(1, qRound(c.devicePixelRatio()));
     };
 
-    int chipH = 16;
-    int chipsW = 0;
-    for (int i = 0; i < chips.size(); ++i) {
-        chipsW += chipLogicalW(chips.at(i));
-        chipH = qMax(chipH, chipLogicalH(chips.at(i)));
-        if (i + 1 < chips.size())
-            chipsW += chipGap;
-    }
+    auto measureChips = [&](const QList<QPixmap> &list, int *outW, int *outH) {
+        int w = 0;
+        int h = 16;
+        for (int i = 0; i < list.size(); ++i) {
+            w += chipLogicalW(list.at(i));
+            h = qMax(h, chipLogicalH(list.at(i)));
+            if (i + 1 < list.size())
+                w += chipGap;
+        }
+        *outW = w;
+        *outH = h;
+    };
 
     QString addrDraw = addr.trimmed();
-    QString trailDraw = trail;
+    QString trailDraw = tagDraw;
     int addrW = addrDraw.isEmpty() ? 0 : addrFm.horizontalAdvance(addrDraw);
     int trailW = trailDraw.isEmpty() ? 0 : trailFm.horizontalAdvance(trailDraw);
+    int chipsW = 0;
+    int chipH = 16;
+    measureChips(chips, &chipsW, &chipH);
 
     auto totalW = [&]() {
         int t = addrW;
@@ -580,24 +591,15 @@ QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pin
         return t;
     };
 
-    while (totalW() > maxLogicalW && trailDraw.size() > 0) {
-        trailDraw.chop(1);
-        trailW = trailDraw.isEmpty()
-            ? 0
-            : trailFm.horizontalAdvance(trailDraw + QString::fromUtf8(u8"…"));
-        if (!trailDraw.isEmpty()
-            && trailFm.horizontalAdvance(trailDraw + QString::fromUtf8(u8"…")) <= maxLogicalW) {
-            // 继续循环用 totalW 判断
-        }
-        if (trailDraw.isEmpty())
-            trailW = 0;
-        else
-            trailW = trailFm.horizontalAdvance(trailDraw + QString::fromUtf8(u8"…"));
+    // 先丢标签，再从末尾丢胶囊（先 OS），最后再缩短 IP
+    if (totalW() > maxLogicalW && !trailDraw.isEmpty()) {
+        trailDraw.clear();
+        trailW = 0;
     }
-    if (!trailDraw.isEmpty() && trailDraw != trail)
-        trailDraw += QString::fromUtf8(u8"…");
-    trailW = trailDraw.isEmpty() ? 0 : trailFm.horizontalAdvance(trailDraw);
-
+    while (totalW() > maxLogicalW && !chips.isEmpty()) {
+        chips.removeLast();
+        measureChips(chips, &chipsW, &chipH);
+    }
     while (totalW() > maxLogicalW && addrDraw.size() > 5) {
         addrDraw.chop(1);
         addrW = addrFm.horizontalAdvance(addrDraw + QString::fromUtf8(u8"…"));

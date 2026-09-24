@@ -730,19 +730,22 @@ void MainWindow::buildUi()
     m_peerName->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_peerOnlineDot = new QLabel;
     m_peerOnlineDot->setFixedSize(7, 7);
+    peerTitleRow->addWidget(m_peerName, 0, Qt::AlignVCenter);
+    peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
+    peerTitleRow->addStretch(1);
+    // 地址放名称下方：保留点按复制，避免顶栏右侧药丸抢注意力
     m_peerAddr = new QLabel;
     m_peerAddr->setObjectName(QStringLiteral("peerAddr"));
     m_peerAddr->setCursor(Qt::PointingHandCursor);
     m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口"));
     m_peerAddr->installEventFilter(this);
-    m_peerAddr->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
-    peerTitleRow->addWidget(m_peerName, 1, Qt::AlignVCenter);
-    peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
-    peerTitleRow->addWidget(m_peerAddr, 0, Qt::AlignVCenter);
+    m_peerAddr->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_peerAddr->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_peerMeta = new QLabel;
     m_peerMeta->setObjectName(QStringLiteral("peerMeta"));
     m_peerMeta->setTextFormat(Qt::RichText);
     peerInfoCol->addLayout(peerTitleRow);
+    peerInfoCol->addWidget(m_peerAddr);
     peerInfoCol->addWidget(m_peerMeta);
 
     m_tabChat = new QPushButton(QString::fromUtf8(u8"聊天"));
@@ -1205,11 +1208,11 @@ void MainWindow::applyStyle()
         "#emptyHint { color: #64748b; background: transparent; padding: 0; }"
         "#peerHeader { background: #ffffff; border-bottom: 1px solid #eef2f7; }"
         "#peerName { color: #0f172a; font-size: 13px; font-weight: 700; }"
-        "#peerAddr { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
-        " background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px 8px; }"
-        "#peerAddr:hover { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }"
-        "#peerAddr[pressed=\"true\"] { color: #1e40af; background: #dbeafe; border-color: #60a5fa; }"
-        "#peerAddr[copied=\"true\"] { color: #047857; background: #ecfdf5; border-color: #86efac; }"
+        "#peerAddr { color: #94a3b8; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
+        " background: transparent; border: none; padding: 0; }"
+        "#peerAddr:hover { color: #1d4ed8; }"
+        "#peerAddr[pressed=\"true\"] { color: #1e40af; }"
+        "#peerAddr[copied=\"true\"] { color: #047857; }"
         "#peerMeta { color: #94a3b8; font-size: 11px; }"
         "#sessionTabBar { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#sessionTab { background: transparent; border: none; border-radius: 8px;"
@@ -3139,39 +3142,28 @@ void MainWindow::updatePeerSession()
                                   ? QStringLiteral("color:#0f172a;")
                                   : QStringLiteral("color:#94a3b8;"));
     m_peerOnlineDot->setPixmap(makeStatusDot(online, 7));
-    m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口\n%1").arg(addr));
     elidePeerHeader();
     const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
         ? m_pingText
         : QString::fromUtf8(u8"—");
     const QString linkText = localLinkLabel();
-    // 顶栏只留一行轻量副信息；Ping / 链路 / 标签细节进 tooltip
-    QString metaVisible;
+    // 副行给 IP:端口（可点复制）；主机名/标签/Ping 进 tooltip，避免再堆第三行
     const QString hostOnly = peer.hostname.trimmed();
     const QString tagOnly = peer.tag.trimmed();
-    if (!hostOnly.isEmpty() && hostOnly.compare(label, Qt::CaseInsensitive) != 0)
-        metaVisible = hostOnly;
-    else if (!tagOnly.isEmpty())
-        metaVisible = tagOnly;
-    if (metaVisible.isEmpty()) {
+    if (m_peerMeta) {
         m_peerMeta->clear();
         m_peerMeta->hide();
-    } else {
-        m_peerMeta->setText(
-            QString::fromUtf8(u8"<span style=\"color:#94a3b8;\">%1</span>")
-                .arg(metaVisible.toHtmlEscaped()));
-        m_peerMeta->show();
     }
     QStringList tipBits;
     tipBits << (online ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线"));
     tipBits << (QString::fromUtf8(u8"Ping %1").arg(pingText));
     tipBits << linkText;
-    if (!tagOnly.isEmpty() && metaVisible != tagOnly)
+    if (!tagOnly.isEmpty())
         tipBits << (QString::fromUtf8(u8"标签 %1").arg(tagOnly));
-    if (!hostOnly.isEmpty() && metaVisible != hostOnly)
+    if (!hostOnly.isEmpty() && hostOnly.compare(label, Qt::CaseInsensitive) != 0)
         tipBits << hostOnly;
     const QString tip = tipBits.join(QString::fromUtf8(u8" · "));
-    m_peerMeta->setToolTip(tip);
+    m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口\n%1\n%2").arg(addr, tip));
     if (m_peerOnlineDot)
         m_peerOnlineDot->setToolTip(tip);
     if (m_peerOnlineKnown.contains(addr)) {
@@ -3404,25 +3396,23 @@ void MainWindow::elidePeerHeader()
 {
     if (!m_peerHeader || !m_peerName || !m_peerAddr)
         return;
+    // 名称行：头像 + 在线点 + 右侧清空/Tab；地址单独占副行，不再和名称抢宽
     int reserved = 14 + 14 + 36 + 10 + 7 + 6 + 10;
     if (m_clearChatBtn)
         reserved += m_clearChatBtn->width() + 10;
     if (m_sessionTabBar)
         reserved += m_sessionTabBar->sizeHint().width() + 10;
-    const int addrMax = qBound(72, m_peerHeader->width() / 3, 160);
-    QFontMetrics addrFm(m_peerAddr->font());
-    const QString addrShow = m_peerAddrFull.isEmpty()
-        ? QString()
-        : addrFm.elidedText(m_peerAddrFull, Qt::ElideMiddle, addrMax);
-    m_peerAddr->setText(addrShow);
-    reserved += addrFm.horizontalAdvance(addrShow.isEmpty() ? QStringLiteral("0.0.0.0:0000")
-                                                           : addrShow);
-    const int nameMax = qMax(40, m_peerHeader->width() - reserved);
+    const int textColMax = qMax(40, m_peerHeader->width() - reserved);
     QFontMetrics nameFm(m_peerName->font());
     const QString nameShow = m_peerTitleFull.isEmpty()
         ? QString()
-        : nameFm.elidedText(m_peerTitleFull, Qt::ElideRight, nameMax);
+        : nameFm.elidedText(m_peerTitleFull, Qt::ElideRight, textColMax);
     m_peerName->setText(nameShow);
+    QFontMetrics addrFm(m_peerAddr->font());
+    const QString addrShow = m_peerAddrFull.isEmpty()
+        ? QString()
+        : addrFm.elidedText(m_peerAddrFull, Qt::ElideMiddle, textColMax);
+    m_peerAddr->setText(addrShow);
 }
 
 void MainWindow::syncCancelUploadBtn()

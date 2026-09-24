@@ -181,3 +181,27 @@ QString localOsTag()
     return QStringLiteral("linux");
 #endif
 }
+
+QString osDisplayLabel(const QString &osName)
+{
+    const QString o = osName.trimmed().toLower();
+    if (o.isEmpty())
+        return QString();
+    if (o == QLatin1String("linux") || o == QLatin1String("ubuntu") || o == QLatin1String("kylin")
+        || o == QLatin1String("debian") || o == QLatin1String("fedora") || o == QLatin1String("centos"))
+        return QStringLiteral("Linux");
+    if (o == QLatin1String("windows") || o.startsWith(QLatin1String("win")))
+        return QStringLiteral("Windows");
+    if (o == QLatin1String("arm-linux") || o.contains(QLatin1String("raspberry"))
+        || o.contains(QLatin1String("rpi")))
+        return QStringLiteral("ARM");
+    if (o == QLatin1String("ios") || o.contains(QLatin1String("iphone"))
+        || o.contains(QLatin1String("ipad")))
+        return QStringLiteral("iOS");
+    if (o.contains(QLatin1String("android")))
+        return QStringLiteral("Android");
+    if (o.contains(QLatin1String("mac")))
+        return QStringLiteral("macOS");
+    // 未知字段原样展示，但侧栏放不下时整段省略，避免截成半截词
+    return osName.trimmed();
+}

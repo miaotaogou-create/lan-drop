@@ -31,4 +31,7 @@ QString formatLinkLabel(qint64 mbps, bool wifi);
 // 本机对外报告的系统类型：windows / linux / arm-linux
 QString localOsTag();
 
+// 列表/副行展示用短标签（完整词，避免 linux→linu）
+QString osDisplayLabel(const QString &osName);
+
 #endif
