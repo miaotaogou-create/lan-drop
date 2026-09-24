@@ -42,7 +42,7 @@
 | 平台 | 手段 | 说明 |
 |------|------|------|
 | Windows | Enigma Virtual Box | 无 Enigma 同款 Linux 工具 |
-| Linux ARM | **AppImage（首选）**；不行则 makeself | 把 AppDir 收成一个文件；尽量 `linuxdeploy` 拉全依赖（除硬边界外） |
+| Linux ARM | **AppImage**（已选定；makeself 备胎） | 在 WSL Ubuntu 20.04 交叉编出目录包后打成 aarch64 AppImage |
 
 ## 验收标准
 
@@ -62,7 +62,8 @@
 ## 待确认
 
 - [x] 「走天下」定义：目标机**有图形桌面**（甲方 ARM 麒麟均为桌面机）；不做无桌面/纯 SSH 出窗。仍需系统 glibc ≥ 构建基线；Qt/客户端库/字体尽量打进单文件。
-- [ ] 麒麟：AppImage 还是 makeself（默认 AppImage）。
+- [x] 麒麟单文件形态：**AppImage**（makeself 仅作备胎）。
+- [x] 构建主机：本机 **WSL Ubuntu 20.04** 交叉编译（既有 `scripts/build-linux-arm64.sh`）；产物已多次在甲方 ARM 麒麟桌面机验证可运行。AppImage 在同一环境、基于现有 `dist/linux-arm64` 目录包再打包。
 - [ ] Windows：Enigma 手工装箱清单，或半自动脚本。
 
 ## 关联
