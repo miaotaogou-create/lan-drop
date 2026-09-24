@@ -21,8 +21,6 @@ QIcon makeChromeIcon(ChromeIcon kind, const QColor &color);
 QPixmap makeGlobeBadge(int logical = 36);
 QPixmap makeRadioLogo(int logical = 36);
 QPixmap renderSvgIcon(const QString &resPath, int logical = 16);
-// 将 SVG 内 #RRGGBB 统一替换为指定色后渲染（工具钮静音/悬停染色）
-QPixmap renderSvgIconColored(const QString &resPath, int logical, const QColor &color);
 QPixmap makeLaptopIcon(int logical = 16);
 QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical = 44,
                        bool withOsBadge = false);

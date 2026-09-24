@@ -120,24 +120,7 @@ static void applyClearChatIcon(QPushButton *btn)
     btn->setIconSize(QSize(16, 16));
 }
 
-// Composer 工具钮：默认静音灰，悬停亮 accent
-static void applyComposerToolIcon(QPushButton *btn, bool hover)
-{
-    if (!btn)
-        return;
-    const QString res = btn->property("svgRes").toString();
-    if (res.isEmpty())
-        return;
-    QColor c(QStringLiteral("#64748b"));
-    if (hover) {
-        const QString accent = btn->property("accentColor").toString();
-        if (!accent.isEmpty())
-            c = QColor(accent);
-    }
-    btn->setIcon(QIcon(renderSvgIconColored(res, 16, c)));
-    btn->setIconSize(QSize(16, 16));
-}
-
+// Composer 输入框字色与占位色（勿靠 QSS color，会盖掉 PlaceholderText）
 static void applyInputTextPalette(QPlainTextEdit *edit)
 {
     if (!edit)
@@ -1067,15 +1050,9 @@ void MainWindow::buildUi()
                                          QString::fromUtf8(u8"文件夹"), QStringLiteral("toolBtnFolder"));
     QPushButton *nudgeBtn = toolLinkBtn(QStringLiteral(":/icons/zap.svg"),
                                         QString::fromUtf8(u8"抖动"), QStringLiteral("toolBtnNudge"));
-    fileBtn->setProperty("accentColor", QStringLiteral("#2563eb"));
-    folderBtn->setProperty("accentColor", QStringLiteral("#d97706"));
-    nudgeBtn->setProperty("accentColor", QStringLiteral("#b45309"));
     fileBtn->setToolTip(QString::fromUtf8(u8"发送文件（可多选）"));
     folderBtn->setToolTip(QString::fromUtf8(u8"发送文件夹（可打 zip）"));
     nudgeBtn->setToolTip(QString::fromUtf8(u8"让对方窗口轻颤一下"));
-    fileBtn->installEventFilter(this);
-    folderBtn->installEventFilter(this);
-    nudgeBtn->installEventFilter(this);
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
     connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
@@ -1470,16 +1447,6 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
             applyClearChatIcon(m_clearChatBtn);
         }
     }
-    QPushButton *toolBtn = qobject_cast<QPushButton *>(watched);
-    if (toolBtn && !toolBtn->property("svgRes").toString().isEmpty()
-        && (toolBtn->objectName() == QLatin1String("toolBtnFile")
-            || toolBtn->objectName() == QLatin1String("toolBtnFolder")
-            || toolBtn->objectName() == QLatin1String("toolBtnNudge"))) {
-        if (event->type() == QEvent::Enter)
-            applyComposerToolIcon(toolBtn, true);
-        else if (event->type() == QEvent::Leave)
-            applyComposerToolIcon(toolBtn, false);
-    }
     if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
         && m_chatDropHint && m_chatDropHint->isVisible()) {
         setChatDropHint(true);
@@ -1685,14 +1652,6 @@ void MainWindow::refreshChromePixmaps()
     }
     if (m_clearChatBtn)
         applyClearChatIcon(m_clearChatBtn);
-    const QList<QPushButton *> tools = findChildren<QPushButton *>();
-    for (int i = 0; i < tools.size(); ++i) {
-        QPushButton *b = tools.at(i);
-        if (b->objectName() == QLatin1String("toolBtnFile")
-            || b->objectName() == QLatin1String("toolBtnFolder")
-            || b->objectName() == QLatin1String("toolBtnNudge"))
-            applyComposerToolIcon(b, b->underMouse());
-    }
     updateChrome();
     syncPinBtn();
     refreshShareBtn();
