@@ -223,6 +223,7 @@ private:
     QLabel *m_connBannerIcon = 0;
     QLabel *m_listEmptyHint = 0;
     QLabel *m_sideTitle = 0;
+    QPushButton *m_addIpBtn = 0;
     QStackedWidget *m_sessionStack = 0;
     QTextBrowser *m_chat = 0;
     QWidget *m_chatHost = 0;

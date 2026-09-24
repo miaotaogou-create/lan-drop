@@ -1076,10 +1076,10 @@ QString renderSidebarEmptyHintHtml(bool noMatch, bool discoverOk)
     }
     const QString foot = discoverOk
         ? QString::fromUtf8(u8"同网段等待发现；防火墙请放行 TCP 8848 与 UDP 8850")
-        : QString::fromUtf8(u8"发现异常，请点「+ 加 IP」；并检查防火墙端口");
+        : QString::fromUtf8(u8"发现异常，请点「添加 IP」；并检查防火墙端口");
     return emptyGuideCardImgHtml(
         QString::fromUtf8(u8"暂无设备"),
-        QStringList() << QString::fromUtf8(u8"+ 加 IP"),
+        QStringList() << QString::fromUtf8(u8"添加 IP"),
         foot,
         200);
 }
@@ -1101,16 +1101,16 @@ QString renderMainEmptyHintHtml(bool noMatch, const QString &query, bool discove
             360);
     }
     QStringList caps;
-    caps << QString::fromUtf8(u8"+ 加 IP")
+    caps << QString::fromUtf8(u8"添加 IP")
          << QString::fromUtf8(u8"本机")
          << QString::fromUtf8(u8"防火墙");
     const QString foot = discoverOk
         ? QString::fromUtf8(
               u8"① 两端同网段，放行 TCP 8848 / UDP 8850\n"
               u8"② 点顶栏「本机」复制地址发给对方\n"
-              u8"③ 或点「+ 加 IP」手动添加后选中即可聊天")
+              u8"③ 或点「添加 IP」手动添加后选中即可聊天")
         : QString::fromUtf8(
-              u8"发现端口异常：仍可用「+ 加 IP」直连。\n"
+              u8"发现端口异常：仍可用「添加 IP」直连。\n"
               u8"请确认防火墙已放行 TCP 8848 与 UDP 8850，并点顶栏复制本机地址给对方。");
     return emptyGuideCardImgHtml(
         QString::fromUtf8(u8"还没有可聊的设备"), caps, foot, 400);

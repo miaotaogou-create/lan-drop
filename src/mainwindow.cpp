@@ -579,28 +579,31 @@ void MainWindow::buildUi()
 
     QHBoxLayout *sideHead = new QHBoxLayout;
     sideHead->setContentsMargins(0, 0, 0, 0);
-    sideHead->setSpacing(6);
+    sideHead->setSpacing(8);
     QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近设备"));
     sideTitle->setObjectName(QStringLiteral("sideTitle"));
     m_sideTitle = sideTitle;
-    // 用 QLabel 而非 QPushButton：后者在 Windows/麒麟上文字常视觉偏上
-    QLabel *addBtn = new QLabel(QString::fromUtf8(u8"+ 加 IP"));
-    addBtn->setObjectName(QStringLiteral("addBtn"));
-    addBtn->setCursor(Qt::PointingHandCursor);
-    addBtn->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    addBtn->setAttribute(Qt::WA_Hover, true);
-    addBtn->installEventFilter(this);
     QFont titleFont = qApp->font();
     titleFont.setPixelSize(16);
     titleFont.setBold(true);
     sideTitle->setFont(titleFont);
-    addBtn->setFont(titleFont);
-    const int lineH = QFontMetrics(titleFont).height();
-    sideTitle->setFixedHeight(lineH);
-    addBtn->setFixedHeight(lineH);
+    sideTitle->setFixedHeight(QFontMetrics(titleFont).height());
+
+    // 矢量加号 + 浅蓝胶囊：避免键盘「+」基线偏上，与标题 AlignVCenter 同轴
+    m_addIpBtn = new QPushButton(QString::fromUtf8(u8"添加 IP"));
+    m_addIpBtn->setObjectName(QStringLiteral("btnAddIp"));
+    m_addIpBtn->setCursor(Qt::PointingHandCursor);
+    m_addIpBtn->setFocusPolicy(Qt::NoFocus);
+    m_addIpBtn->setFlat(true);
+    m_addIpBtn->setFixedHeight(26);
+    m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 13)));
+    m_addIpBtn->setIconSize(QSize(13, 13));
+    m_addIpBtn->setToolTip(QString::fromUtf8(u8"手动添加设备 IP"));
+    connect(m_addIpBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
+
     sideHead->addWidget(sideTitle, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
-    sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
+    sideHead->addWidget(m_addIpBtn, 0, Qt::AlignVCenter);
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
@@ -1200,10 +1203,10 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
-        "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
-        " padding: 0 4px; margin: 0; font-size: 16px; font-weight: 700; }"
-        "#addBtn:hover { background: #f1f5f9; color: #334155; }"
-        "#addBtn:pressed { background: #e2e8f0; color: #0f172a; }"
+        "#btnAddIp { background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 600;"
+        " border: 1px solid #bfdbfe; border-radius: 6px; padding: 0 8px; }"
+        "#btnAddIp:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }"
+        "#btnAddIp:pressed { background: #bfdbfe; border-color: #60a5fa; color: #1e40af; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#searchShell[focused=\"true\"] { background: #ffffff; border: 1.5px solid #3b82f6; }"
         "#searchIcon { background: transparent; border: none; }"
@@ -1340,14 +1343,6 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::MouseButtonRelease) {
             m_clearChatBtn->setProperty("dangerPressed", false);
             applyClearChatIcon(m_clearChatBtn);
-        }
-    }
-    if (watched && watched->objectName() == QLatin1String("addBtn")
-        && event->type() == QEvent::MouseButtonRelease) {
-        QMouseEvent *me = static_cast<QMouseEvent *>(event);
-        if (me->button() == Qt::LeftButton) {
-            addPeer();
-            return true;
         }
     }
     if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
@@ -1536,6 +1531,10 @@ void MainWindow::refreshChromePixmaps()
     if (m_setBtn) {
         m_setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 18)));
         m_setBtn->setIconSize(QSize(18, 18));
+    }
+    if (m_addIpBtn) {
+        m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 13)));
+        m_addIpBtn->setIconSize(QSize(13, 13));
     }
     if (m_minBtn)
         m_minBtn->setIcon(makeChromeIcon(IconMinimize, QColor(QStringLiteral("#475569"))));
@@ -3670,7 +3669,7 @@ void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString 
         u8"请确认对方已打开局域快传，且防火墙放行 TCP %1。")
                       .arg(m_settings.port);
     if (!m_discoverOk)
-        tip += QString::fromUtf8(u8" 本机发现异常时可用「+ 加 IP」直连。");
+        tip += QString::fromUtf8(u8" 本机发现异常时可用「添加 IP」直连。");
     ChatMsg m;
     m.type = ChatMsg::Fail;
     if (brief == why)
