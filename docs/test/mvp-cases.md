@@ -887,6 +887,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-165 气泡手型与进度并入输入卡
+- 对应验收：H1–H4（`docs/requirements/20260922-bubble-hand-progress-strip.md`）
+- 步骤：悬停文字气泡看光标；移开；发文件看输入区顶部；传完看是否收起
+- 期望：悬停手型、离开恢复；进度在白卡内顶条；无传输无空条
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

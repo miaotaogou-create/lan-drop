@@ -826,10 +826,9 @@ void MainWindow::buildUi()
     m_clearQueueBtn->hide();
     connect(m_clearQueueBtn, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QFrame *progressHost = new QFrame;
-    progressHost->setObjectName(QStringLiteral("progressCapsule"));
+    progressHost->setObjectName(QStringLiteral("progressStrip"));
     progressHost->setAttribute(Qt::WA_StyledBackground, true);
     progressHost->hide();
-    applyFloatingShadow(progressHost);
     m_progressHost = progressHost;
     QHBoxLayout *progLay = new QHBoxLayout(progressHost);
     progLay->setContentsMargins(12, 8, 10, 8);
@@ -913,10 +912,11 @@ void MainWindow::buildUi()
     padLay->addWidget(m_input, 1);
     padLay->addLayout(sendRow);
 
+    // 进度顶条并入同一张输入白卡，避免卡外再叠一层浮卡
+    shellLay->addWidget(progressHost);
     shellLay->addWidget(toolBar);
     shellLay->addWidget(inputPad, 1);
 
-    compCol->addWidget(progressHost);
     compCol->addWidget(m_inputShell);
 
     chatBodyLay->addWidget(m_chatHost, 1);
@@ -1149,6 +1149,8 @@ void MainWindow::applyStyle()
         "#chatDropHintLabel { color: #1d4ed8; font-size: 16px; font-weight: 700; background: transparent; }"
         "#chatDropHintSub { color: #60a5fa; font-size: 13px; font-weight: 600; background: transparent; }"
         "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
+        "#progressStrip { background: #eff6ff; border: none; border-bottom: 1px solid #dbeafe;"
+        " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
         "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
         "#xferBar { background: #dbeafe; border: none; border-radius: 2px; max-height: 4px; }"
         "#xferBar::chunk { background: #2563eb; border-radius: 2px; }"
@@ -1160,6 +1162,8 @@ void MainWindow::applyStyle()
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
         "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #f1f5f9;"
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
+        "#inputShell[xfer=\"true\"] #composerToolBar {"
+        " border-top-left-radius: 0; border-top-right-radius: 0; }"
         "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
         " padding: 5px 9px; font-weight: 600; }"
         "#toolBtn:hover { background: #eff6ff; color: #1d4ed8; }"
@@ -3172,6 +3176,12 @@ void MainWindow::syncCancelUploadBtn()
     const bool showChatProg = (m_progress && m_progress->isVisible()) || on;
     if (m_progressHost)
         m_progressHost->setVisible(showChatProg);
+    if (m_inputShell) {
+        m_inputShell->setProperty("xfer", showChatProg);
+        m_inputShell->style()->unpolish(m_inputShell);
+        m_inputShell->style()->polish(m_inputShell);
+        m_inputShell->update();
+    }
     const bool showFilesProg = (m_fileLive && m_fileLive->isVisible()) || on;
     if (m_fileLiveHost)
         m_fileLiveHost->setVisible(showFilesProg);
@@ -3436,10 +3446,15 @@ void MainWindow::measurePing()
 
 void MainWindow::onChatLinkHovered(const QUrl &url)
 {
+    QWidget *vp = m_chat ? m_chat->viewport() : 0;
     if (url.scheme() != QLatin1String("landrop")) {
         QToolTip::hideText();
+        if (vp)
+            vp->unsetCursor();
         return;
     }
+    if (vp)
+        vp->setCursor(Qt::PointingHandCursor);
     if (url.host() == QLatin1String("copy"))
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击复制"), m_chat);
     else if (url.host() == QLatin1String("copypath"))
@@ -3448,6 +3463,10 @@ void MainWindow::onChatLinkHovered(const QUrl &url)
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击打开"), m_chat);
     else if (url.host() == QLatin1String("reveal"))
         QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"打开所在目录"), m_chat);
+    else if (url.host() == QLatin1String("retrytext")
+             || url.host() == QLatin1String("retryfile")
+             || url.host() == QLatin1String("retryremain"))
+        QToolTip::showText(QCursor::pos(), QString::fromUtf8(u8"点击重试"), m_chat);
     else
         QToolTip::hideText();
 }
