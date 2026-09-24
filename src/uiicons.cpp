@@ -252,7 +252,7 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.setPen(Qt::NoPen);
     const QColor base = avatarColorForName(name);
-    // 角标约 46%，并悬出橙色方块约 1/3，减少挡字母
+    // 角标约 46%，悬出主体约 1/3；用镂空咬合白底，不画白盘/阴影以免露边
     const int badge = qMax(18, qRound(logical * 0.46));
     const qreal hang = badge * 0.32;
     const QRectF body(0.5, 0.5, logical - hang - 0.5, logical - hang - 0.5);
@@ -267,15 +267,15 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
-    // 字在主体内居中，略上移，给右下角标留空
     p.drawText(body.adjusted(0, -1, 0, -hang * 0.35), Qt::AlignCenter, avatarInitial(name));
 
     const QRectF badgeRect(logical - badge, logical - badge, badge, badge);
+    // 挖透明圆：与卡片白底融为一体，只剩 >_ 浮在缺口上
+    p.setCompositionMode(QPainter::CompositionMode_DestinationOut);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 28));
-    p.drawEllipse(badgeRect.adjusted(-1.0, -1.0, 1.0, 1.0));
-    p.setBrush(Qt::white);
+    p.setBrush(Qt::black);
     p.drawEllipse(badgeRect);
+    p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     DeviceKind kind = DevLaptop;
     const int k = deviceKindFromOs(osName);
