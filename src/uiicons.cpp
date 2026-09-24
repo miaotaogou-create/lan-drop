@@ -529,6 +529,27 @@ QPixmap makeCheckCircleIcon(int logical)
     return pm;
 }
 
+QPixmap makeLightningIcon(int logical, const QColor &color)
+{
+    // 实心闪电：与数字同高时垂直中心可对齐（避免 emoji 基线漂移）
+    QPixmap pm = makeDprPixmap(logical);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color.isValid() ? color : QColor(QStringLiteral("#f97316")));
+    const qreal s = logical;
+    QPainterPath bolt;
+    bolt.moveTo(s * 0.54, s * 0.06);
+    bolt.lineTo(s * 0.20, s * 0.54);
+    bolt.lineTo(s * 0.46, s * 0.54);
+    bolt.lineTo(s * 0.36, s * 0.94);
+    bolt.lineTo(s * 0.82, s * 0.40);
+    bolt.lineTo(s * 0.54, s * 0.40);
+    bolt.closeSubpath();
+    p.drawPath(bolt);
+    return pm;
+}
+
 QPixmap makeTrashIcon(int logical, const QColor &color)
 {
     // 对齐 icons/trash-clean.svg（viewBox 24）：圆角桶身 + 提手 + 双肋线

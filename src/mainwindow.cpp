@@ -120,6 +120,28 @@ static void applyClearChatIcon(QPushButton *btn)
     btn->setIconSize(QSize(16, 16));
 }
 
+// 设备行延迟：自绘闪电 + 文案，避免 emoji 与数字垂直错位
+static void applyPeerRowPing(QLabel *pingLab, QLabel *boltLab, bool online, const QString &pingText)
+{
+    if (!pingLab)
+        return;
+    pingLab->setProperty("offline", !online);
+    if (!online) {
+        pingLab->setText(QString::fromUtf8(u8"离线"));
+        if (boltLab)
+            boltLab->hide();
+    } else {
+        if (boltLab) {
+            boltLab->setPixmap(makeLightningIcon(12, QColor(QStringLiteral("#f97316"))));
+            boltLab->setFixedSize(12, 12);
+            boltLab->show();
+        }
+        pingLab->setText(pingText.isEmpty() ? QString::fromUtf8(u8"—") : pingText);
+    }
+    pingLab->style()->unpolish(pingLab);
+    pingLab->style()->polish(pingLab);
+}
+
 // 网页共享 / 聊天区共用：本地文件与文件夹顶层文件
 // hadDir：urls 中是否含目录；hadNested：某目录下是否还有子目录（将不会发送）
 static QStringList localSendPathsFromUrls(const QList<QUrl> &urls, bool *hadDir = 0,
@@ -1265,6 +1287,8 @@ void MainWindow::applyStyle()
         "#peerRowIp { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
         " background: transparent; border: none; }"
         "#peerRowOs { background: transparent; border: none; }"
+        "#peerRowPingHost { background: transparent; border: none; }"
+        "#peerRowPingIcon { background: transparent; border: none; }"
         "#peerRowPing { color: #10b981; font-size: 11px; font-weight: 600; background: transparent; border: none; }"
         "#peerRowPing[offline=\"true\"] { color: #f59e0b; }"
         "#peerRowSub { background: transparent; }"
@@ -3017,6 +3041,7 @@ void MainWindow::updatePeerListPings()
         if (!row || !it)
             continue;
         QLabel *pingLab = row->findChild<QLabel *>(QStringLiteral("peerRowPing"));
+        QLabel *boltLab = row->findChild<QLabel *>(QStringLiteral("peerRowPingIcon"));
         if (!pingLab)
             continue;
         const QString key = it->data(Qt::UserRole).toString() + QLatin1Char(':')
@@ -3025,16 +3050,8 @@ void MainWindow::updatePeerListPings()
         const bool found = m_disc && m_disc->find(it->data(Qt::UserRole).toString(),
                                                  it->data(Qt::UserRole + 1).toInt(), &peer);
         const bool online = found && peer.online();
-        pingLab->setProperty("offline", !online);
-        if (!online) {
-            pingLab->setText(QString::fromUtf8(u8"离线"));
-        } else if (m_peerPing.contains(key)) {
-            pingLab->setText(QString::fromUtf8(u8"⚡ %1").arg(m_peerPing.value(key)));
-        } else {
-            pingLab->setText(QString::fromUtf8(u8"⚡ —"));
-        }
-        pingLab->style()->unpolish(pingLab);
-        pingLab->style()->polish(pingLab);
+        applyPeerRowPing(pingLab, boltLab, online,
+                         online ? m_peerPing.value(key) : QString());
     }
 }
 
@@ -3167,21 +3184,24 @@ void MainWindow::refreshPeers()
         } else {
             osLab->hide();
         }
+        QWidget *pingHost = new QWidget;
+        pingHost->setObjectName(QStringLiteral("peerRowPingHost"));
+        pingHost->setAttribute(Qt::WA_TranslucentBackground, true);
+        QHBoxLayout *pingLay = new QHBoxLayout(pingHost);
+        pingLay->setContentsMargins(0, 0, 0, 0);
+        pingLay->setSpacing(3);
+        QLabel *boltLab = new QLabel;
+        boltLab->setObjectName(QStringLiteral("peerRowPingIcon"));
+        boltLab->setAlignment(Qt::AlignCenter);
+        boltLab->setAttribute(Qt::WA_TranslucentBackground, true);
         QLabel *pingLab = new QLabel;
         pingLab->setObjectName(QStringLiteral("peerRowPing"));
-        pingLab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        pingLab->setProperty("offline", !online);
-        if (!online) {
-            pingLab->setText(QString::fromUtf8(u8"离线"));
-        } else if (m_peerPing.contains(p.key())) {
-            pingLab->setText(QString::fromUtf8(u8"⚡ %1").arg(m_peerPing.value(p.key())));
-        } else {
-            pingLab->setText(QString::fromUtf8(u8"⚡ —"));
-        }
-        pingLab->style()->unpolish(pingLab);
-        pingLab->style()->polish(pingLab);
+        pingLab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        applyPeerRowPing(pingLab, boltLab, online, m_peerPing.value(p.key()));
+        pingLay->addWidget(boltLab, 0, Qt::AlignVCenter);
+        pingLay->addWidget(pingLab, 0, Qt::AlignVCenter);
         rightCol->addWidget(osLab, 0, Qt::AlignRight);
-        rightCol->addWidget(pingLab, 0, Qt::AlignRight);
+        rightCol->addWidget(pingHost, 0, Qt::AlignRight);
 
         QString tip = fullAddr;
         if (!p.tag.trimmed().isEmpty())
