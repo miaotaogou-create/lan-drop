@@ -1140,11 +1140,11 @@ void MainWindow::applyStyle()
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
         "#peerList::item { background: #ffffff; border: 1px solid #eef2f7;"
         " border-left: 3px solid transparent; border-radius: 12px;"
-        " padding: 8px 10px; margin: 4px 2px; color: #0f172a; }"
+        " padding: 2px 8px; margin: 3px 2px; color: transparent; }"
         "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0;"
         " border-left: 3px solid #cbd5e1; }"
         "#peerList::item:selected { background: #eff6ff; border-color: #93c5fd;"
-        " border-left: 3px solid #2563eb; color: #0f172a; }"
+        " border-left: 3px solid #2563eb; color: transparent; }"
         "#peerList::item:selected:hover { background: #dbeafe; border-color: #60a5fa;"
         " border-left: 3px solid #2563eb; }"
         "#peerRow { background: transparent; }"
@@ -2748,9 +2748,7 @@ void MainWindow::filterPeers(const QString &text)
             it->setHidden(false);
             continue;
         }
-        const QString hay = (it->text() + QLatin1Char(' ') + it->data(Qt::UserRole).toString()
-                             + QLatin1Char(' ') + it->data(Qt::UserRole + 4).toString())
-                                .toLower();
+        const QString hay = it->data(Qt::UserRole + 5).toString().toLower();
         it->setHidden(!hay.contains(q));
     }
     updateEmpty();
@@ -2872,31 +2870,34 @@ void MainWindow::refreshPeers()
         const bool online = p.online();
         const bool pinned = m_settings.pinnedPeers.contains(p.key());
         const int unread = m_unread.value(p.key(), 0);
-        // 文本留给搜索；界面用 itemWidget 画胶囊副行
-        QListWidgetItem *it = new QListWidgetItem(
-            p.label() + QLatin1Char(' ') + fullAddr + QLatin1Char(' ') + p.tag + QLatin1Char(' ')
-            + p.osName);
-        it->setSizeHint(QSize(0, 66));
+        // 搜索串进 UserRole+5；item 明文不画，避免与 itemWidget 叠字
+        QListWidgetItem *it = new QListWidgetItem;
+        it->setSizeHint(QSize(0, 56));
         it->setToolTip(fullAddr);
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
         it->setData(Qt::UserRole + 3, p.manual);
         it->setData(Qt::UserRole + 4, p.tag);
+        it->setData(Qt::UserRole + 5,
+                    p.label() + QLatin1Char(' ') + fullAddr + QLatin1Char(' ') + p.tag
+                        + QLatin1Char(' ') + p.osName);
         m_list->addItem(it);
 
         QWidget *rowHost = new QWidget;
         rowHost->setObjectName(QStringLiteral("peerRow"));
         rowHost->setAttribute(Qt::WA_TranslucentBackground, true);
         QHBoxLayout *rowLay = new QHBoxLayout(rowHost);
-        rowLay->setContentsMargins(2, 4, 4, 4);
+        rowLay->setContentsMargins(4, 2, 6, 2);
         rowLay->setSpacing(10);
         QLabel *av = new QLabel;
         av->setFixedSize(44, 44);
+        av->setScaledContents(false);
+        av->setAlignment(Qt::AlignCenter);
         av->setPixmap(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned));
         QVBoxLayout *textCol = new QVBoxLayout;
-        textCol->setContentsMargins(0, 2, 0, 2);
-        textCol->setSpacing(3);
+        textCol->setContentsMargins(0, 1, 0, 1);
+        textCol->setSpacing(2);
         QLabel *nameLab = new QLabel(p.label());
         nameLab->setObjectName(QStringLiteral("peerRowName"));
         nameLab->setProperty("offline", !online);

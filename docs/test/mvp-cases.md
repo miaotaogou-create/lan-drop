@@ -936,6 +936,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-172 侧栏行不叠字不裁切
+- 对应验收：R1–R3（`docs/requirements/20260922-peer-row-overlap-fix.md`）
+- 步骤：选中一台设备看侧栏行；核对头像四角；用名称与 IP 搜索
+- 期望：仅头像+名称+副行、无叠字；头像完整；搜索仍过滤
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
