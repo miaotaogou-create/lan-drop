@@ -10,6 +10,16 @@ class QMenu;
 void applyFloatingShadow(QWidget *w);
 void styleAppMenu(QMenu *menu);
 
+// 表单弹窗共用头脚/字段/主次钮；ns 对应 objectName 前缀（如 addPeer、settings）
+QString formDialogChromeQss(const QString &ns,
+                            const QString &primarySuffix = QStringLiteral("Ok"),
+                            const QString &secondarySuffix = QStringLiteral("Cancel"));
+// 次要钮补充（如 sharePause / shareCloseWin）
+QString formDialogSecondaryBtnQss(const QStringList &objectIds);
+
+// 主窗轻 dim；返回的控件在弹窗关闭后 delete
+QWidget *showDialogDim(QWidget *anchor);
+
 void appInfo(QWidget *parent, const QString &text);
 void appWarn(QWidget *parent, const QString &text);
 
@@ -20,7 +30,6 @@ bool appConfirm(QWidget *parent, const QString &text,
                 bool defaultAccept = false);
 
 // 多选：返回点中的按钮下标；取消/关窗返回 -1
-// labels 从左到右为主操作优先；defaultIndex 为默认焦点（通常是取消）
 int appChoice(QWidget *parent, const QString &text, const QStringList &labels,
               int defaultIndex = -1);
 

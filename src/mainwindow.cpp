@@ -1694,63 +1694,49 @@ static QPixmap makeQrPixmap(const QString &text, int logical)
 }
 
 void MainWindow::openShare()
-{    QDialog dlg(this);
+{
+    QWidget *dim = showDialogDim(this);
+    QDialog dlg(this);
     dlg.setObjectName(QStringLiteral("shareDlg"));
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
     dlg.setFixedWidth(760);
-    dlg.setStyleSheet(QStringLiteral(
-        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
-        "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
-        "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
-        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
-        "QScrollBar:horizontal { background: transparent; height: 8px; margin: 2px; }"
-        "QScrollBar::handle:horizontal { background: #cbd5e1; border-radius: 4px; min-width: 28px; }"
-        "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
-        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
-        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }"
-        "#shareDlg { background: transparent; }"
-        "#shareRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
-        "#shareHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
-        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
-        "#shareTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#shareSub { color: #64748b; font-size: 11px; }"
-        "#shareClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
-        "#shareClose:hover { background: #e2e8f0; }"
-        "#shareStatus { border-radius: 11px; padding: 2px 10px; font-size: 12px; font-weight: 600; }"
-        "#shareStatus[on=\"true\"] { color: #16a34a; background: #f0fdf4; border: 1px solid #86efac; }"
-        "#shareStatus[on=\"false\"] { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; }"
-        "#shareUrlCard { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; }"
-        "#shareQrCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
-        "#shareUrlLab { color: #2563eb; font-size: 12px; font-weight: 600; }"
-        "#shareUrl { color: #1d4ed8; font-size: 15px; font-weight: 600;"
-        " font-family: Consolas, 'Courier New', monospace; }"
-        "#shareMeta { color: #94a3b8; font-size: 12px; }"
-        "#shareGhost { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #334155; padding: 6px 12px; font-weight: 600; }"
-        "#shareGhost:hover { background: #f8fafc; }"
-        "#sharePrimary { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
-        " padding: 6px 14px; font-weight: 600; }"
-        "#sharePrimary:hover { background: #1d4ed8; }"
-        "#shareSecTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
-        "#shareCount { color: #64748b; background: #f1f5f9; border-radius: 10px; padding: 1px 8px; font-size: 12px; }"
-        "#shareHint { color: #94a3b8; font-size: 12px; }"
-        "#shareFile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
-        "#shareFileName { color: #0f172a; font-size: 13px; font-weight: 600; }"
-        "#shareDel { background: transparent; border: none; border-radius: 6px; padding: 0; }"
-        "#shareDel:hover { background: #fee2e2; }"
-        "#shareDrop { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #94a3b8; }"
-        "#shareDrop:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }"
-        "#shareFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
-        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
-        "#sharePause { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #334155; padding: 8px 14px; font-weight: 600; }"
-        "#sharePause:hover { background: #f8fafc; }"
-        "#shareCloseWin { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #334155; padding: 8px 16px; font-weight: 600; }"
-        "#shareCloseWin:hover { background: #f8fafc; }"));
+    dlg.setStyleSheet(
+        QStringLiteral(
+            "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+            "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
+            "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
+            "QScrollBar:horizontal { background: transparent; height: 8px; margin: 2px; }"
+            "QScrollBar::handle:horizontal { background: #cbd5e1; border-radius: 4px; min-width: 28px; }"
+            "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
+            "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }"
+            "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }")
+        + formDialogChromeQss(QStringLiteral("share"), QStringLiteral("Primary"), QStringLiteral("Ghost"))
+        + formDialogSecondaryBtnQss(QStringList()
+                                    << QStringLiteral("sharePause")
+                                    << QStringLiteral("shareCloseWin"))
+        + QStringLiteral(
+              "#shareStatus { border-radius: 11px; padding: 2px 10px; font-size: 12px; font-weight: 600; }"
+              "#shareStatus[on=\"true\"] { color: #16a34a; background: #f0fdf4; border: 1px solid #86efac; }"
+              "#shareStatus[on=\"false\"] { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; }"
+              "#shareUrlCard { background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; }"
+              "#shareQrCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }"
+              "#shareUrlLab { color: #2563eb; font-size: 12px; font-weight: 600; }"
+              "#shareUrl { color: #1d4ed8; font-size: 15px; font-weight: 600;"
+              " font-family: Consolas, 'Courier New', monospace; }"
+              "#shareMeta { color: #94a3b8; font-size: 12px; }"
+              "#shareSecTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
+              "#shareCount { color: #64748b; background: #f1f5f9; border-radius: 10px; padding: 1px 8px; font-size: 12px; }"
+              "#shareHint { color: #94a3b8; font-size: 12px; }"
+              "#shareFile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }"
+              "#shareFileName { color: #0f172a; font-size: 13px; font-weight: 600; }"
+              "#shareDel { background: transparent; border: none; border-radius: 6px; padding: 0; }"
+              "#shareDel:hover { background: #fee2e2; }"
+              "#shareDrop { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; color: #94a3b8; }"
+              "#shareDrop:hover { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }"));
 
     const QString ip = localIpText();
     const QString url = QStringLiteral("http://%1:%2/share/").arg(ip).arg(m_settings.port);
@@ -2059,6 +2045,8 @@ void MainWindow::openShare()
     });
     reloadFiles();
     dlg.exec();
+    if (dim)
+        dim->deleteLater();
     refreshShareBtn();
 }
 
@@ -2484,43 +2472,14 @@ void MainWindow::editSelectedManualPeer()
         peer.manual = true;
     }
 
+    QWidget *dim = showDialogDim(this);
     QDialog dlg(this);
     dlg.setObjectName(QStringLiteral("editPeerDlg"));
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
     dlg.setFixedWidth(420);
-    dlg.setStyleSheet(QStringLiteral(
-        "#editPeerDlg { background: transparent; }"
-        "#editPeerRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
-        "#editPeerHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
-        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
-        "#editPeerTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#editPeerSub { color: #64748b; font-size: 11px; }"
-        "#editPeerClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
-        "#editPeerClose:hover { background: #e2e8f0; }"
-        "#editPeerLabel { color: #334155; font-size: 12px; font-weight: 600; }"
-        "#editPeerField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
-        "#editPeerField:focus { background: #ffffff; border-color: #3b82f6; }"
-        "#editPeerCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 7px 32px 7px 10px; color: #0f172a; min-height: 20px; }"
-        "#editPeerCombo:hover { border-color: #cbd5e1; }"
-        "#editPeerCombo:on { background: #ffffff; border-color: #3b82f6; }"
-        "#editPeerCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
-        " width: 28px; border: none; background: transparent; }"
-        "#editPeerCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
-        "#editPeerCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
-        " outline: 0; padding: 4px; selection-background-color: #eff6ff;"
-        " selection-color: #1e3a8a; color: #0f172a; }"
-        "#editPeerFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
-        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
-        "#editPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #475569; padding: 8px 14px; }"
-        "#editPeerCancel:hover { background: #f8fafc; }"
-        "#editPeerOk { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
-        " padding: 8px 16px; font-weight: 600; }"
-        "#editPeerOk:hover { background: #1d4ed8; }"));
+    dlg.setStyleSheet(formDialogChromeQss(QStringLiteral("editPeer")));
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("editPeerRoot"));
@@ -2633,7 +2592,10 @@ void MainWindow::editSelectedManualPeer()
     connect(cancel, SIGNAL(clicked()), &dlg, SLOT(reject()));
     connect(ok, &QPushButton::clicked, &dlg, [&]() { dlg.accept(); });
     alias->setFocus();
-    if (dlg.exec() != QDialog::Accepted)
+    const int editRc = dlg.exec();
+    if (dim)
+        dim->deleteLater();
+    if (editRc != QDialog::Accepted)
         return;
 
     m_disc->addManual(ip, port, alias->text(), osBox->currentData().toString(), tag->text());
@@ -4645,48 +4607,21 @@ void MainWindow::updateInputPlaceholder()
 
 void MainWindow::addPeer()
 {
+    QWidget *dim = showDialogDim(this);
     QDialog dlg(this);
     dlg.setObjectName(QStringLiteral("addPeerDlg"));
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
     dlg.setFixedWidth(460);
-    dlg.setStyleSheet(QStringLiteral(
-        "#addPeerDlg { background: transparent; }"
-        "#addPeerRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
-        "#addPeerHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
-        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
-        "#addPeerTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#addPeerSub { color: #64748b; font-size: 11px; }"
-        "#addPeerClose { background: transparent; border: none; border-radius: 6px; padding: 0; color: #94a3b8; }"
-        "#addPeerClose:hover { background: #e2e8f0; color: #334155; }"
-        "#addPeerLabel { color: #334155; font-size: 12px; font-weight: 600; }"
-        "#addPeerField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
-        "#addPeerField:focus { background: #ffffff; border-color: #3b82f6; }"
-        "#addPeerCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 7px 32px 7px 10px; color: #0f172a; min-height: 20px; }"
-        "#addPeerCombo:hover { border-color: #cbd5e1; }"
-        "#addPeerCombo:on { background: #ffffff; border-color: #3b82f6; }"
-        "#addPeerCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
-        " width: 28px; border: none; background: transparent; }"
-        "#addPeerCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
-        "#addPeerCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
-        " outline: 0; padding: 4px; selection-background-color: #eff6ff;"
-        " selection-color: #1e3a8a; color: #0f172a; }"
-        "#addPeerProbe { background: transparent; border: none; color: #2563eb; font-size: 12px;"
-        " font-weight: 600; text-align: left; padding: 0; }"
-        "#addPeerProbe:hover { color: #1d4ed8; }"
-        "#addPeerProbe:disabled { color: #93c5fd; }"
-        "#addPeerProbeResult { color: #64748b; font-size: 11px; }"
-        "#addPeerFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
-        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
-        "#addPeerCancel { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #475569; padding: 8px 14px; }"
-        "#addPeerCancel:hover { background: #f8fafc; }"
-        "#addPeerOk { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
-        " padding: 8px 16px; font-weight: 600; }"
-        "#addPeerOk:hover { background: #1d4ed8; }"));
+    dlg.setStyleSheet(
+        formDialogChromeQss(QStringLiteral("addPeer"))
+        + QStringLiteral(
+              "#addPeerProbe { background: transparent; border: none; color: #2563eb; font-size: 12px;"
+              " font-weight: 600; text-align: left; padding: 0; }"
+              "#addPeerProbe:hover { color: #1d4ed8; }"
+              "#addPeerProbe:disabled { color: #93c5fd; }"
+              "#addPeerProbeResult { color: #64748b; font-size: 11px; }"));
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("addPeerRoot"));
@@ -4893,6 +4828,8 @@ void MainWindow::addPeer()
     });
 
     dlg.exec();
+    if (dim)
+        dim->deleteLater();
 }
 
 void MainWindow::probePeer()
@@ -4920,58 +4857,32 @@ void MainWindow::probePeer()
 
 void MainWindow::editSettings()
 {
+    QWidget *dim = showDialogDim(this);
     QDialog dlg(this);
     dlg.setObjectName(QStringLiteral("settingsDlg"));
     dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     dlg.setAttribute(Qt::WA_TranslucentBackground, true);
     dlg.setModal(true);
     dlg.setFixedWidth(460);
-    dlg.setStyleSheet(QStringLiteral(
-        "#settingsDlg { background: transparent; }"
-        "#settingsRoot { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
-        "#settingsHead { background: #f8fafc; border-bottom: 1px solid #e2e8f0;"
-        " border-top-left-radius: 16px; border-top-right-radius: 16px; }"
-        "#settingsTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#settingsSub { color: #64748b; font-size: 11px; }"
-        "#settingsClose { background: transparent; border: none; border-radius: 6px; padding: 0; }"
-        "#settingsClose:hover { background: #e2e8f0; }"
-        "#settingsLabel { color: #0f172a; font-size: 12px; font-weight: 700; }"
-        "#settingsHint { color: #94a3b8; font-size: 11px; }"
-        "#settingsField { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }"
-        "#settingsField:focus { background: #ffffff; border-color: #3b82f6; }"
-        "#settingsCombo { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " padding: 6px 10px; color: #0f172a; min-height: 20px; }"
-        "#settingsCombo:hover { border-color: #cbd5e1; }"
-        "#settingsCombo:on { background: #ffffff; border-color: #3b82f6; }"
-        "#settingsCombo::drop-down { subcontrol-origin: padding; subcontrol-position: center right;"
-        " width: 28px; border: none; }"
-        "#settingsCombo::down-arrow { image: url(:/icons/chevron-down.svg); width: 12px; height: 12px; }"
-        "#settingsCombo QAbstractItemView { background: #ffffff; border: 1px solid #e2e8f0;"
-        " border-radius: 8px; selection-background-color: #eff6ff; selection-color: #1d4ed8;"
-        " outline: none; padding: 4px; }"
-        "#settingsBrowse { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;"
-        " color: #334155; padding: 8px 12px; font-size: 12px; font-weight: 600; }"
-        "#settingsBrowse:hover { background: #f8fafc; }"
-        "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
-        "#settingsSwitchRow { border-top: 1px solid #eef2f7; }"
-        "#settingsToggle { spacing: 0; }"
-        "#settingsToggle::indicator { width: 40px; height: 22px; border: none;"
-        " image: url(:/icons/toggle-off.svg); }"
-        "#settingsToggle::indicator:checked { image: url(:/icons/toggle-on.svg); }"
-        "#settingsToggle::indicator:unchecked { image: url(:/icons/toggle-off.svg); }"
-        "#settingsSoundNest { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
-        "#settingsScroll { background: transparent; border: none; }"
-        "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
-        "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
-        "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
-        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
-        "#settingsFoot { border-top: 1px solid #e2e8f0; background: #f8fafc;"
-        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }"
-        "#settingsSave { background: #2563eb; border: none; border-radius: 8px; color: #ffffff;"
-        " padding: 8px 18px; font-weight: 600; }"
-        "#settingsSave:hover { background: #1d4ed8; }"));
+    dlg.setStyleSheet(
+        formDialogChromeQss(QStringLiteral("settings"), QStringLiteral("Save"), QString())
+        + formDialogSecondaryBtnQss(QStringList() << QStringLiteral("settingsBrowse"))
+        + QStringLiteral(
+              "#settingsHint { color: #94a3b8; font-size: 11px; }"
+              "#settingsSwitchLabel { color: #334155; font-size: 12px; font-weight: 600; }"
+              "#settingsSwitchRow { border-top: 1px solid #eef2f7; }"
+              "#settingsToggle { spacing: 0; }"
+              "#settingsToggle::indicator { width: 40px; height: 22px; border: none;"
+              " image: url(:/icons/toggle-off.svg); }"
+              "#settingsToggle::indicator:checked { image: url(:/icons/toggle-on.svg); }"
+              "#settingsToggle::indicator:unchecked { image: url(:/icons/toggle-off.svg); }"
+              "#settingsSoundNest { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
+              "#settingsScroll { background: transparent; border: none; }"
+              "QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }"
+              "QScrollBar::handle:vertical { background: #cbd5e1; border-radius: 4px; min-height: 28px; }"
+              "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
+              "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+              "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"));
 
     QWidget *root = new QWidget(&dlg);
     root->setObjectName(QStringLiteral("settingsRoot"));
@@ -5301,4 +5212,6 @@ void MainWindow::editSettings()
     });
 
     dlg.exec();
+    if (dim)
+        dim->deleteLater();
 }

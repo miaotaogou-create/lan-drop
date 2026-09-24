@@ -894,6 +894,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-166 弹窗 token 对齐与轻 dim
+- 对应验收：D1–D4（`docs/requirements/20260922-dialog-token-dim.md`）
+- 步骤：开设置看背后变暗；关后恢复；再开加 IP、共享、删节点确认；对比主次钮与关闭钮
+- 期望：衬底一致；头脚主次钮同系；共享关闭白底灰边；功能正常
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变
