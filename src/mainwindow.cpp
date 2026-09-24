@@ -428,22 +428,22 @@ void MainWindow::buildUi()
     logo->setPixmap(makeRadioLogo(36));
     m_logo = logo;
 
-    // 参考图：两行文字块高度与图标齐平（顶对齐标题、底对齐状态行）
+    // 品牌两行：主标题 + 轻量状态（绿点+灰绿字，无膏药底框）
     QWidget *brandWrap = new QWidget;
     brandWrap->setObjectName(QStringLiteral("brandWrap"));
     brandWrap->setFixedHeight(36);
     QVBoxLayout *brandCol = new QVBoxLayout(brandWrap);
-    brandCol->setSpacing(1);
+    brandCol->setSpacing(2);
     brandCol->setContentsMargins(0, 0, 0, 0);
     QLabel *brand = new QLabel(QString::fromUtf8(u8"局域快传"));
     brand->setObjectName(QStringLiteral("brand"));
-    brand->setFixedHeight(20);
+    brand->setFixedHeight(18);
     brand->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_statusPill = new QWidget;
     m_statusPill->setObjectName(QStringLiteral("statusPill"));
-    m_statusPill->setFixedHeight(18);
+    m_statusPill->setFixedHeight(14);
     QHBoxLayout *statusRow = new QHBoxLayout(m_statusPill);
-    statusRow->setContentsMargins(6, 0, 8, 0);
+    statusRow->setContentsMargins(0, 0, 0, 0);
     statusRow->setSpacing(5);
     m_statusDot = new QLabel;
     m_statusDot->setFixedSize(7, 7);
@@ -453,8 +453,8 @@ void MainWindow::buildUi()
     m_statusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     statusRow->addWidget(m_statusDot, 0, Qt::AlignVCenter);
     statusRow->addWidget(m_statusLabel, 0, Qt::AlignVCenter);
-    brandCol->addWidget(brand, 0, Qt::AlignLeft | Qt::AlignTop);
-    brandCol->addWidget(m_statusPill, 0, Qt::AlignLeft | Qt::AlignBottom);
+    brandCol->addWidget(brand, 0, Qt::AlignLeft | Qt::AlignVCenter);
+    brandCol->addWidget(m_statusPill, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
     QHBoxLayout *brandRow = new QHBoxLayout;
     brandRow->setSpacing(10);
@@ -495,6 +495,9 @@ void MainWindow::buildUi()
     m_shareBtn = new QPushButton;
     m_shareBtn->setObjectName(QStringLiteral("shareBtn"));
     m_shareBtn->setCursor(Qt::PointingHandCursor);
+    m_shareBtn->setFocusPolicy(Qt::NoFocus);
+    m_shareBtn->setFlat(true);
+    m_shareBtn->setFixedHeight(28);
     connect(m_shareBtn, SIGNAL(clicked()), this, SLOT(openShare()));
     refreshShareBtn();
 
@@ -542,10 +545,10 @@ void MainWindow::buildUi()
     chromeLay->setContentsMargins(0, 0, 0, 0);
     chromeLay->setSpacing(12);
     chromeLay->addStretch(1);
-    chromeLay->addWidget(m_shareBtn);
-    chromeLay->addWidget(m_dlBtn);
-    chromeLay->addWidget(m_setBtn);
-    chromeLay->addWidget(m_pinBtn);
+    chromeLay->addWidget(m_shareBtn, 0, Qt::AlignVCenter);
+    chromeLay->addWidget(m_dlBtn, 0, Qt::AlignVCenter);
+    chromeLay->addWidget(m_setBtn, 0, Qt::AlignVCenter);
+    chromeLay->addWidget(m_pinBtn, 0, Qt::AlignVCenter);
     QFrame *chromeSep = new QFrame;
     chromeSep->setObjectName(QStringLiteral("chromeSep"));
     chromeSep->setFixedSize(1, 18);
@@ -1169,12 +1172,11 @@ void MainWindow::applyStyle()
         "#chromeSep { background: #e2e8f0; border: none; }"
         "#logo { background: transparent; border: none; padding: 0; margin: 0; }"
         "#brandWrap { background: transparent; }"
-        "#brand { color: #0f172a; font-size: 15px; font-weight: 700; padding: 0; margin: 0; }"
-        "#statusPill { background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; }"
-        "#statusPill[ok=\"true\"] { background: #ecfdf5; border-color: #86efac; }"
-        "#statusOnline { color: #b45309; font-size: 11px; font-weight: 600; padding: 0; margin: 0;"
+        "#brand { color: #0f172a; font-size: 14px; font-weight: 700; padding: 0; margin: 0; }"
+        "#statusPill { background: transparent; border: none; }"
+        "#statusOnline { color: #b45309; font-size: 11px; font-weight: 500; padding: 0; margin: 0;"
         " background: transparent; }"
-        "#statusOnline[ok=\"true\"] { color: #047857; }"
+        "#statusOnline[ok=\"true\"] { color: #059669; }"
         "#hostPill { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#hostPill:hover { background: #eff6ff; border-color: #93c5fd; }"
         "#hostPill[pressed=\"true\"] { background: #dbeafe; border-color: #60a5fa; }"
@@ -1182,11 +1184,11 @@ void MainWindow::applyStyle()
         "#hostTag { color: #64748b; font-size: 12px; }"
         "#hostName { color: #0f172a; font-size: 12px; font-weight: 600; }"
         "#hostIp { color: #94a3b8; font-size: 12px; font-family: Consolas, 'Courier New', monospace; }"
-        "#shareBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
-        " padding: 6px 12px; font-size: 12px; font-weight: 600; min-height: 32px; }"
-        "#shareBtn:hover { background: #dbeafe; }"
+        "#shareBtn { background: #f0f7ff; border: 1px solid #dbeafe; border-radius: 6px; color: #1d4ed8;"
+        " padding: 0 10px; font-size: 12px; font-weight: 500; min-height: 28px; max-height: 28px; }"
+        "#shareBtn:hover { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }"
         "#shareBtn:pressed { background: #bfdbfe; }"
-        "#shareBtn[sharing=\"true\"] { background: #ecfdf5; border-color: #86efac; color: #047857; }"
+        "#shareBtn[sharing=\"true\"] { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }"
         "#shareBtn[sharing=\"true\"]:hover { background: #d1fae5; }"
         "#shareBtn[sharing=\"true\"]:pressed { background: #a7f3d0; }"
         "#iconBtn { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 0; }"
@@ -1890,8 +1892,9 @@ void MainWindow::refreshShareBtn()
 {
     if (!m_shareBtn)
         return;
-    m_shareBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/globe.svg"), 16)));
-    m_shareBtn->setIconSize(QSize(16, 16));
+    m_shareBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/globe.svg"), 14)));
+    m_shareBtn->setIconSize(QSize(14, 14));
+    m_shareBtn->setFixedHeight(28);
     const bool on = m_http && !m_http->shareDir().isEmpty();
     if (on) {
         m_shareBtn->setText(QString::fromUtf8(u8"共享中"));
