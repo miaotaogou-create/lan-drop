@@ -73,6 +73,7 @@
 #include <QScrollArea>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QWindow>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
@@ -4475,6 +4476,23 @@ void MainWindow::showEvent(QShowEvent *event)
     if (HWND hwnd = reinterpret_cast<HWND>(winId()))
         DragAcceptFiles(hwnd, TRUE);
 #endif
+    // 换到不同缩放的显示器时按新 DPR 重绘 HTML 聊天区
+    if (windowHandle()) {
+        disconnect(windowHandle(), SIGNAL(screenChanged(QScreen*)),
+                   this, SLOT(onWindowScreenChanged()));
+        connect(windowHandle(), SIGNAL(screenChanged(QScreen*)),
+                this, SLOT(onWindowScreenChanged()));
+    }
+}
+
+void MainWindow::onWindowScreenChanged()
+{
+    refreshChatHtml(true);
+    refreshFilesView();
+    updateHostPill();
+    updatePeerSession();
+    if (m_list)
+        refreshPeers();
 }
 
 bool MainWindow::handleNativeFileDrop(void *message, long *result)

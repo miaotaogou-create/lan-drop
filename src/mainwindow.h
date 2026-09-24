@@ -61,6 +61,7 @@ protected:
     void dropEvent(QDropEvent *event) override;
 
 private slots:
+    void onWindowScreenChanged();
     void refreshPeers();
     void showChat();
     void sendText();

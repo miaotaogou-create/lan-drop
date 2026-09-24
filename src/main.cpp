@@ -10,6 +10,9 @@
 #ifdef Q_OS_WIN
 #include <stdio.h>
 #include <windows.h>
+#ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT) - 4)
+#endif
 #endif
 
 static void useChineseFont(QApplication &app)
@@ -30,6 +33,30 @@ static void useChineseFont(QApplication &app)
     }
 }
 
+#ifdef Q_OS_WIN
+// 主副屏缩放不同时，未声明 Per-Monitor V2 会被系统位图拉伸 → 发虚
+static void enablePerMonitorDpiV2()
+{
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    if (!user32)
+        return;
+    typedef BOOL(WINAPI *SetCtxFn)(DPI_AWARENESS_CONTEXT);
+    SetCtxFn setCtx = reinterpret_cast<SetCtxFn>(
+        GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
+    if (setCtx)
+        setCtx(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+}
+#endif
+
+static void applyHighDpiAttrs()
+{
+#ifdef Q_OS_WIN
+    enablePerMonitorDpiV2();
+#endif
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+}
+
 int main(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
@@ -41,15 +68,13 @@ int main(int argc, char *argv[])
             freopen_s(&out, "CONOUT$", "w", stderr);
 #endif
             // 聊天气泡渲染依赖 qApp（字体/DPR），自检也要有 Application
-            QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-            QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+            applyHighDpiAttrs();
             QApplication app(argc, argv);
             return runSelfCheck();
         }
     }
 
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+    applyHighDpiAttrs();
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("lan-drop"));
     QApplication::setOrganizationName(QStringLiteral("lan-drop"));
