@@ -529,29 +529,43 @@ QPixmap makeCheckCircleIcon(int logical)
     return pm;
 }
 
-QPixmap makeTrashIcon(int logical)
+QPixmap makeTrashIcon(int logical, const QColor &color)
 {
+    // 对齐 icons/trash-clean.svg（viewBox 24）：圆角桶身 + 提手 + 双肋线
     QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    const qreal s = logical;
-    QPen pen(QColor(QStringLiteral("#64748b")), qMax(1.3, s * 0.09));
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const qreal u = logical / 24.0;
+    QPen pen(color.isValid() ? color : QColor(QStringLiteral("#64748b")),
+             qMax<qreal>(1.6, 2.0 * u));
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     p.setPen(pen);
     p.setBrush(Qt::NoBrush);
-    p.drawLine(QPointF(s * 0.28, s * 0.34), QPointF(s * 0.72, s * 0.34));
-    p.drawLine(QPointF(s * 0.38, s * 0.34), QPointF(s * 0.42, s * 0.22));
-    p.drawLine(QPointF(s * 0.62, s * 0.34), QPointF(s * 0.58, s * 0.22));
-    p.drawLine(QPointF(s * 0.42, s * 0.22), QPointF(s * 0.58, s * 0.22));
+
+    p.drawLine(QPointF(3 * u, 6 * u), QPointF(21 * u, 6 * u));
+
+    QPainterPath lid;
+    lid.moveTo(8 * u, 6 * u);
+    lid.lineTo(8 * u, 4 * u);
+    lid.cubicTo(8 * u, 2.9 * u, 8.9 * u, 2 * u, 10 * u, 2 * u);
+    lid.lineTo(14 * u, 2 * u);
+    lid.cubicTo(15.1 * u, 2 * u, 16 * u, 2.9 * u, 16 * u, 4 * u);
+    lid.lineTo(16 * u, 6 * u);
+    p.drawPath(lid);
+
     QPainterPath body;
-    body.moveTo(s * 0.32, s * 0.38);
-    body.lineTo(s * 0.36, s * 0.82);
-    body.lineTo(s * 0.64, s * 0.82);
-    body.lineTo(s * 0.68, s * 0.38);
+    body.moveTo(19 * u, 6 * u);
+    body.lineTo(19 * u, 20 * u);
+    body.cubicTo(19 * u, 21.1 * u, 18.1 * u, 22 * u, 17 * u, 22 * u);
+    body.lineTo(7 * u, 22 * u);
+    body.cubicTo(5.9 * u, 22 * u, 5 * u, 21.1 * u, 5 * u, 20 * u);
+    body.lineTo(5 * u, 6 * u);
     p.drawPath(body);
-    p.drawLine(QPointF(s * 0.46, s * 0.46), QPointF(s * 0.46, s * 0.72));
-    p.drawLine(QPointF(s * 0.54, s * 0.46), QPointF(s * 0.54, s * 0.72));
+
+    p.drawLine(QPointF(10 * u, 11 * u), QPointF(10 * u, 17 * u));
+    p.drawLine(QPointF(14 * u, 11 * u), QPointF(14 * u, 17 * u));
     return pm;
 }
 

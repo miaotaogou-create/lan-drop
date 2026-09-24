@@ -104,6 +104,19 @@ static QString nowClock()
     return QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
 }
 
+static void applyClearChatIcon(QPushButton *btn)
+{
+    if (!btn)
+        return;
+    QColor c(QStringLiteral("#64748b"));
+    if (btn->property("dangerPressed").toBool())
+        c = QColor(QStringLiteral("#dc2626"));
+    else if (btn->property("dangerHover").toBool())
+        c = QColor(QStringLiteral("#ef4444"));
+    btn->setIcon(QIcon(makeTrashIcon(16, c)));
+    btn->setIconSize(QSize(16, 16));
+}
+
 // 网页共享 / 聊天区共用：本地文件与文件夹顶层文件
 // hadDir：urls 中是否含目录；hadNested：某目录下是否还有子目录（将不会发送）
 static QStringList localSendPathsFromUrls(const QList<QUrl> &urls, bool *hadDir = 0,
@@ -791,20 +804,34 @@ void MainWindow::buildUi()
     tabBarLay->addWidget(filesTabWrap);
 
     m_clearChatBtn = new QPushButton;
-    m_clearChatBtn->setObjectName(QStringLiteral("sessionIconBtn"));
+    m_clearChatBtn->setObjectName(QStringLiteral("btnClearChat"));
     m_clearChatBtn->setFixedSize(32, 32);
     m_clearChatBtn->setCursor(Qt::PointingHandCursor);
     m_clearChatBtn->setFocusPolicy(Qt::NoFocus);
     m_clearChatBtn->setFlat(true);
-    m_clearChatBtn->setToolTip(QString::fromUtf8(u8"清空聊天记录"));
-    m_clearChatBtn->setIcon(QIcon(makeTrashIcon(16)));
-    m_clearChatBtn->setIconSize(QSize(16, 16));
+    m_clearChatBtn->setToolTip(QString::fromUtf8(u8"清空当前聊天记录"));
+    applyClearChatIcon(m_clearChatBtn);
+    m_clearChatBtn->installEventFilter(this);
     connect(m_clearChatBtn, SIGNAL(clicked()), this, SLOT(clearSelectedPeerChat()));
+
+    QFrame *sessionDivider = new QFrame;
+    sessionDivider->setObjectName(QStringLiteral("sessionToolDivider"));
+    sessionDivider->setFrameShape(QFrame::NoFrame);
+    sessionDivider->setFixedSize(1, 16);
+    sessionDivider->setAttribute(Qt::WA_StyledBackground, true);
+
+    QWidget *sessionTools = new QWidget;
+    sessionTools->setObjectName(QStringLiteral("sessionTools"));
+    QHBoxLayout *sessionToolsLay = new QHBoxLayout(sessionTools);
+    sessionToolsLay->setContentsMargins(0, 0, 0, 0);
+    sessionToolsLay->setSpacing(8);
+    sessionToolsLay->addWidget(m_clearChatBtn, 0, Qt::AlignVCenter);
+    sessionToolsLay->addWidget(sessionDivider, 0, Qt::AlignVCenter);
+    sessionToolsLay->addWidget(tabBar, 0, Qt::AlignVCenter);
 
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
-    peerHeadLay->addWidget(m_clearChatBtn, 0, Qt::AlignVCenter);
-    peerHeadLay->addWidget(tabBar, 0, Qt::AlignVCenter);
+    peerHeadLay->addWidget(sessionTools, 0, Qt::AlignVCenter);
 
     m_connBannerHost = new QWidget;
     m_connBannerHost->setObjectName(QStringLiteral("connBannerHost"));
@@ -1228,9 +1255,11 @@ void MainWindow::applyStyle()
         "#sessionTabWrap { background: transparent; }"
         "#sessionTabBadge { background: #eff6ff; color: #1d4ed8; border-radius: 8px;"
         " padding: 1px 6px; font-size: 10px; font-weight: 700; min-width: 14px; }"
-        "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0; }"
-        "#sessionIconBtn:hover { background: #fef2f2; border-color: #fecaca; }"
-        "#sessionIconBtn:pressed { background: #fee2e2; border-color: #fca5a5; }"
+        "#sessionTools { background: transparent; }"
+        "#sessionToolDivider { background: #e2e8f0; border: none; }"
+        "#btnClearChat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0; }"
+        "#btnClearChat:hover { background: #fef2f2; border-color: #fecaca; }"
+        "#btnClearChat:pressed { background: #fee2e2; border-color: #fca5a5; }"
         "#connBannerHost { background: transparent; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
@@ -1294,6 +1323,25 @@ void MainWindow::applyStyle()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (m_clearChatBtn && watched == m_clearChatBtn) {
+        if (event->type() == QEvent::Enter) {
+            m_clearChatBtn->setProperty("dangerHover", true);
+            applyClearChatIcon(m_clearChatBtn);
+        } else if (event->type() == QEvent::Leave) {
+            m_clearChatBtn->setProperty("dangerHover", false);
+            m_clearChatBtn->setProperty("dangerPressed", false);
+            applyClearChatIcon(m_clearChatBtn);
+        } else if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton) {
+                m_clearChatBtn->setProperty("dangerPressed", true);
+                applyClearChatIcon(m_clearChatBtn);
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            m_clearChatBtn->setProperty("dangerPressed", false);
+            applyClearChatIcon(m_clearChatBtn);
+        }
+    }
     if (watched && watched->objectName() == QLatin1String("addBtn")
         && event->type() == QEvent::MouseButtonRelease) {
         QMouseEvent *me = static_cast<QMouseEvent *>(event);
@@ -1501,6 +1549,8 @@ void MainWindow::refreshChromePixmaps()
         m_sendBtn->setIconSize(QSize(18, 18));
         syncSendBtn();
     }
+    if (m_clearChatBtn)
+        applyClearChatIcon(m_clearChatBtn);
     updateChrome();
     syncPinBtn();
     refreshShareBtn();
@@ -2638,10 +2688,10 @@ void MainWindow::clearSelectedPeerChat()
     }
     const QString label = name.isEmpty() ? key : name;
     if (!appConfirm(this,
-                    QString::fromUtf8(u8"清空与「%1」的聊天记录？\n"
-                                        u8"不会删除对端节点，也不会删除已下载的文件。")
+                    QString::fromUtf8(u8"确定要清空与「%1」的所有聊天记录吗？\n"
+                                        u8"此操作不可恢复。不会删除对端节点，也不会删除已下载的文件。")
                         .arg(label),
-                    QString::fromUtf8(u8"清空"), QString::fromUtf8(u8"取消"), false, true)) {
+                    QString::fromUtf8(u8"确定清空"), QString::fromUtf8(u8"取消"), false, true)) {
         return;
     }
     m_log.remove(key);
@@ -3460,7 +3510,7 @@ void MainWindow::elidePeerHeader()
     // 名称行：头像 + 右侧清空/Tab；地址单独占副行
     int reserved = 14 + 14 + 36 + 10 + 10;
     if (m_clearChatBtn)
-        reserved += m_clearChatBtn->width() + 10;
+        reserved += m_clearChatBtn->width() + 8 + 1 + 8; // 按钮 + 间距 + 分割线 + 间距
     if (m_sessionTabBar)
         reserved += m_sessionTabBar->sizeHint().width() + 10;
     const int textColMax = qMax(40, m_peerHeader->width() - reserved);
