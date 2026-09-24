@@ -46,6 +46,8 @@ struct Settings {
     static Settings loadFromFile(const QString &path);
     bool save() const;
     bool saveToFile(const QString &path) const;
+    // 解析为绝对可写路径；AppImage 等只读目录下 ./downloads 会落到 ~/landrop/downloads
+    QString resolvedDownloadDir() const;
 };
 
 #endif

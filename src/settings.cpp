@@ -227,3 +227,33 @@ bool Settings::save() const
 {
     return saveToFile(filePath());
 }
+
+QString Settings::resolvedDownloadDir() const
+{
+    QString dir = downloadDir.trimmed();
+    if (dir.isEmpty())
+        dir = QStringLiteral("./downloads");
+
+    const QString abs = QDir::cleanPath(
+        QFileInfo(dir).isAbsolute() ? dir : QDir::current().absoluteFilePath(dir));
+
+    auto canWrite = [](const QString &path) -> bool {
+        if (!QDir().mkpath(path))
+            return false;
+        const QString probe = path + QStringLiteral("/.landrop-wtest");
+        QFile f(probe);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return false;
+        f.close();
+        QFile::remove(probe);
+        return true;
+    };
+
+    if (canWrite(abs))
+        return abs;
+
+    // AppImage / Enigma 等：程序目录只读时落到家目录
+    const QString fallback = QDir::homePath() + QStringLiteral("/landrop/downloads");
+    QDir().mkpath(fallback);
+    return QDir::cleanPath(fallback);
+}

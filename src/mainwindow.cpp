@@ -1534,11 +1534,8 @@ void MainWindow::closeWin()
 
 void MainWindow::openDownloadDir()
 {
-    QString dir = m_settings.downloadDir.trimmed();
-    if (dir.isEmpty())
-        dir = QStringLiteral("./downloads");
-    QDir().mkpath(dir);
-    const QString abs = QFileInfo(dir).absoluteFilePath();
+    const QString abs = m_settings.resolvedDownloadDir();
+    QDir().mkpath(abs);
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(abs))) {
         appWarn(this, QString::fromUtf8(u8"无法打开下载目录：\n%1").arg(abs));
     }
@@ -2153,7 +2150,7 @@ void MainWindow::openShare()
             refreshShareBtn();
             return lastDir;
         }
-        QString d = QDir(m_settings.downloadDir).filePath(QStringLiteral("lan-drop-share"));
+        QString d = QDir(m_settings.resolvedDownloadDir()).filePath(QStringLiteral("lan-drop-share"));
         if (!QDir().mkpath(d)) {
             appWarn(&dlg, QString::fromUtf8(u8"无法创建共享目录"));
             return QString();
@@ -2289,10 +2286,11 @@ void MainWindow::boot()
     m_settings = Settings::load();
     loadChatHistory();
     m_id = deviceId();
-    QDir().mkpath(m_settings.downloadDir);
+    const QString downloadAbs = m_settings.resolvedDownloadDir();
+    QDir().mkpath(downloadAbs);
     m_disc->setIdentity(m_id, m_settings.deviceName, m_settings.port);
     m_http->setInfo(m_id, m_settings.deviceName, m_settings.port);
-    m_http->setDownloadDir(m_settings.downloadDir);
+    m_http->setDownloadDir(downloadAbs);
     const QByteArray envShare = qgetenv("LANDROP_SHARE_DIR");
     if (!envShare.isEmpty()) {
         const QString dir = QString::fromLocal8Bit(envShare);

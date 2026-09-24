@@ -64,7 +64,7 @@ if [ -z "${GTK_IM_MODULE:-}" ] && [ "${QT_IM_MODULE:-}" = "fcitx" ]; then
     export GTK_IM_MODULE=fcitx
 fi
 
-cd "$APPDIR"
+cd "${HOME:-/tmp}"
 exec "$APPDIR/landrop" "$@"
 EOF
 chmod +x "$APPDIR/AppRun" "$APPDIR/landrop"
