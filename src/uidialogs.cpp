@@ -55,7 +55,7 @@ QString formDialogChromeQss(const QString &ns, const QString &primarySuffix,
     s += p + QStringLiteral("Title { color: #0f172a; font-size: 14px; font-weight: 700; }");
     s += p + QStringLiteral("Sub { color: #64748b; font-size: 11px; }");
     s += p + QStringLiteral("Close { background: transparent; border: none; border-radius: 6px; padding: 0; }");
-    s += p + QStringLiteral("Close:hover { background: #e2e8f0; }");
+    s += p + QStringLiteral("Close:hover { background: #ef4444; }");
     s += p + QStringLiteral("Label { color: #334155; font-size: 12px; font-weight: 600; }");
     s += p + QStringLiteral("Field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;"
                             " padding: 8px 10px; color: #0f172a; selection-background-color: #bfdbfe; }");

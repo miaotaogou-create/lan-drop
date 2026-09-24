@@ -827,8 +827,12 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
         ++n;
     }
     if (n == 0) {
+        QStringList caps;
+        caps << QString::fromUtf8(u8"附件")
+             << QString::fromUtf8(u8"拖入")
+             << QString::fromUtf8(u8"文件夹");
         const QString card = emptyGuideCardImgHtml(
-            QString::fromUtf8(u8"还没有文件传输"), QStringList(),
+            QString::fromUtf8(u8"还没有文件传输"), caps,
             QString::fromUtf8(u8"把文件拖到聊天区，或点左下角附件发送"));
         html += QStringLiteral(
                     "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"48\"><tr>"
