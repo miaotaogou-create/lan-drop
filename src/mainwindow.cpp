@@ -1092,6 +1092,9 @@ void MainWindow::buildUi()
         m_input->setFont(inFont);
         m_input->document()->setDocumentMargin(2);
         applyInputTextPalette(m_input);
+        // 空卡视觉锚点：淡灰占位（具体文案由 updateInputPlaceholder 按对端刷新）
+        m_input->setPlaceholderText(
+            QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
     }
     m_input->setToolTip(QString::fromUtf8(
         u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿；Ctrl+V 粘贴文件/截图"));
@@ -5408,12 +5411,13 @@ void MainWindow::updateInputPlaceholder()
     if (!m_input)
         return;
     QString name;
-    if (!currentPeer(0, 0, &name) || name.trimmed().isEmpty())
+    if (!currentPeer(0, 0, &name) || name.trimmed().isEmpty()) {
         m_input->setPlaceholderText(
-            QString::fromUtf8(u8"输入消息…（Enter 发送，Shift+Enter 换行）"));
-    else
+            QString::fromUtf8(u8"向对方发送消息…（Enter 发送）"));
+    } else {
         m_input->setPlaceholderText(
-            QString::fromUtf8(u8"向 %1 发送消息…").arg(name.trimmed()));
+            QString::fromUtf8(u8"向 %1 发送消息…（Enter 发送）").arg(name.trimmed()));
+    }
     applyInputTextPalette(m_input);
 }
 
