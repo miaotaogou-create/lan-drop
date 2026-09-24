@@ -566,7 +566,7 @@ void MainWindow::buildUi()
 
     QHBoxLayout *sideHead = new QHBoxLayout;
     sideHead->setContentsMargins(0, 0, 0, 0);
-    sideHead->setSpacing(8);
+    sideHead->setSpacing(6);
     QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近设备"));
     sideTitle->setObjectName(QStringLiteral("sideTitle"));
     m_sideTitle = sideTitle;
@@ -581,11 +581,23 @@ void MainWindow::buildUi()
     addBtn->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     addBtn->setAttribute(Qt::WA_Hover, true);
     addBtn->installEventFilter(this);
-    // 与标题同一行基线对齐；数量徽标垂直居中挂在标题旁
-    sideHead->addWidget(sideTitle, 0, Qt::AlignBaseline);
+    // 同一行高 + 垂直居中：标题、数量徽标、「+ 加 IP」中线齐平
+    QFont titleFont = qApp->font();
+    titleFont.setPixelSize(14);
+    titleFont.setBold(true);
+    sideTitle->setFont(titleFont);
+    const int lineH = QFontMetrics(titleFont).height() + 2;
+    sideTitle->setFixedHeight(lineH);
+    m_peerCount->setFixedHeight(lineH);
+    addBtn->setFixedHeight(lineH);
+    QFont addFont = qApp->font();
+    addFont.setPixelSize(14);
+    addFont.setBold(true);
+    addBtn->setFont(addFont);
+    sideHead->addWidget(sideTitle, 0, Qt::AlignVCenter);
     sideHead->addWidget(m_peerCount, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
-    sideHead->addWidget(addBtn, 0, Qt::AlignBaseline);
+    sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
@@ -1170,12 +1182,13 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal { background: #e2e8f0; margin: 28px 2px; border-radius: 2px; }"
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
-        "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 1px 7px;"
+        "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; padding: 0; margin: 0; }"
+        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 8px; padding: 0 7px;"
         " font-size: 11px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
         "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
+        /* 略加大顶内边距，抵消「+」字形视觉中心偏高 */
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
-        " padding: 1px 6px 2px 6px; margin: 0; font-size: 13px; font-weight: 600; }"
+        " padding: 3px 6px 1px 6px; margin: 0; font-size: 14px; font-weight: 600; }"
         "#addBtn:hover { background: #f1f5f9; color: #334155; }"
         "#addBtn:pressed { background: #e2e8f0; color: #0f172a; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
