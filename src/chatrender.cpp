@@ -765,12 +765,12 @@ QString renderChatHtml(const QVector<ChatMsg> &msgs)
     }
     if (!hasUserContent) {
         QStringList caps;
-        caps << QStringLiteral("Enter")
-             << QStringLiteral("Shift+Enter")
-             << QStringLiteral("Ctrl+V");
+        caps << QString::fromUtf8(u8"发送")
+             << QString::fromUtf8(u8"换行")
+             << QString::fromUtf8(u8"粘贴");
         const QString card = emptyGuideCardImgHtml(
             QString::fromUtf8(u8"发消息，或把文件拖到这里"), caps,
-            QString::fromUtf8(u8"发送 · 换行 · 粘贴文件/截图"));
+            QString::fromUtf8(u8"回车 · Shift+回车 · Ctrl+V"));
         html += QStringLiteral(
                     "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"48\"><tr>"
                     "<td align=\"center\">%1</td></tr></table>")

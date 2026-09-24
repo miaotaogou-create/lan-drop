@@ -1052,7 +1052,7 @@ void MainWindow::buildUi()
 
     m_bodySplit = new QSplitter(Qt::Horizontal);
     m_bodySplit->setObjectName(QStringLiteral("bodySplit"));
-    m_bodySplit->setHandleWidth(4);
+    m_bodySplit->setHandleWidth(8);
     m_bodySplit->setChildrenCollapsible(false);
     m_bodySplit->addWidget(side);
     m_bodySplit->addWidget(right);
@@ -1108,8 +1108,9 @@ void MainWindow::applyStyle()
         "#pinBtn:checked { background: #eff6ff; }"
         "#closeBtn:hover { background: #ef4444; }"
         "#side { background: #ffffff; border-right: 1px solid #e8eef5; }"
-        "#bodySplit::handle:horizontal { background: #e2e8f0; width: 4px; }"
-        "#bodySplit::handle:horizontal:hover { background: #93c5fd; }"
+        "#bodySplit::handle:horizontal { background: #e2e8f0; margin: 28px 2px; border-radius: 2px; }"
+        "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
+        "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
         "#peerCount { background: #eff6ff; color: #1d4ed8; border-radius: 9px; padding: 2px 8px;"
         " font-size: 11px; font-weight: 700; min-width: 16px; }"
@@ -2829,6 +2830,10 @@ void MainWindow::refreshPeers()
     }
     sig += QLatin1Char('\x1d');
     sig += QString::number(m_settings.port);
+    // 宽度分桶：拖动分割条后副行芯片按新宽度重绘，静置不因像素抖动重建
+    sig += QLatin1Char('\x1c');
+    const int listW = m_list ? m_list->viewport()->width() : 0;
+    sig += QString::number(qMax(0, listW) / 8);
 
     if (sig == m_peerListSig && m_list) {
         // 内容未变：只刷新过滤与空态，避免每秒重建 itemWidget 闪烁
