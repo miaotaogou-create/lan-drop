@@ -173,41 +173,73 @@ static QColor avatarColorForName(const QString &name)
 
 static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
 {
-    QPen pen(color, 1.4);
-    pen.setCapStyle(Qt::RoundCap);
-    pen.setJoinStyle(Qt::RoundJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
     const qreal x = box.x();
     const qreal y = box.y();
     const qreal w = box.width();
     const qreal h = box.height();
     switch (kind) {
-    case DevPhone:
+    case DevPhone: {
+        QPen pen(color, qMax(1.2, w * 0.12));
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(QRectF(x + w * 0.28, y + h * 0.08, w * 0.44, h * 0.84), 1.5, 1.5);
         p.drawLine(QPointF(x + w * 0.40, y + h * 0.78), QPointF(x + w * 0.60, y + h * 0.78));
         break;
-    case DevTablet:
+    }
+    case DevTablet: {
+        QPen pen(color, qMax(1.2, w * 0.12));
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(QRectF(x + w * 0.12, y + h * 0.18, w * 0.76, h * 0.64), 1.8, 1.8);
         p.drawLine(QPointF(x + w * 0.42, y + h * 0.72), QPointF(x + w * 0.58, y + h * 0.72));
         break;
+    }
     case DevLaptop:
-    default:
-        p.drawRoundedRect(QRectF(x + w * 0.14, y + h * 0.18, w * 0.72, h * 0.48), 1.2, 1.2);
-        p.drawLine(QPointF(x + w * 0.06, y + h * 0.72), QPointF(x + w * 0.94, y + h * 0.72));
-        p.drawLine(QPointF(x + w * 0.22, y + h * 0.72), QPointF(x + w * 0.30, y + h * 0.86));
-        p.drawLine(QPointF(x + w * 0.78, y + h * 0.72), QPointF(x + w * 0.70, y + h * 0.86));
-        p.drawLine(QPointF(x + w * 0.30, y + h * 0.86), QPointF(x + w * 0.70, y + h * 0.86));
+    default: {
+        // 参考图：白底角标内画终端 ">_"
+        QPen pen(color, qMax(1.4, w * 0.13));
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        const qreal cx = x + w * 0.30;
+        const qreal cy = y + h * 0.48;
+        const qreal aw = w * 0.20;
+        const qreal ah = h * 0.18;
+        QPainterPath arrow;
+        arrow.moveTo(cx, cy - ah);
+        arrow.lineTo(cx + aw, cy);
+        arrow.lineTo(cx, cy + ah);
+        p.drawPath(arrow);
+        const qreal lineX1 = cx + aw + w * 0.08;
+        const qreal lineY = cy + ah;
+        p.drawLine(QPointF(lineX1, lineY), QPointF(lineX1 + w * 0.22, lineY));
         break;
+    }
     }
 }
 
 QPixmap makeLaptopIcon(int logical)
 {
+    // 本机状态条仍用笔记本剪影；设备头像角标已改为终端 >_
     QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
-    paintDeviceGlyph(p, DevLaptop, QRectF(0, 0, logical, logical), QColor(QStringLiteral("#2563eb")));
+    QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal s = logical;
+    p.drawRoundedRect(QRectF(s * 0.14, s * 0.18, s * 0.72, s * 0.48), 1.2, 1.2);
+    p.drawLine(QPointF(s * 0.06, s * 0.72), QPointF(s * 0.94, s * 0.72));
+    p.drawLine(QPointF(s * 0.22, s * 0.72), QPointF(s * 0.30, s * 0.86));
+    p.drawLine(QPointF(s * 0.78, s * 0.72), QPointF(s * 0.70, s * 0.86));
+    p.drawLine(QPointF(s * 0.30, s * 0.86), QPointF(s * 0.70, s * 0.86));
     return pm;
 }
 
@@ -217,35 +249,40 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.setPen(Qt::NoPen);
     const QColor base = avatarColorForName(name);
     QLinearGradient grad(0, 0, 0, logical);
     grad.setColorAt(0.0, base.lighter(112));
     grad.setColorAt(1.0, base.darker(108));
     p.setBrush(grad);
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 11.0, 11.0);
+    const qreal radius = logical * 0.25;
+    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), radius, radius);
     QFont font = qApp->font();
-    font.setPixelSize(qMax(14, logical * 2 / 5));
+    font.setPixelSize(qMax(14, qRound(logical * 0.44)));
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
-    p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, avatarInitial(name));
-    // 右下角设备角标：白环隔离 + 浅蓝底，避免黏在头像上
-    const int badge = qMax(14, logical * 14 / 44);
-    const QRectF badgeRect(logical - badge - 1.0, logical - badge - 1.0, badge, badge);
+    p.drawText(QRectF(0, -1, logical, logical), Qt::AlignCenter, avatarInitial(name));
+
+    // 右下角：白底圆形悬浮角标（对齐参考图终端 >_）
+    const int badge = qMax(16, qRound(logical * 0.42));
+    const QRectF badgeRect(logical - badge, logical - badge, badge, badge);
     p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 28));
+    p.drawEllipse(badgeRect.adjusted(-1.0, -1.0, 1.0, 1.0));
     p.setBrush(Qt::white);
-    p.drawEllipse(badgeRect.adjusted(-1.5, -1.5, 1.5, 1.5));
-    p.setBrush(QColor(QStringLiteral("#eff6ff")));
     p.drawEllipse(badgeRect);
+
     DeviceKind kind = DevLaptop;
     const int k = deviceKindFromOs(osName);
     if (k == 1)
         kind = DevPhone;
     else if (k == 2)
         kind = DevTablet;
-    paintDeviceGlyph(p, kind, badgeRect.adjusted(2.8, 2.8, -2.8, -2.8),
-                     QColor(QStringLiteral("#2563eb")));
+    const QColor glyph = (kind == DevLaptop) ? base.darker(110) : QColor(QStringLiteral("#2563eb"));
+    const qreal pad = badge * 0.18;
+    paintDeviceGlyph(p, kind, badgeRect.adjusted(pad, pad, -pad, -pad), glyph);
     return pm;
 }
 
