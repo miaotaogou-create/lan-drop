@@ -278,6 +278,8 @@ private:
     QAction *m_traySoundAct = 0;
     bool m_forceQuit = false;
     bool m_trayHintShown = false;
+    bool m_httpListenOk = true;
+    bool m_discoverOk = true;
     QFrame *m_trayToast = 0;
     QLabel *m_trayToastTitle = 0;
     QLabel *m_trayToastBody = 0;

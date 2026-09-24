@@ -712,7 +712,11 @@ static QString emptyGuideCardImgHtml(const QString &title, const QStringList &ke
     QFontMetrics footFm(footFont);
     const int titleH = titleFm.height();
     const int capH = compact ? 22 : 24;
-    const int footH = footer.isEmpty() ? 0 : (footFm.height() + (compact ? 8 : 10));
+    const int footMaxW = cardW - pad * 2;
+    const QRect footBound = footer.isEmpty()
+        ? QRect()
+        : footFm.boundingRect(QRect(0, 0, footMaxW, 10000), Qt::TextWordWrap, footer);
+    const int footH = footer.isEmpty() ? 0 : (footBound.height() + (compact ? 8 : 10));
     const int capsBlock = keycaps.isEmpty() ? 0 : (compact ? 10 : 12) + capH;
     const int innerH = pad + titleH + capsBlock + footH + pad;
     const int logicalW = cardW + kShadowPad * 2;
@@ -753,8 +757,8 @@ static QString emptyGuideCardImgHtml(const QString &title, const QStringList &ke
     if (!footer.isEmpty()) {
         p.setFont(footFont);
         p.setPen(QColor(QStringLiteral("#94a3b8")));
-        p.drawText(QRect(kShadowPad + pad, y, cardW - pad * 2, footFm.height()),
-                   Qt::AlignLeft | Qt::AlignVCenter, footer);
+        p.drawText(QRect(kShadowPad + pad, y, footMaxW, footBound.height()),
+                   Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, footer);
     }
     return pixmapToImgHtml(pm);
 }
@@ -843,7 +847,7 @@ QString renderFilesHtml(const QVector<ChatMsg> &msgs)
     return html;
 }
 
-QString renderSidebarEmptyHintHtml(bool noMatch)
+QString renderSidebarEmptyHintHtml(bool noMatch, bool discoverOk)
 {
     if (noMatch) {
         return emptyGuideCardImgHtml(
@@ -852,14 +856,17 @@ QString renderSidebarEmptyHintHtml(bool noMatch)
             QString::fromUtf8(u8"清除搜索后再试"),
             200);
     }
+    const QString foot = discoverOk
+        ? QString::fromUtf8(u8"同网段等待发现；防火墙请放行 TCP 8848 与 UDP 8850")
+        : QString::fromUtf8(u8"发现异常，请点「+ 加 IP」；并检查防火墙端口");
     return emptyGuideCardImgHtml(
         QString::fromUtf8(u8"暂无设备"),
         QStringList() << QString::fromUtf8(u8"+ 加 IP"),
-        QString::fromUtf8(u8"同一网段等待自动发现"),
+        foot,
         200);
 }
 
-QString renderMainEmptyHintHtml(bool noMatch, const QString &query)
+QString renderMainEmptyHintHtml(bool noMatch, const QString &query, bool discoverOk)
 {
     if (noMatch) {
         QString foot = QString::fromUtf8(u8"可按 Esc 清除搜索，或改用名称 / IP / 标签");
@@ -875,9 +882,18 @@ QString renderMainEmptyHintHtml(bool noMatch, const QString &query)
             foot,
             360);
     }
+    QStringList caps;
+    caps << QString::fromUtf8(u8"+ 加 IP")
+         << QString::fromUtf8(u8"本机")
+         << QString::fromUtf8(u8"防火墙");
+    const QString foot = discoverOk
+        ? QString::fromUtf8(
+              u8"① 两端同网段，放行 TCP 8848 / UDP 8850\n"
+              u8"② 点顶栏「本机」复制地址发给对方\n"
+              u8"③ 或点「+ 加 IP」手动添加后选中即可聊天")
+        : QString::fromUtf8(
+              u8"发现端口异常：仍可用「+ 加 IP」直连。\n"
+              u8"请确认防火墙已放行 TCP 8848 与 UDP 8850，并点顶栏复制本机地址给对方。");
     return emptyGuideCardImgHtml(
-        QString::fromUtf8(u8"还没有可聊的设备"),
-        QStringList() << QString::fromUtf8(u8"+ 加 IP"),
-        QString::fromUtf8(u8"同一网段等待自动发现，或手动添加后选中即可聊天"),
-        360);
+        QString::fromUtf8(u8"还没有可聊的设备"), caps, foot, 400);
 }

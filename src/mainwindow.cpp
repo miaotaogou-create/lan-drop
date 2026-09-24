@@ -651,7 +651,7 @@ void MainWindow::buildUi()
     m_listEmptyHint->setAlignment(Qt::AlignCenter);
     m_listEmptyHint->setWordWrap(true);
     m_listEmptyHint->setTextFormat(Qt::RichText);
-    m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false));
+    m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false, true));
     m_listEmptyHint->hide();
     sideLay->addWidget(listHost, 1);
 
@@ -2246,6 +2246,8 @@ void MainWindow::boot()
     }
     const bool httpOk = m_http->listen(m_settings.port);
     const bool discOk = m_disc->start(m_settings.discoverPort);
+    m_httpListenOk = httpOk;
+    m_discoverOk = discOk;
     for (int i = 0; i < m_settings.manualPeers.size(); ++i) {
         const ManualPeerEntry &e = m_settings.manualPeers.at(i);
         m_disc->addManual(e.ip, e.port, e.alias, e.os, e.tag);
@@ -2841,9 +2843,9 @@ void MainWindow::updateEmpty()
         if (showEmpty) {
             m_listEmptyHint->setGeometry(m_list->geometry());
             if (!q.isEmpty()) {
-                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(true));
+                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(true, m_discoverOk));
             } else {
-                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false));
+                m_listEmptyHint->setText(renderSidebarEmptyHintHtml(false, m_discoverOk));
             }
             m_listEmptyHint->show();
             m_listEmptyHint->raise();
@@ -2854,9 +2856,9 @@ void MainWindow::updateEmpty()
     const bool hasPeer = currentPeer(0, 0, 0);
     if (m_emptyHint) {
         if (!q.isEmpty() && visible == 0)
-            m_emptyHint->setText(renderMainEmptyHintHtml(true, q));
+            m_emptyHint->setText(renderMainEmptyHintHtml(true, q, m_discoverOk));
         else
-            m_emptyHint->setText(renderMainEmptyHintHtml(false));
+            m_emptyHint->setText(renderMainEmptyHintHtml(false, QString(), m_discoverOk));
     }
     m_pages->setCurrentIndex(hasPeer ? 1 : 0);
     m_composer->setEnabled(hasPeer);
@@ -3476,9 +3478,34 @@ void MainWindow::noteFail(const QString &key, QNetworkReply *rep, const QString 
         why = rep->errorString();
     if (code >= 400)
         why = QString::number(code) + QLatin1Char(' ') + why;
+    // 常见网络错误改成短中文，便于现场扫读
+    const QString low = why.toLower();
+    QString brief = why;
+    if (rep->error() == QNetworkReply::ConnectionRefusedError
+        || low.contains(QLatin1String("connection refused")))
+        brief = QString::fromUtf8(u8"连接被拒绝");
+    else if (rep->error() == QNetworkReply::TimeoutError
+             || low.contains(QLatin1String("timed out"))
+             || low.contains(QLatin1String("timeout")))
+        brief = QString::fromUtf8(u8"连接超时");
+    else if (rep->error() == QNetworkReply::HostNotFoundError
+             || low.contains(QLatin1String("host not found")))
+        brief = QString::fromUtf8(u8"找不到主机");
+    else if (rep->error() == QNetworkReply::NetworkSessionFailedError
+             || low.contains(QLatin1String("network unreachable"))
+             || low.contains(QLatin1String("no route")))
+        brief = QString::fromUtf8(u8"网络不可达");
+    QString tip = QString::fromUtf8(
+        u8"请确认对方已打开局域快传，且防火墙放行 TCP %1。")
+                      .arg(m_settings.port);
+    if (!m_discoverOk)
+        tip += QString::fromUtf8(u8" 本机发现异常时可用「+ 加 IP」直连。");
     ChatMsg m;
     m.type = ChatMsg::Fail;
-    m.text = QString::fromUtf8(u8"发送失败：%1").arg(why);
+    if (brief == why)
+        m.text = QString::fromUtf8(u8"发送失败：%1\n%2").arg(why, tip);
+    else
+        m.text = QString::fromUtf8(u8"发送失败：%1（%2）\n%3").arg(brief, why, tip);
     m.path = retryPath;
     m.morePaths = morePaths;
     m.time = nowClock();
@@ -5246,6 +5273,10 @@ void MainWindow::editSettings()
     QLineEdit *port = fieldEdit(QString::number(m_settings.port));
     portCol->addWidget(fieldLabel(QString::fromUtf8(u8"本地 HTTP 监听端口")));
     portCol->addWidget(port);
+    portCol->addWidget(fieldHint(
+        QString::fromUtf8(u8"同网段需放行本机 TCP %1；自动发现另需 UDP %2")
+            .arg(m_settings.port)
+            .arg(m_settings.discoverPort)));
     QVBoxLayout *thrCol = new QVBoxLayout;
     thrCol->setSpacing(4);
     QLineEdit *threads = fieldEdit(QString::number(m_settings.transferThreads));
