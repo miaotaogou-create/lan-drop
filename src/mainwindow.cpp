@@ -46,6 +46,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFont>
+#include <QFontDatabase>
 #include <QFormLayout>
 #include <functional>
 #include <QFrame>
@@ -66,6 +67,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPainter>
+#include <QPalette>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QProgressBar>
@@ -943,7 +945,7 @@ void MainWindow::buildUi()
     toolBar->setObjectName(QStringLiteral("composerToolBar"));
     toolBar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *toolLay = new QHBoxLayout(toolBar);
-    toolLay->setContentsMargins(6, 4, 6, 4);
+    toolLay->setContentsMargins(10, 6, 10, 2);
     toolLay->setSpacing(2);
     QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
                                        QString::fromUtf8(u8"文件"), QStringLiteral("toolBtn"));
@@ -965,13 +967,38 @@ void MainWindow::buildUi()
     QWidget *inputPad = new QWidget;
     inputPad->setObjectName(QStringLiteral("inputPad"));
     QVBoxLayout *padLay = new QVBoxLayout(inputPad);
-    padLay->setContentsMargins(12, 8, 12, 12);
+    padLay->setContentsMargins(14, 10, 14, 12);
     padLay->setSpacing(4);
     m_input = new QPlainTextEdit;
     m_input->setObjectName(QStringLiteral("input"));
     m_input->setFrameShape(QFrame::NoFrame);
     m_input->setFixedHeight(72);
     m_input->setTabChangesFocus(true);
+    {
+        QFont inFont = qApp->font();
+        const QStringList prefer = QStringList()
+            << QStringLiteral("Microsoft YaHei UI")
+            << QStringLiteral("Microsoft YaHei")
+            << QString::fromUtf8(u8"微软雅黑")
+            << QStringLiteral("Segoe UI")
+            << QStringLiteral("Noto Sans CJK SC")
+            << QStringLiteral("PingFang SC");
+        const QStringList fams = QFontDatabase().families();
+        for (int i = 0; i < prefer.size(); ++i) {
+            if (fams.contains(prefer.at(i))) {
+                inFont.setFamily(prefer.at(i));
+                break;
+            }
+        }
+        inFont.setPixelSize(14);
+        inFont.setStyleStrategy(QFont::PreferAntialias);
+        m_input->setFont(inFont);
+        m_input->document()->setDocumentMargin(2);
+        QPalette pal = m_input->palette();
+        pal.setColor(QPalette::Text, QColor(QStringLiteral("#1e293b")));
+        pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#94a3b8")));
+        m_input->setPalette(pal);
+    }
     m_input->setToolTip(QString::fromUtf8(
         u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿；Ctrl+V 粘贴文件/截图"));
     m_input->installEventFilter(this);
@@ -990,7 +1017,6 @@ void MainWindow::buildUi()
     sendRow->setContentsMargins(0, 0, 2, 2);
     sendRow->addStretch(1);
     sendRow->addWidget(m_sendBtn, 0, Qt::AlignVCenter);
-    padLay->setContentsMargins(12, 8, 12, 12);
     padLay->addWidget(m_input, 1);
     padLay->addLayout(sendRow);
 
@@ -1270,10 +1296,8 @@ void MainWindow::applyStyle()
         " padding: 5px 12px; border-radius: 8px; font-weight: 600; min-height: 28px; }"
         "#clearQueueBtn:hover { background: #fef3c7; color: #92400e; border-color: #fcd34d; }"
         "#clearQueueBtn:pressed { background: #fde68a; color: #78350f; border-color: #fbbf24; }"
-        "#composerToolBar { background: #ffffff; border: none; border-bottom: 1px solid #e2e8f0;"
-        " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
-        "#inputShell[xfer=\"true\"] #composerToolBar {"
-        " border-top-left-radius: 0; border-top-right-radius: 0; }"
+        "#composerToolBar { background: transparent; border: none; }"
+        "#inputShell[xfer=\"true\"] #composerToolBar { background: transparent; }"
         "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
         " padding: 5px 9px; font-weight: 600; }"
         "#toolBtn:hover { background: #eff6ff; color: #1d4ed8; }"
@@ -1283,7 +1307,7 @@ void MainWindow::applyStyle()
         "#inputShellHost { background: transparent; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
         "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
-        "#input { background: transparent; border: none; color: #0f172a; font-size: 15px;"
+        "#input { background: transparent; border: none; color: #1e293b; font-size: 14px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
         "#sendFab { background: #2563eb; border: none; border-radius: 10px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"

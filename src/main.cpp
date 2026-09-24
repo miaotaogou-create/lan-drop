@@ -20,8 +20,10 @@
 static void useChineseFont(QApplication &app)
 {
     const QStringList prefer = QStringList()
+        << QStringLiteral("Microsoft YaHei UI")
         << QStringLiteral("Microsoft YaHei")
         << QString::fromUtf8(u8"微软雅黑")
+        << QStringLiteral("Segoe UI")
         << QStringLiteral("Noto Sans CJK SC")
         << QStringLiteral("Source Han Sans SC")
         << QStringLiteral("WenQuanYi Micro Hei")
@@ -29,7 +31,9 @@ static void useChineseFont(QApplication &app)
     const QStringList fams = QFontDatabase().families();
     for (int i = 0; i < prefer.size(); ++i) {
         if (fams.contains(prefer.at(i))) {
-            app.setFont(QFont(prefer.at(i), 10));
+            QFont f(prefer.at(i), 10);
+            f.setStyleStrategy(QFont::PreferAntialias);
+            app.setFont(f);
             return;
         }
     }
