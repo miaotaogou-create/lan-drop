@@ -30,14 +30,24 @@ cp -a "$DIST/." "$APPDIR/"
 rm -rf "$APPDIR/downloads" 2>/dev/null || true
 
 # AppRun：优先用 APPDIR（AppImage 挂载点）
+# 注意：AppImage 挂载只读，不能把 fcitx 插件 ln/cp 进 APPDIR（目录包 landrop.sh 那套会静默失败）
 cat > "$APPDIR/AppRun" << 'EOF'
 #!/bin/sh
 DIR=$(dirname "$(readlink -f "$0")")
 export APPDIR="${APPDIR:-$DIR}"
 export LD_LIBRARY_PATH="$APPDIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export QT_PLUGIN_PATH="$APPDIR/plugins"
 
-FCITX_DST="$APPDIR/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so"
+# 可写插件层：挂系统 fcitx，并保留包内 ibus/compose
+IME_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/landrop-ime"
+IME_PIC="$IME_ROOT/platforminputcontexts"
+mkdir -p "$IME_PIC"
+for f in "$APPDIR/plugins/platforminputcontexts/"*; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    [ -e "$IME_PIC/$base" ] || ln -sf "$f" "$IME_PIC/$base" 2>/dev/null || true
+done
+
+FCITX_DST="$IME_PIC/libfcitxplatforminputcontextplugin.so"
 if [ ! -e "$FCITX_DST" ]; then
     for cand in \
         /usr/lib/aarch64-linux-gnu/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
@@ -50,10 +60,13 @@ if [ ! -e "$FCITX_DST" ]; then
     done
 fi
 
+# 先搜可写 IME 层，再搜包内 platforms/imageformats 等
+export QT_PLUGIN_PATH="$IME_ROOT:$APPDIR/plugins"
+
 if [ -z "${QT_IM_MODULE:-}" ]; then
     if [ -e "$FCITX_DST" ]; then
         export QT_IM_MODULE=fcitx
-    elif [ -f "$APPDIR/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so" ]; then
+    elif [ -f "$IME_PIC/libibusplatforminputcontextplugin.so" ]; then
         export QT_IM_MODULE=ibus
     fi
 fi

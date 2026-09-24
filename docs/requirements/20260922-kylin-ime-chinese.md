@@ -1,7 +1,7 @@
 # ARM 麒麟中文输入
 
-- 状态：已实现（待 22 机手测确认上屏）
-- 背景：自带 Qt 包只含 ibus/compose 输入法插件，且 `QT_PLUGIN_PATH` 只指向包内目录；银河麒麟 V10 默认 fcitx（含搜狗），桌面会话里的 `QT_IM_MODULE=fcitx` 即使有，也加载不到系统 fcitx 插件，输入框无法出中文候选。
+- 状态：已实现（目录包已验证；AppImage 需可写 IME 插件缓存，见 `pack-linux-appimage.sh`）
+- 背景：自带 Qt 包只含 ibus/compose 输入法插件，且 `QT_PLUGIN_PATH` 只指向包内目录；银河麒麟 V10 默认 fcitx（含搜狗），桌面会话里的 `QT_IM_MODULE=fcitx` 即使有，也加载不到系统 fcitx 插件，输入框无法出中文候选。AppImage 挂载只读，不能把 fcitx 链进包内目录，须落到 `~/.cache/landrop-ime/`。
 - 目标：在 ARM 麒麟（fcitx）上，聊天/设置等文本框可正常调起中文输入法并上屏。
 - 非目标：
   - 自研输入法或内嵌虚拟键盘
