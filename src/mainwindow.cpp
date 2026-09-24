@@ -120,7 +120,32 @@ static void applyClearChatIcon(QPushButton *btn)
     btn->setIconSize(QSize(16, 16));
 }
 
-// 设备行延迟：自绘闪电 + 文案，避免 emoji 与数字垂直错位
+// 延迟档位色：<10ms 绿 / 10~50 琥珀 / >50 红；未知灰
+static QColor pingLatencyColor(const QString &pingText)
+{
+    if (pingText.isEmpty() || pingText == QString::fromUtf8(u8"—")
+        || pingText.contains(QString::fromUtf8(u8"超时")))
+        return QColor(QStringLiteral("#94a3b8"));
+    const QString t = pingText.trimmed();
+    bool ok = false;
+    double ms = 0.0;
+    if (t.endsWith(QLatin1String("ms"))) {
+        ms = t.left(t.size() - 2).trimmed().toDouble(&ok);
+    } else if (t.contains(QLatin1Char('m')) && t.contains(QLatin1Char('s'))) {
+        return QColor(QStringLiteral("#dc2626"));
+    } else if (t.endsWith(QLatin1Char('s'))) {
+        ms = t.left(t.size() - 1).trimmed().toDouble(&ok) * 1000.0;
+    }
+    if (!ok)
+        return QColor(QStringLiteral("#059669"));
+    if (ms < 10.0)
+        return QColor(QStringLiteral("#059669"));
+    if (ms < 50.0)
+        return QColor(QStringLiteral("#d97706"));
+    return QColor(QStringLiteral("#dc2626"));
+}
+
+// 设备行延迟：Lucide 实心闪电 + 文案同色，避免 emoji 错位
 static void applyPeerRowPing(QLabel *pingLab, QLabel *boltLab, bool online, const QString &pingText)
 {
     if (!pingLab)
@@ -128,15 +153,25 @@ static void applyPeerRowPing(QLabel *pingLab, QLabel *boltLab, bool online, cons
     pingLab->setProperty("offline", !online);
     if (!online) {
         pingLab->setText(QString::fromUtf8(u8"离线"));
+        QPalette pal = pingLab->palette();
+        pal.setColor(QPalette::WindowText, QColor(QStringLiteral("#f59e0b")));
+        pal.setColor(QPalette::Text, QColor(QStringLiteral("#f59e0b")));
+        pingLab->setPalette(pal);
         if (boltLab)
             boltLab->hide();
     } else {
+        const QString text = pingText.isEmpty() ? QString::fromUtf8(u8"—") : pingText;
+        const QColor c = pingLatencyColor(text);
         if (boltLab) {
-            boltLab->setPixmap(makeLightningIcon(12, QColor(QStringLiteral("#f97316"))));
-            boltLab->setFixedSize(12, 12);
+            boltLab->setPixmap(makeLightningIcon(13, c));
+            boltLab->setFixedSize(13, 13);
             boltLab->show();
         }
-        pingLab->setText(pingText.isEmpty() ? QString::fromUtf8(u8"—") : pingText);
+        pingLab->setText(text);
+        QPalette pal = pingLab->palette();
+        pal.setColor(QPalette::WindowText, c);
+        pal.setColor(QPalette::Text, c);
+        pingLab->setPalette(pal);
     }
     pingLab->style()->unpolish(pingLab);
     pingLab->style()->polish(pingLab);
@@ -1288,7 +1323,7 @@ void MainWindow::applyStyle()
         "#peerRowOs { background: transparent; border: none; }"
         "#peerRowPingHost { background: transparent; border: none; }"
         "#peerRowPingIcon { background: transparent; border: none; }"
-        "#peerRowPing { color: #10b981; font-size: 11px; font-weight: 600; background: transparent; border: none; }"
+        "#peerRowPing { font-size: 11px; font-weight: 600; background: transparent; border: none; }"
         "#peerRowPing[offline=\"true\"] { color: #f59e0b; }"
         "#peerRowSub { background: transparent; }"
         "#right { background: #f1f5f9; }"

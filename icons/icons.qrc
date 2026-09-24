@@ -5,6 +5,8 @@
         <file alias="folder.svg">folder.svg</file>
         <file alias="folder-plus.svg">folder-plus.svg</file>
         <file alias="zap.svg">zap.svg</file>
+        <file alias="zap-green.svg">zap-green.svg</file>
+        <file alias="zap-solid.svg">zap-solid.svg</file>
         <file alias="send.svg">send.svg</file>
         <file alias="settings.svg">settings.svg</file>
         <file alias="badge-terminal.svg">badge-terminal.svg</file>

@@ -531,20 +531,20 @@ QPixmap makeCheckCircleIcon(int logical)
 
 QPixmap makeLightningIcon(int logical, const QColor &color)
 {
-    // 实心闪电：与数字同高时垂直中心可对齐（避免 emoji 基线漂移）
+    // 对齐 Lucide zap 实心路径（viewBox 24）；小尺寸实心识别度更高
     QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
-    p.setBrush(color.isValid() ? color : QColor(QStringLiteral("#f97316")));
-    const qreal s = logical;
+    p.setBrush(color.isValid() ? color : QColor(QStringLiteral("#059669")));
+    const qreal u = logical / 24.0;
     QPainterPath bolt;
-    bolt.moveTo(s * 0.54, s * 0.06);
-    bolt.lineTo(s * 0.20, s * 0.54);
-    bolt.lineTo(s * 0.46, s * 0.54);
-    bolt.lineTo(s * 0.36, s * 0.94);
-    bolt.lineTo(s * 0.82, s * 0.40);
-    bolt.lineTo(s * 0.54, s * 0.40);
+    bolt.moveTo(13 * u, 2 * u);
+    bolt.lineTo(3 * u, 14 * u);
+    bolt.lineTo(12 * u, 14 * u);
+    bolt.lineTo(11 * u, 22 * u);
+    bolt.lineTo(21 * u, 10 * u);
+    bolt.lineTo(12 * u, 10 * u);
     bolt.closeSubpath();
     p.drawPath(bolt);
     return pm;
