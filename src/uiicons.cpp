@@ -252,21 +252,24 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.setPen(Qt::NoPen);
     const QColor base = avatarColorForName(name);
-    QLinearGradient grad(0, 0, 0, logical);
+    // 角标约 46%，并悬出橙色方块约 1/3，减少挡字母
+    const int badge = qMax(18, qRound(logical * 0.46));
+    const qreal hang = badge * 0.32;
+    const QRectF body(0.5, 0.5, logical - hang - 0.5, logical - hang - 0.5);
+    QLinearGradient grad(body.topLeft(), body.bottomLeft());
     grad.setColorAt(0.0, base.lighter(112));
     grad.setColorAt(1.0, base.darker(108));
     p.setBrush(grad);
-    const qreal radius = logical * 0.25;
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), radius, radius);
+    const qreal radius = body.width() * 0.25;
+    p.drawRoundedRect(body, radius, radius);
     QFont font = qApp->font();
-    font.setPixelSize(qMax(14, qRound(logical * 0.44)));
+    font.setPixelSize(qMax(14, qRound(body.width() * 0.44)));
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
-    p.drawText(QRectF(0, -1, logical, logical), Qt::AlignCenter, avatarInitial(name));
+    // 字在主体内居中，略上移，给右下角标留空
+    p.drawText(body.adjusted(0, -1, 0, -hang * 0.35), Qt::AlignCenter, avatarInitial(name));
 
-    // 右下角：白底圆形悬浮角标（对齐参考图终端 >_）
-    const int badge = qMax(16, qRound(logical * 0.42));
     const QRectF badgeRect(logical - badge, logical - badge, badge, badge);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(0, 0, 0, 28));

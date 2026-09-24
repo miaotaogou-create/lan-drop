@@ -622,7 +622,7 @@ void MainWindow::buildUi()
     m_list->setObjectName(QStringLiteral("peerList"));
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_list->setIconSize(QSize(44, 44));
+    m_list->setIconSize(QSize(48, 48));
     m_list->setSpacing(4);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
@@ -3033,7 +3033,7 @@ void MainWindow::refreshPeers()
         const int unread = m_unread.value(p.key(), 0);
         // 搜索串进 UserRole+5；item 明文不画，避免与 itemWidget 叠字
         QListWidgetItem *it = new QListWidgetItem;
-        it->setSizeHint(QSize(0, 64));
+        it->setSizeHint(QSize(0, 68));
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
@@ -3051,10 +3051,10 @@ void MainWindow::refreshPeers()
         rowLay->setContentsMargins(10, 6, 10, 6);
         rowLay->setSpacing(10);
         QLabel *av = new QLabel;
-        av->setFixedSize(44, 44);
+        av->setFixedSize(48, 48);
         av->setScaledContents(false);
         av->setAlignment(Qt::AlignCenter);
-        av->setPixmap(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned));
+        av->setPixmap(makePeerListAvatar(p.label(), p.osName, unread, 48, pinned));
         QVBoxLayout *textCol = new QVBoxLayout;
         textCol->setContentsMargins(0, 1, 0, 1);
         textCol->setSpacing(3);
