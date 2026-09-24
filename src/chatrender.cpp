@@ -13,9 +13,11 @@
 #include <QFont>
 #include <QFontMetrics>
 #include <QImage>
+#include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QSvgRenderer>
 #include <QtMath>
 #include <QUrl>
 
@@ -453,6 +455,54 @@ static QString imageThumbFile(const QString &path)
     return out;
 }
 
+static void paintFileTypeGlyph(QPainter &p, const QRectF &box, const QColor &color)
+{
+    QPen pen(color, qMax(1.4, box.width() * 0.08));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal x = box.x();
+    const qreal y = box.y();
+    const qreal w = box.width();
+    const qreal h = box.height();
+    // 折角文档
+    QPainterPath doc;
+    const qreal fold = w * 0.28;
+    doc.moveTo(x + w * 0.18, y + h * 0.12);
+    doc.lineTo(x + w * 0.72 - fold, y + h * 0.12);
+    doc.lineTo(x + w * 0.82, y + h * 0.12 + fold);
+    doc.lineTo(x + w * 0.82, y + h * 0.88);
+    doc.lineTo(x + w * 0.18, y + h * 0.88);
+    doc.closeSubpath();
+    p.drawPath(doc);
+    p.drawLine(QPointF(x + w * 0.72 - fold, y + h * 0.12),
+               QPointF(x + w * 0.72 - fold, y + h * 0.12 + fold));
+    p.drawLine(QPointF(x + w * 0.72 - fold, y + h * 0.12 + fold),
+               QPointF(x + w * 0.82, y + h * 0.12 + fold));
+    p.drawLine(QPointF(x + w * 0.28, y + h * 0.42), QPointF(x + w * 0.70, y + h * 0.42));
+    p.drawLine(QPointF(x + w * 0.28, y + h * 0.55), QPointF(x + w * 0.70, y + h * 0.55));
+    p.drawLine(QPointF(x + w * 0.28, y + h * 0.68), QPointF(x + w * 0.58, y + h * 0.68));
+}
+
+static void paintDoubleCheck(QPainter &p, qreal x, qreal y, qreal s, const QColor &color)
+{
+    QPen pen(color, qMax(1.5, s * 0.14));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    auto one = [&](qreal ox) {
+        QPainterPath path;
+        path.moveTo(ox, y + s * 0.52);
+        path.lineTo(ox + s * 0.22, y + s * 0.72);
+        path.lineTo(ox + s * 0.58, y + s * 0.28);
+        p.drawPath(path);
+    };
+    one(x);
+    one(x + s * 0.32);
+}
+
 static QString fileCardShellImgHtml(const QString &fileName, const QString &sizeLabel,
                                     bool asImage, bool pending, bool out, int pct,
                                     const QString &shaShort)
@@ -460,56 +510,49 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int cardW = 320;
     const int pad = 14;
     const qreal radius = 16.0;
-    const int badgeW = 40;
-    const int badgeH = 28;
-    const int gap = 10;
-    const int barH = 8;
+    const int icon = 40;
+    const int gap = 12;
+    const int barH = 6;
     QFont nameFont = qApp->font();
-    nameFont.setPixelSize(15);
+    nameFont.setPixelSize(14);
     nameFont.setBold(true);
     QFont metaFont = qApp->font();
     metaFont.setPixelSize(12);
     QFontMetrics nameFm(nameFont);
     QFontMetrics metaFm(metaFont);
-    const int nameMaxW = cardW - pad * 2 - badgeW - gap;
+    const int nameMaxW = cardW - pad * 2 - icon - gap;
     const QString elided = nameFm.elidedText(fileName, Qt::ElideMiddle, nameMaxW);
     const int nameH = nameFm.height();
     const int metaH = metaFm.height();
-    const int topH = qMax(badgeH, nameH + 4 + metaH);
+    const int topH = qMax(icon, nameH + 4 + metaH);
     const int statusH = metaH;
-    const int shaH = (!pending && !shaShort.isEmpty()) ? (4 + metaH) : 0;
-    const int innerH = pad + topH + gap + barH + 8 + statusH + shaH + pad;
+    const int shaH = (!pending && !shaShort.isEmpty()) ? (6 + metaH) : 0;
+    const int innerH = pad + topH + gap + barH + 10 + statusH + shaH + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
     QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     const QRectF box(kShadowPad + 1.0, kShadowPad + 1.0, cardW - 2.0, innerH - 2.0);
     paintSoftShadow(p, box, radius);
     p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
     p.setBrush(Qt::white);
     p.drawRoundedRect(box, radius, radius);
 
-    const QColor badgeBg = asImage ? QColor(QStringLiteral("#ecfdf5"))
-                                   : QColor(QStringLiteral("#ede9fe"));
-    const QColor badgeFg = asImage ? QColor(QStringLiteral("#047857"))
-                                   : QColor(QStringLiteral("#7c3aed"));
-    const QString badge = asImage ? QStringLiteral("IMG") : QStringLiteral("FILE");
     const qreal ox = kShadowPad;
     const qreal oy = kShadowPad;
-    const QRectF badgeRect(ox + pad, oy + pad + (topH - badgeH) / 2.0, badgeW, badgeH);
+    // 左上文件图标瓦片（参考图浅蓝底 + 文档线稿）
+    const QRectF iconRect(ox + pad, oy + pad + (topH - icon) / 2.0, icon, icon);
     p.setPen(Qt::NoPen);
-    p.setBrush(badgeBg);
-    p.drawRoundedRect(badgeRect, 8.0, 8.0);
-    QFont badgeFont = qApp->font();
-    badgeFont.setPixelSize(11);
-    badgeFont.setBold(true);
-    p.setFont(badgeFont);
-    p.setPen(badgeFg);
-    p.drawText(badgeRect, Qt::AlignCenter, badge);
+    p.setBrush(asImage ? QColor(QStringLiteral("#ecfdf5")) : QColor(QStringLiteral("#eff6ff")));
+    p.drawRoundedRect(iconRect, 10.0, 10.0);
+    paintFileTypeGlyph(p, iconRect.adjusted(6, 6, -6, -6),
+                       asImage ? QColor(QStringLiteral("#059669"))
+                               : QColor(QStringLiteral("#4f46e5")));
 
-    const int textX = int(ox) + pad + badgeW + gap;
+    const int textX = int(ox) + pad + icon + gap;
     p.setFont(nameFont);
     p.setPen(QColor(QStringLiteral("#0f172a")));
     p.drawText(QRect(textX, int(oy) + pad, nameMaxW, nameH), Qt::AlignLeft | Qt::AlignVCenter, elided);
@@ -527,28 +570,53 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     if (fillW > 0) {
         QRectF fill = track;
         fill.setWidth(qMax(barH, fillW));
-        p.setBrush(QColor(QStringLiteral("#2563eb")));
-        p.drawRoundedRect(fill, barH / 2.0, barH / 2.0);
+        if (pending) {
+            p.setBrush(QColor(QStringLiteral("#2563eb")));
+            p.drawRoundedRect(fill, barH / 2.0, barH / 2.0);
+        } else {
+            // 完成态：蓝→紫渐变满条（对齐参考图）
+            QLinearGradient grad(fill.topLeft(), fill.topRight());
+            grad.setColorAt(0.0, QColor(QStringLiteral("#3b82f6")));
+            grad.setColorAt(1.0, QColor(QStringLiteral("#7c3aed")));
+            p.setBrush(grad);
+            p.drawRoundedRect(fill, barH / 2.0, barH / 2.0);
+        }
     }
 
-    QString status;
-    QColor statusColor;
+    const int statusY = barY + barH + 10;
+    const int contentW = cardW - pad * 2;
     if (pending) {
-        status = out ? QString::fromUtf8(u8"发送中 %1%").arg(pct)
-                     : QString::fromUtf8(u8"接收中 %1%").arg(pct);
-        statusColor = out ? QColor(QStringLiteral("#2563eb")) : QColor(QStringLiteral("#ea580c"));
+        const QString status = out ? QString::fromUtf8(u8"发送中 %1%").arg(pct)
+                                   : QString::fromUtf8(u8"接收中 %1%").arg(pct);
+        const QColor statusColor = out ? QColor(QStringLiteral("#2563eb"))
+                                       : QColor(QStringLiteral("#ea580c"));
+        p.setFont(metaFont);
+        p.setPen(statusColor);
+        p.drawText(QRect(int(ox) + pad, statusY, contentW, statusH),
+                   Qt::AlignLeft | Qt::AlignVCenter, status);
     } else {
-        status = QString::fromUtf8(u8"传输完成 · 已落盘");
-        statusColor = QColor(QStringLiteral("#16a34a"));
+        const QColor ok(QStringLiteral("#16a34a"));
+        const qreal checkS = 14.0;
+        paintDoubleCheck(p, ox + pad, statusY + (statusH - checkS) / 2.0, checkS, ok);
+        QFont statusFont = metaFont;
+        statusFont.setBold(true);
+        p.setFont(statusFont);
+        p.setPen(ok);
+        p.drawText(QRect(int(ox) + pad + 22, statusY, contentW - 22, statusH),
+                   Qt::AlignLeft | Qt::AlignVCenter,
+                   QString::fromUtf8(u8"传输完成 (已落盘)"));
     }
-    const int statusY = barY + barH + 8;
-    p.setFont(metaFont);
-    p.setPen(statusColor);
-    p.drawText(QRect(int(ox) + pad, statusY, cardW - pad * 2, statusH), Qt::AlignLeft | Qt::AlignVCenter,
-               status);
+
     if (shaH > 0) {
+        const int shaY = statusY + statusH + 6;
+        const int shield = 14;
+        QSvgRenderer shieldSvg(QStringLiteral(":/icons/shield-check.svg"));
+        if (shieldSvg.isValid()) {
+            shieldSvg.render(&p, QRectF(ox + pad, shaY + (metaH - shield) / 2.0, shield, shield));
+        }
+        p.setFont(metaFont);
         p.setPen(QColor(QStringLiteral("#94a3b8")));
-        p.drawText(QRect(int(ox) + pad, statusY + statusH + 4, cardW - pad * 2, metaH),
+        p.drawText(QRect(int(ox) + pad + shield + 6, shaY, contentW - shield - 6, metaH),
                    Qt::AlignLeft | Qt::AlignVCenter,
                    QStringLiteral("SHA256: %1").arg(shaShort));
     }
@@ -573,9 +641,10 @@ static QString actionChipHtml(const QString &href, const QString &label, const Q
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
     const QRectF box(0.5, 0.5, innerW - 1.0, innerH - 1.0);
-    const QColor bg = primary ? QColor(QStringLiteral("#eff6ff")) : QColor(QStringLiteral("#f1f5f9"));
-    const QColor border = primary ? QColor(QStringLiteral("#bfdbfe")) : QColor(QStringLiteral("#e2e8f0"));
-    const QColor fg = primary ? QColor(QStringLiteral("#1d4ed8")) : QColor(QStringLiteral("#475569"));
+    // 参考图：统一浅灰底；主操作蓝字，次要深灰字
+    const QColor bg(QStringLiteral("#f1f5f9"));
+    const QColor border(QStringLiteral("#e2e8f0"));
+    const QColor fg = primary ? QColor(QStringLiteral("#2563eb")) : QColor(QStringLiteral("#334155"));
     p.setPen(QPen(border, 1.0));
     p.setBrush(bg);
     p.drawRoundedRect(box, radius, radius);
