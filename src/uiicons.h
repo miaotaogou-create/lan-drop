@@ -5,6 +5,7 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QString>
+#include <QtGlobal>
 
 class QPushButton;
 
@@ -40,6 +41,9 @@ QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &
                            const QColor &border);
 QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pinned,
                         const QString &osName, const QString &tag, int maxLogicalW = 168);
+
+// 自绘图标按窗口当前屏 DPR 出图（换屏后需重设并刷新）
+void setUiIconDevicePixelRatio(qreal dpr);
 
 // 聊天气泡 HTML 仍用首字头像
 QString avatarInitial(const QString &name);

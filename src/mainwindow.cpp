@@ -413,6 +413,7 @@ void MainWindow::buildUi()
     logo->setFixedSize(36, 36);
     logo->setAlignment(Qt::AlignCenter);
     logo->setPixmap(makeRadioLogo(36));
+    m_logo = logo;
 
     // 参考图：两行文字块高度与图标齐平（顶对齐标题、底对齐状态行）
     QWidget *brandWrap = new QWidget;
@@ -459,9 +460,11 @@ void MainWindow::buildUi()
     pillLay->setContentsMargins(10, 0, 12, 0);
     pillLay->setSpacing(5);
     QLabel *hostIcon = new QLabel;
+    hostIcon->setObjectName(QStringLiteral("hostIcon"));
     hostIcon->setFixedSize(16, 16);
     hostIcon->setPixmap(makeLaptopIcon(16));
     hostIcon->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_hostIcon = hostIcon;
     QLabel *hostTag = new QLabel(QString::fromUtf8(u8"本机:"));
     hostTag->setObjectName(QStringLiteral("hostTag"));
     hostTag->setAttribute(Qt::WA_TransparentForMouseEvents, true);
@@ -482,18 +485,18 @@ void MainWindow::buildUi()
     connect(m_shareBtn, SIGNAL(clicked()), this, SLOT(openShare()));
     refreshShareBtn();
 
-    QPushButton *dlBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"),
+    m_dlBtn = chromeBtn(IconSettings, QStringLiteral("folderBtn"),
                                    QString::fromUtf8(u8"打开下载目录"));
-    dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder.svg"), 18)));
-    dlBtn->setIconSize(QSize(18, 18));
-    dlBtn->setCursor(Qt::PointingHandCursor);
-    connect(dlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
+    m_dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder.svg"), 18)));
+    m_dlBtn->setIconSize(QSize(18, 18));
+    m_dlBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_dlBtn, SIGNAL(clicked()), this, SLOT(openDownloadDir()));
 
-    QPushButton *setBtn = chromeBtn(IconSettings, QStringLiteral("iconBtn"), QString::fromUtf8(u8"设置"));
-    setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 18)));
-    setBtn->setIconSize(QSize(18, 18));
-    setBtn->setCursor(Qt::PointingHandCursor);
-    connect(setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
+    m_setBtn = chromeBtn(IconSettings, QStringLiteral("settingsBtn"), QString::fromUtf8(u8"设置"));
+    m_setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 18)));
+    m_setBtn->setIconSize(QSize(18, 18));
+    m_setBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_setBtn, SIGNAL(clicked()), this, SLOT(editSettings()));
 
     m_pinBtn = new QPushButton;
     m_pinBtn->setObjectName(QStringLiteral("pinBtn"));
@@ -506,12 +509,12 @@ void MainWindow::buildUi()
     connect(m_pinBtn, SIGNAL(clicked(bool)), this, SLOT(toggleAlwaysOnTop(bool)));
     syncPinBtn();
 
-    QPushButton *minBtn = chromeBtn(IconMinimize, QStringLiteral("minBtn"), QString::fromUtf8(u8"最小化"));
+    m_minBtn = chromeBtn(IconMinimize, QStringLiteral("minBtn"), QString::fromUtf8(u8"最小化"));
     m_maxBtn = chromeBtn(IconMaximize, QStringLiteral("maxBtn"), QString::fromUtf8(u8"最大化"));
-    QPushButton *closeBtn = chromeBtn(IconClose, QStringLiteral("closeBtn"), QString::fromUtf8(u8"关闭"));
-    connect(minBtn, SIGNAL(clicked()), this, SLOT(minimizeWin()));
+    m_closeBtn = chromeBtn(IconClose, QStringLiteral("closeBtn"), QString::fromUtf8(u8"关闭"));
+    connect(m_minBtn, SIGNAL(clicked()), this, SLOT(minimizeWin()));
     connect(m_maxBtn, SIGNAL(clicked()), this, SLOT(toggleMax()));
-    connect(closeBtn, SIGNAL(clicked()), this, SLOT(closeWin()));
+    connect(m_closeBtn, SIGNAL(clicked()), this, SLOT(closeWin()));
 
     // 左右等宽，胶囊落在窗口水平正中
     QWidget *leftZone = new QWidget;
@@ -527,8 +530,8 @@ void MainWindow::buildUi()
     chromeLay->setSpacing(12);
     chromeLay->addStretch(1);
     chromeLay->addWidget(m_shareBtn);
-    chromeLay->addWidget(dlBtn);
-    chromeLay->addWidget(setBtn);
+    chromeLay->addWidget(m_dlBtn);
+    chromeLay->addWidget(m_setBtn);
     chromeLay->addWidget(m_pinBtn);
     QFrame *chromeSep = new QFrame;
     chromeSep->setObjectName(QStringLiteral("chromeSep"));
@@ -537,9 +540,9 @@ void MainWindow::buildUi()
     chromeLay->addSpacing(2);
     chromeLay->addWidget(chromeSep, 0, Qt::AlignVCenter);
     chromeLay->addSpacing(2);
-    chromeLay->addWidget(minBtn);
+    chromeLay->addWidget(m_minBtn);
     chromeLay->addWidget(m_maxBtn);
-    chromeLay->addWidget(closeBtn);
+    chromeLay->addWidget(m_closeBtn);
 
     titleLay->addWidget(leftZone, 1);
     titleLay->addWidget(m_hostPill, 0, Qt::AlignVCenter);
@@ -610,6 +613,7 @@ void MainWindow::buildUi()
     searchIcon->setObjectName(QStringLiteral("searchIcon"));
     searchIcon->setFixedSize(16, 16);
     searchIcon->setPixmap(makeSearchIcon(16));
+    m_searchIcon = searchIcon;
     searchLay->addWidget(searchIcon, 0, Qt::AlignVCenter);
     searchLay->addWidget(m_search);
 
@@ -1453,6 +1457,43 @@ void MainWindow::updateChrome()
     const bool maxed = isMaximized();
     m_maxBtn->setIcon(makeChromeIcon(maxed ? IconRestore : IconMaximize, QColor(QStringLiteral("#475569"))));
     m_maxBtn->setToolTip(maxed ? QString::fromUtf8(u8"还原") : QString::fromUtf8(u8"最大化"));
+}
+
+void MainWindow::refreshChromePixmaps()
+{
+    const qreal dpr = devicePixelRatioF();
+    setUiIconDevicePixelRatio(dpr);
+    if (m_logo)
+        m_logo->setPixmap(makeRadioLogo(36));
+    if (m_hostIcon)
+        m_hostIcon->setPixmap(makeLaptopIcon(16));
+    if (m_searchIcon)
+        m_searchIcon->setPixmap(makeSearchIcon(16));
+    if (m_dlBtn) {
+        m_dlBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/folder.svg"), 18)));
+        m_dlBtn->setIconSize(QSize(18, 18));
+    }
+    if (m_setBtn) {
+        m_setBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/settings.svg"), 18)));
+        m_setBtn->setIconSize(QSize(18, 18));
+    }
+    if (m_minBtn)
+        m_minBtn->setIcon(makeChromeIcon(IconMinimize, QColor(QStringLiteral("#475569"))));
+    if (m_closeBtn)
+        m_closeBtn->setIcon(makeChromeIcon(IconClose, QColor(QStringLiteral("#475569"))));
+    if (m_listDropHintIcon)
+        m_listDropHintIcon->setPixmap(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 32));
+    if (m_chatDropHintIcon)
+        m_chatDropHintIcon->setPixmap(renderSvgIcon(QStringLiteral(":/icons/folder-plus.svg"), 36));
+    if (m_sendBtn) {
+        m_sendBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18)));
+        m_sendBtn->setIconSize(QSize(18, 18));
+    }
+    updateChrome();
+    syncPinBtn();
+    refreshShareBtn();
+    updateHostPill();
+    updatePeerSession();
 }
 
 void MainWindow::minimizeWin()
@@ -4492,9 +4533,10 @@ void MainWindow::showEvent(QShowEvent *event)
 
 void MainWindow::onWindowScreenChanged()
 {
-    // 等 DPR 落稳再按当前屏重画气泡 PNG
+    // 等 DPR 落稳再按当前屏重画气泡与顶栏/侧栏自绘图标
     if (m_chat)
         setChatRenderDevicePixelRatio(m_chat->devicePixelRatioF());
+    refreshChromePixmaps();
     refreshChatHtml(true);
     refreshFilesView();
     updateHostPill();

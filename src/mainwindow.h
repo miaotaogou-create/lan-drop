@@ -143,6 +143,7 @@ private:
     void placeJumpBottomBtn();
     void elidePeerHeader();
     void updateChrome();
+    void refreshChromePixmaps();
     void updateEmpty();
     void updateHostPill();
     void updatePeerSession();
@@ -243,7 +244,14 @@ private:
     QPushButton *m_clearQueueBtnFiles = 0;
     QPushButton *m_shareBtn = 0;
     QPushButton *m_maxBtn = 0;
+    QPushButton *m_minBtn = 0;
+    QPushButton *m_closeBtn = 0;
+    QPushButton *m_dlBtn = 0;
+    QPushButton *m_setBtn = 0;
     QPushButton *m_pinBtn = 0;
+    QLabel *m_logo = 0;
+    QLabel *m_hostIcon = 0;
+    QLabel *m_searchIcon = 0;
     QWidget *m_composer = 0;
     QWidget *m_inputShell = 0;
     QWidget *m_chatPage = 0;

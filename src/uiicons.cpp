@@ -16,6 +16,37 @@
 #include <QSvgRenderer>
 #include <QtMath>
 
+namespace {
+qreal s_uiDpr = 0;
+
+qreal uiDpr()
+{
+    if (s_uiDpr > 0)
+        return s_uiDpr;
+    if (qApp)
+        return qMax<qreal>(1.0, qApp->devicePixelRatio());
+    return 1.0;
+}
+
+QPixmap makeDprPixmap(int logicalW, int logicalH = -1)
+{
+    if (logicalH < 0)
+        logicalH = logicalW;
+    const qreal dpr = uiDpr();
+    const int pxW = qMax(1, qCeil(logicalW * dpr));
+    const int pxH = qMax(1, qCeil(logicalH * dpr));
+    QPixmap pm(pxW, pxH);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    return pm;
+}
+} // namespace
+
+void setUiIconDevicePixelRatio(qreal dpr)
+{
+    s_uiDpr = qMax<qreal>(1.0, dpr);
+}
+
 enum DeviceKind {
     DevLaptop = 0,
     DevPhone,
@@ -25,12 +56,8 @@ enum DeviceKind {
 QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
 {
     // 与顶栏 SVG（folder/settings）统一为 18 逻辑像素，线重接近 Lucide stroke-2
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     const int logical = 18;
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     QPen pen(color, 1.8);
@@ -77,11 +104,7 @@ QIcon makeChromeIcon(ChromeIcon kind, const QColor &color)
 
 QPixmap makeGlobeBadge(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
@@ -103,11 +126,7 @@ QPixmap makeGlobeBadge(int logical)
 
 QPixmap makeRadioLogo(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
@@ -183,11 +202,7 @@ static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, co
 
 QPixmap makeLaptopIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     paintDeviceGlyph(p, DevLaptop, QRectF(0, 0, logical, logical), QColor(QStringLiteral("#2563eb")));
@@ -196,11 +211,7 @@ QPixmap makeLaptopIcon(int logical)
 
 QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -236,7 +247,6 @@ QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unrea
     QPixmap base = makePeerAvatar(name, osName, logical);
     if (unread <= 0 && !pinned)
         return base;
-    const int dpr = qMax(1, qRound(base.devicePixelRatio()));
     QPixmap pm = base;
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
@@ -270,17 +280,12 @@ QPixmap makePeerListAvatar(const QString &name, const QString &osName, int unrea
         p.setPen(Qt::white);
         p.drawText(pill, Qt::AlignCenter, label);
     }
-    Q_UNUSED(dpr);
     return pm;
 }
 
 QPixmap renderSvgIcon(const QString &resPath, int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QSvgRenderer renderer(resPath);
     if (!renderer.isValid())
         return pm;
@@ -304,11 +309,7 @@ QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QStri
 
 QPixmap makeStatusDot(bool ok, int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
@@ -319,11 +320,7 @@ QPixmap makeStatusDot(bool ok, int logical)
 
 QPixmap makeAlertTriangleIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     const qreal s = logical;
@@ -348,11 +345,7 @@ QPixmap makeAlertTriangleIcon(int logical)
 
 QPixmap makeChatBubbleIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
@@ -367,11 +360,7 @@ QPixmap makeChatBubbleIcon(int logical)
 
 QPixmap makeSearchIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     const qreal s = logical;
@@ -390,11 +379,7 @@ QPixmap makeSearchIcon(int logical)
 
 QPixmap makeFileDocIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     QPen pen(QColor(QStringLiteral("#2563eb")), 1.4);
@@ -412,11 +397,7 @@ QPixmap makeFileDocIcon(int logical)
 
 QPixmap makeCheckCircleIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(Qt::NoPen);
@@ -437,11 +418,7 @@ QPixmap makeCheckCircleIcon(int logical)
 
 QPixmap makeTrashIcon(int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    const int px = logical * dpr;
-    QPixmap pm(px, px);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     const qreal s = logical;
@@ -467,10 +444,7 @@ QPixmap makeTrashIcon(int logical)
 
 QPixmap loadSvgPixmap(const QString &path, int logical)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logical * dpr, logical * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical);
     QSvgRenderer r(path);
     if (r.isValid()) {
         QPainter p(&pm);
@@ -496,11 +470,8 @@ QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString
 
 QIcon makePinIcon(bool pinned, const QColor &color)
 {
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
     const int s = 18;
-    QPixmap pm(s * dpr, s * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(s);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -525,10 +496,7 @@ QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &
     const int innerH = qMax(16, fm.height() + padY * 2);
     const int innerW = fm.horizontalAdvance(text) + padX * 2;
     const qreal radius = 6.0;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(innerW * dpr, innerH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(innerW, innerH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -640,10 +608,7 @@ QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pin
 
     const int logicalW = qMax(1, qMin(maxLogicalW, qMax(1, totalW())));
     const int logicalH = qMax(chipH, qMax(addrFm.height(), trailFm.height()));
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
