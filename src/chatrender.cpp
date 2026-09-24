@@ -329,16 +329,12 @@ static QString renderTextBubble(const ChatMsg &m)
     if (!m.text.isEmpty()) {
         const QString href = QStringLiteral("landrop://copy/")
             + QString::fromLatin1(m.text.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-        // 点气泡本体即可复制；下方保留同族「复制」胶囊
+        // 点气泡本体即可复制；不再挂重复「复制」胶囊
         body = QStringLiteral(
                    "<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
                    .arg(href,
                         QString::fromUtf8(u8"点击复制"),
                         img);
-        body += QStringLiteral("<br/><table cellspacing=\"0\" cellpadding=\"0\"><tr>")
-            + actionChipHtml(href, QString::fromUtf8(u8"复制"),
-                             QString::fromUtf8(u8"点击复制"), false)
-            + QStringLiteral("</tr></table>");
     }
     return renderMsgRow(out, head, body, avatar);
 }
