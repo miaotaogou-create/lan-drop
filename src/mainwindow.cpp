@@ -120,6 +120,34 @@ static void applyClearChatIcon(QPushButton *btn)
     btn->setIconSize(QSize(16, 16));
 }
 
+// Composer 工具钮：默认静音灰，悬停亮 accent
+static void applyComposerToolIcon(QPushButton *btn, bool hover)
+{
+    if (!btn)
+        return;
+    const QString res = btn->property("svgRes").toString();
+    if (res.isEmpty())
+        return;
+    QColor c(QStringLiteral("#64748b"));
+    if (hover) {
+        const QString accent = btn->property("accentColor").toString();
+        if (!accent.isEmpty())
+            c = QColor(accent);
+    }
+    btn->setIcon(QIcon(renderSvgIconColored(res, 16, c)));
+    btn->setIconSize(QSize(16, 16));
+}
+
+static void applyInputTextPalette(QPlainTextEdit *edit)
+{
+    if (!edit)
+        return;
+    QPalette pal = edit->palette();
+    pal.setColor(QPalette::Text, QColor(QStringLiteral("#1e293b")));
+    pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#94a3b8")));
+    edit->setPalette(pal);
+}
+
 // 延迟档位色：<10ms 绿 / 10~50 琥珀 / >50 红；未知灰
 static QColor pingLatencyColor(const QString &pingText)
 {
@@ -1034,14 +1062,20 @@ void MainWindow::buildUi()
     toolLay->setContentsMargins(10, 6, 10, 2);
     toolLay->setSpacing(2);
     QPushButton *fileBtn = toolLinkBtn(QStringLiteral(":/icons/paperclip.svg"),
-                                       QString::fromUtf8(u8"文件"), QStringLiteral("toolBtn"));
+                                       QString::fromUtf8(u8"文件"), QStringLiteral("toolBtnFile"));
     QPushButton *folderBtn = toolLinkBtn(QStringLiteral(":/icons/folder-plus.svg"),
-                                         QString::fromUtf8(u8"文件夹"), QStringLiteral("toolBtn"));
+                                         QString::fromUtf8(u8"文件夹"), QStringLiteral("toolBtnFolder"));
     QPushButton *nudgeBtn = toolLinkBtn(QStringLiteral(":/icons/zap.svg"),
-                                        QString::fromUtf8(u8"抖动"), QStringLiteral("toolBtn"));
+                                        QString::fromUtf8(u8"抖动"), QStringLiteral("toolBtnNudge"));
+    fileBtn->setProperty("accentColor", QStringLiteral("#2563eb"));
+    folderBtn->setProperty("accentColor", QStringLiteral("#d97706"));
+    nudgeBtn->setProperty("accentColor", QStringLiteral("#b45309"));
     fileBtn->setToolTip(QString::fromUtf8(u8"发送文件（可多选）"));
     folderBtn->setToolTip(QString::fromUtf8(u8"发送文件夹（可打 zip）"));
     nudgeBtn->setToolTip(QString::fromUtf8(u8"让对方窗口轻颤一下"));
+    fileBtn->installEventFilter(this);
+    folderBtn->installEventFilter(this);
+    nudgeBtn->installEventFilter(this);
     connect(fileBtn, SIGNAL(clicked()), this, SLOT(sendFile()));
     connect(folderBtn, SIGNAL(clicked()), this, SLOT(sendFolder()));
     connect(nudgeBtn, SIGNAL(clicked()), this, SLOT(nudgePeer()));
@@ -1080,10 +1114,7 @@ void MainWindow::buildUi()
         inFont.setStyleStrategy(QFont::PreferAntialias);
         m_input->setFont(inFont);
         m_input->document()->setDocumentMargin(2);
-        QPalette pal = m_input->palette();
-        pal.setColor(QPalette::Text, QColor(QStringLiteral("#1e293b")));
-        pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#94a3b8")));
-        m_input->setPalette(pal);
+        applyInputTextPalette(m_input);
     }
     m_input->setToolTip(QString::fromUtf8(
         u8"Enter 发送，Shift+Enter 换行；Esc 清空草稿；Ctrl+V 粘贴文件/截图"));
@@ -1386,21 +1417,27 @@ void MainWindow::applyStyle()
         "#clearQueueBtn:pressed { background: #fde68a; color: #78350f; border-color: #fbbf24; }"
         "#composerToolBar { background: transparent; border: none; }"
         "#inputShell[xfer=\"true\"] #composerToolBar { background: transparent; }"
-        "#toolBtn { background: transparent; border: none; border-radius: 8px; color: #64748b; font-size: 12px;"
-        " padding: 5px 9px; font-weight: 600; }"
-        "#toolBtn:hover { background: #eff6ff; color: #1d4ed8; }"
-        "#toolBtn:pressed { background: #dbeafe; color: #1e40af; }"
-        "#toolBtn:disabled { color: #cbd5e1; background: transparent; }"
+        "#toolBtnFile, #toolBtnFolder, #toolBtnNudge { background: transparent; border: none;"
+        " border-radius: 6px; color: #64748b; font-size: 12px; padding: 4px 8px; font-weight: 500; }"
+        "#toolBtnFile:hover { background: #eff6ff; color: #2563eb; }"
+        "#toolBtnFolder:hover { background: #fffbeb; color: #d97706; }"
+        "#toolBtnNudge:hover { background: #fef3c7; color: #b45309; }"
+        "#toolBtnFile:pressed { background: #dbeafe; color: #1e40af; }"
+        "#toolBtnFolder:pressed { background: #fde68a; color: #92400e; }"
+        "#toolBtnNudge:pressed { background: #fde68a; color: #78350f; }"
+        "#toolBtnFile:disabled, #toolBtnFolder:disabled, #toolBtnNudge:disabled {"
+        " color: #cbd5e1; background: transparent; }"
         "#inputPad { background: transparent; }"
         "#inputShellHost { background: transparent; }"
         "#inputShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
         "#inputShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
-        "#input { background: transparent; border: none; color: #1e293b; font-size: 14px;"
+        /* 勿写 color：会盖掉 PlaceholderText，占位发虚/看不见 */
+        "#input { background: transparent; border: none; font-size: 14px;"
         " padding: 0; selection-background-color: #bfdbfe; }"
         "#sendFab { background: #2563eb; border: none; border-radius: 10px; padding: 0; }"
         "#sendFab:hover { background: #1d4ed8; }"
         "#sendFab:pressed { background: #1e40af; }"
-        "#sendFab:disabled { background: #93c5fd; }"
+        "#sendFab:disabled { background: #bfdbfe; }"
         "#primaryBtn { background: #2563eb; border: none; border-radius: 8px; color: white;"
         " padding: 8px 16px; font-weight: 600; }"
         "#primaryBtn:hover { background: #1d4ed8; }"
@@ -1408,6 +1445,8 @@ void MainWindow::applyStyle()
         " padding: 8px 12px; }"
         "#secondaryBtn:hover { background: #f8fafc; }"
     ));
+    // 样式表之后重上占位色，避免被盖掉
+    applyInputTextPalette(m_input);
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -1430,6 +1469,16 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
             m_clearChatBtn->setProperty("dangerPressed", false);
             applyClearChatIcon(m_clearChatBtn);
         }
+    }
+    QPushButton *toolBtn = qobject_cast<QPushButton *>(watched);
+    if (toolBtn && !toolBtn->property("svgRes").toString().isEmpty()
+        && (toolBtn->objectName() == QLatin1String("toolBtnFile")
+            || toolBtn->objectName() == QLatin1String("toolBtnFolder")
+            || toolBtn->objectName() == QLatin1String("toolBtnNudge"))) {
+        if (event->type() == QEvent::Enter)
+            applyComposerToolIcon(toolBtn, true);
+        else if (event->type() == QEvent::Leave)
+            applyComposerToolIcon(toolBtn, false);
     }
     if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
         && m_chatDropHint && m_chatDropHint->isVisible()) {
@@ -1636,6 +1685,14 @@ void MainWindow::refreshChromePixmaps()
     }
     if (m_clearChatBtn)
         applyClearChatIcon(m_clearChatBtn);
+    const QList<QPushButton *> tools = findChildren<QPushButton *>();
+    for (int i = 0; i < tools.size(); ++i) {
+        QPushButton *b = tools.at(i);
+        if (b->objectName() == QLatin1String("toolBtnFile")
+            || b->objectName() == QLatin1String("toolBtnFolder")
+            || b->objectName() == QLatin1String("toolBtnNudge"))
+            applyComposerToolIcon(b, b->underMouse());
+    }
     updateChrome();
     syncPinBtn();
     refreshShareBtn();
@@ -3618,8 +3675,18 @@ void MainWindow::syncSendBtn()
     const bool on = hasPeer && hasText;
     m_sendBtn->setEnabled(on);
     m_sendBtn->setCursor(on ? Qt::PointingHandCursor : Qt::ArrowCursor);
-    // Disabled 态也用白飞机：避免系统把图标洗成浅灰，浅蓝底上仍可辨认
-    const QPixmap plane = renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18);
+    QPixmap plane = renderSvgIcon(QStringLiteral(":/icons/send.svg"), 18);
+    if (!on) {
+        // 禁用：白飞机半透明，配淡蓝底
+        QPixmap dim(plane.size());
+        dim.setDevicePixelRatio(plane.devicePixelRatio());
+        dim.fill(Qt::transparent);
+        QPainter p(&dim);
+        p.setOpacity(0.55);
+        p.drawPixmap(0, 0, plane);
+        p.end();
+        plane = dim;
+    }
     QIcon icon;
     icon.addPixmap(plane, QIcon::Normal);
     icon.addPixmap(plane, QIcon::Disabled);
@@ -5370,9 +5437,12 @@ void MainWindow::updateInputPlaceholder()
         return;
     QString name;
     if (!currentPeer(0, 0, &name) || name.trimmed().isEmpty())
-        m_input->setPlaceholderText(QString::fromUtf8(u8"输入文字或命令…"));
+        m_input->setPlaceholderText(
+            QString::fromUtf8(u8"输入消息…（Enter 发送，Shift+Enter 换行）"));
     else
-        m_input->setPlaceholderText(QString::fromUtf8(u8"向 %1 发送消息...").arg(name));
+        m_input->setPlaceholderText(
+            QString::fromUtf8(u8"向 %1 发送消息…").arg(name.trimmed()));
+    applyInputTextPalette(m_input);
 }
 
 void MainWindow::addPeer()

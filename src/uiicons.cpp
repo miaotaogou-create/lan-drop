@@ -3,9 +3,12 @@
 #include "files.h"
 
 #include <QApplication>
+#include <QColor>
+#include <QFile>
 #include <QFont>
 #include <QFontMetrics>
 #include <QHash>
+#include <QIODevice>
 #include <QLinearGradient>
 #include <QList>
 #include <QPainter>
@@ -13,6 +16,7 @@
 #include <QPen>
 #include <QPushButton>
 #include <QRectF>
+#include <QRegularExpression>
 #include <QSize>
 #include <QSvgRenderer>
 #include <QtMath>
@@ -408,6 +412,25 @@ QPixmap renderSvgIcon(const QString &resPath, int logical)
     return pm;
 }
 
+QPixmap renderSvgIconColored(const QString &resPath, int logical, const QColor &color)
+{
+    QFile f(resPath);
+    if (!f.open(QIODevice::ReadOnly))
+        return renderSvgIcon(resPath, logical);
+    QString svg = QString::fromUtf8(f.readAll());
+    f.close();
+    static const QRegularExpression re(QStringLiteral("#[0-9A-Fa-f]{6}"));
+    svg.replace(re, color.name(QColor::HexRgb));
+    QPixmap pm = makeDprPixmap(logical);
+    QSvgRenderer renderer(svg.toUtf8());
+    if (!renderer.isValid())
+        return renderSvgIcon(resPath, logical);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    renderer.render(&p, QRectF(0, 0, logical, logical));
+    return pm;
+}
+
 QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QString &objectName)
 {
     QPushButton *b = new QPushButton(text);
@@ -415,7 +438,8 @@ QPushButton *toolLinkBtn(const QString &svgRes, const QString &text, const QStri
     b->setCursor(Qt::PointingHandCursor);
     b->setFlat(true);
     b->setFocusPolicy(Qt::NoFocus);
-    b->setIcon(QIcon(renderSvgIcon(svgRes, 16)));
+    b->setProperty("svgRes", svgRes);
+    b->setIcon(QIcon(renderSvgIconColored(svgRes, 16, QColor(QStringLiteral("#64748b")))));
     b->setIconSize(QSize(16, 16));
     return b;
 }
