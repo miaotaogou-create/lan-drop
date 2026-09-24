@@ -197,7 +197,6 @@ private:
     QLabel *m_statusDot = 0;
     QLabel *m_statusLabel = 0;
     QWidget *m_statusPill = 0;
-    QLabel *m_peerCount = 0;
     QLabel *m_emptyHint = 0;
     QLineEdit *m_search = 0;
     QWidget *m_searchShell = 0;

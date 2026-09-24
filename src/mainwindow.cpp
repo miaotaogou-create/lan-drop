@@ -570,10 +570,6 @@ void MainWindow::buildUi()
     QLabel *sideTitle = new QLabel(QString::fromUtf8(u8"附近设备"));
     sideTitle->setObjectName(QStringLiteral("sideTitle"));
     m_sideTitle = sideTitle;
-    m_peerCount = new QLabel(QStringLiteral("0"));
-    m_peerCount->setObjectName(QStringLiteral("peerCount"));
-    m_peerCount->setAlignment(Qt::AlignCenter);
-    m_peerCount->setProperty("empty", true);
     // 用 QLabel 而非 QPushButton：后者在 Windows/麒麟上文字常视觉偏上
     QLabel *addBtn = new QLabel(QString::fromUtf8(u8"+ 加 IP"));
     addBtn->setObjectName(QStringLiteral("addBtn"));
@@ -581,21 +577,18 @@ void MainWindow::buildUi()
     addBtn->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     addBtn->setAttribute(Qt::WA_Hover, true);
     addBtn->installEventFilter(this);
-    // 同一行高 + 垂直居中：标题、数量徽标、「+ 加 IP」中线齐平
     QFont titleFont = qApp->font();
     titleFont.setPixelSize(16);
     titleFont.setBold(true);
     sideTitle->setFont(titleFont);
     const int lineH = QFontMetrics(titleFont).height();
     sideTitle->setFixedHeight(lineH);
-    m_peerCount->setFixedHeight(lineH);
     addBtn->setFixedHeight(lineH);
     QFont addFont = qApp->font();
     addFont.setPixelSize(14);
     addFont.setBold(true);
     addBtn->setFont(addFont);
     sideHead->addWidget(sideTitle, 0, Qt::AlignVCenter);
-    sideHead->addWidget(m_peerCount, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
     sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
 
@@ -1183,9 +1176,6 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
-        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 0; padding: 0 6px;"
-        " font-size: 12px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
-        "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
         /* 略加大顶内边距，抵消「+」字形视觉中心偏高 */
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
         " padding: 3px 6px 1px 6px; margin: 0; font-size: 14px; font-weight: 600; }"
@@ -2911,10 +2901,6 @@ void MainWindow::updateEmpty()
         if (!m_list->item(i)->isHidden())
             ++visible;
     }
-    m_peerCount->setText(QString::number(visible));
-    m_peerCount->setProperty("empty", visible == 0);
-    m_peerCount->style()->unpolish(m_peerCount);
-    m_peerCount->style()->polish(m_peerCount);
     const QString q = m_search ? m_search->text().trimmed() : QString();
     if (m_listEmptyHint && m_list) {
         const bool showEmpty = visible == 0
