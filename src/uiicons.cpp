@@ -171,6 +171,39 @@ static QColor avatarColorForName(const QString &name)
     return QColor(QString::fromLatin1(kColors[h % 7]));
 }
 
+static bool isWindowsOs(const QString &osName)
+{
+    const QString o = osName.trimmed().toLower();
+    return o == QLatin1String("windows") || o.startsWith(QLatin1String("win"));
+}
+
+// Windows 角标：主机/硬盘塔（对齐 avatar_windows.svg）
+static void paintHostTowerGlyph(QPainter &p, const QRectF &box, const QColor &color)
+{
+    QPen pen(color, qMax(1.4, box.width() * 0.12));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal x = box.x();
+    const qreal y = box.y();
+    const qreal w = box.width();
+    const qreal h = box.height();
+    const QRectF lower(x + w * 0.12, y + h * 0.48, w * 0.76, h * 0.36);
+    p.drawRoundedRect(lower, qMax(1.2, w * 0.08), qMax(1.2, w * 0.08));
+    QPainterPath top;
+    top.moveTo(lower.left() + w * 0.08, lower.top());
+    top.lineTo(lower.left() + w * 0.18, lower.top() - h * 0.28);
+    top.lineTo(lower.right() - w * 0.18, lower.top() - h * 0.28);
+    top.lineTo(lower.right() - w * 0.08, lower.top());
+    p.drawPath(top);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    const qreal dr = qMax(0.8, w * 0.055);
+    p.drawEllipse(QPointF(lower.left() + w * 0.22, lower.center().y()), dr, dr);
+    p.drawEllipse(QPointF(lower.left() + w * 0.40, lower.center().y()), dr, dr);
+}
+
 static void paintDeviceGlyph(QPainter &p, DeviceKind kind, const QRectF &box, const QColor &color)
 {
     const qreal x = box.x();
@@ -251,9 +284,38 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical, 
     p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     p.setPen(Qt::NoPen);
-    const QColor base = avatarColorForName(name);
+
+    const bool win = isWindowsOs(osName);
     const int badge = withOsBadge ? qMax(18, qRound(logical * 0.46)) : 0;
     const qreal hang = withOsBadge ? badge * 0.32 : 0;
+
+    if (win) {
+        // Windows：#6366F1 圆角底 + 白 W；角标为白底悬浮主机（非终端 >_）
+        const QRectF body(0.5, 0.5, logical - hang - 0.5, logical - hang - 0.5);
+        p.setBrush(QColor(QStringLiteral("#6366F1")));
+        p.drawRoundedRect(body, body.width() * 0.28, body.width() * 0.28);
+        QFont font = qApp->font();
+        font.setPixelSize(qMax(14, qRound(body.width() * 0.44)));
+        font.setBold(true);
+        p.setFont(font);
+        p.setPen(Qt::white);
+        p.drawText(body.adjusted(0, -1, 0, withOsBadge ? -hang * 0.35 : 0),
+                   Qt::AlignCenter, QStringLiteral("W"));
+        if (!withOsBadge)
+            return pm;
+        const QRectF badgeRect(logical - badge, logical - badge, badge, badge);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0, 0, 0, 22));
+        p.drawEllipse(badgeRect.adjusted(-1.2, -1.2, 1.2, 1.2));
+        p.setBrush(Qt::white);
+        p.drawEllipse(badgeRect);
+        const qreal pad = badge * 0.18;
+        paintHostTowerGlyph(p, badgeRect.adjusted(pad, pad, -pad, -pad),
+                            QColor(QStringLiteral("#2563EB")));
+        return pm;
+    }
+
+    const QColor base = avatarColorForName(name);
     const QRectF body(0.5, 0.5, logical - hang - 0.5, logical - hang - 0.5);
     QLinearGradient grad(body.topLeft(), body.bottomLeft());
     grad.setColorAt(0.0, base.lighter(112));
