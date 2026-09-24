@@ -947,9 +947,8 @@ void MainWindow::buildUi()
     m_clearQueueBtnFiles->hide();
     connect(m_clearQueueBtnFiles, SIGNAL(clicked()), this, SLOT(clearUploadQueue()));
     QFrame *fileLiveHost = new QFrame;
-    fileLiveHost->setObjectName(QStringLiteral("progressCapsule"));
+    fileLiveHost->setObjectName(QStringLiteral("progressStrip"));
     fileLiveHost->setAttribute(Qt::WA_StyledBackground, true);
-    applyFloatingShadow(fileLiveHost);
     QHBoxLayout *fileLiveLay = new QHBoxLayout(fileLiveHost);
     fileLiveLay->setContentsMargins(12, 8, 10, 8);
     fileLiveLay->setSpacing(8);
@@ -968,10 +967,10 @@ void MainWindow::buildUi()
     fileLiveLay->addLayout(fileTextCol, 1);
     fileLiveLay->addWidget(m_clearQueueBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
     fileLiveLay->addWidget(m_cancelUploadBtnFiles, 0, Qt::AlignRight | Qt::AlignVCenter);
-    fileLiveHost->hide();
     QWidget *fileLiveWrap = new QWidget;
-    QHBoxLayout *fileLiveWrapLay = new QHBoxLayout(fileLiveWrap);
-    fileLiveWrapLay->setContentsMargins(16, 10, 16, 8);
+    fileLiveWrap->setObjectName(QStringLiteral("filesLiveShell"));
+    QVBoxLayout *fileLiveWrapLay = new QVBoxLayout(fileLiveWrap);
+    fileLiveWrapLay->setContentsMargins(16, 10, 16, 0);
     fileLiveWrapLay->setSpacing(0);
     fileLiveWrapLay->addWidget(fileLiveHost);
     fileLiveWrap->hide();
@@ -1155,6 +1154,8 @@ void MainWindow::applyStyle()
         "#progressCapsule { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; }"
         "#progressStrip { background: #eff6ff; border: none; border-bottom: 1px solid #dbeafe;"
         " border-top-left-radius: 13px; border-top-right-radius: 13px; }"
+        "#filesLiveShell #progressStrip { border-radius: 12px; border: 1px solid #bfdbfe; }"
+        "#filesLiveShell { background: transparent; }"
         "#progress { color: #1d4ed8; font-size: 12px; font-weight: 600; background: transparent; }"
         "#xferBar { background: #dbeafe; border: none; border-radius: 2px; max-height: 4px; }"
         "#xferBar::chunk { background: #2563eb; border-radius: 2px; }"
@@ -2742,8 +2743,6 @@ void MainWindow::refreshPeers()
     if (want.isEmpty())
         want = m_settings.lastPeer.trimmed();
     const QString filter = m_search ? m_search->text() : QString();
-    m_list->blockSignals(true);
-    m_list->clear();
     QList<Peer> list = m_disc->peers();
     std::stable_sort(list.begin(), list.end(), [this](const Peer &a, const Peer &b) {
         const bool ap = m_settings.pinnedPeers.contains(a.key());
@@ -2760,6 +2759,44 @@ void MainWindow::refreshPeers()
             return au > bu;
         return QString::localeAwareCompare(a.label().toLower(), b.label().toLower()) < 0;
     });
+
+    QString sig;
+    sig.reserve(list.size() * 48);
+    for (int i = 0; i < list.size(); ++i) {
+        const Peer &p = list.at(i);
+        sig += p.key();
+        sig += QLatin1Char('\x1f');
+        sig += p.online() ? QLatin1Char('1') : QLatin1Char('0');
+        sig += QLatin1Char('\x1f');
+        sig += QString::number(m_unread.value(p.key(), 0));
+        sig += QLatin1Char('\x1f');
+        sig += p.label();
+        sig += QLatin1Char('\x1f');
+        sig += p.manual ? QLatin1Char('1') : QLatin1Char('0');
+        sig += QLatin1Char('\x1f');
+        sig += m_settings.pinnedPeers.contains(p.key()) ? QLatin1Char('1') : QLatin1Char('0');
+        sig += QLatin1Char('\x1f');
+        sig += p.osName;
+        sig += QLatin1Char('\x1f');
+        sig += p.tag;
+        sig += QLatin1Char('\x1e');
+    }
+    sig += QLatin1Char('\x1d');
+    sig += QString::number(m_settings.port);
+
+    if (sig == m_peerListSig && m_list) {
+        // 内容未变：只刷新过滤与空态，避免每秒重建 itemWidget 闪烁
+        filterPeers(filter);
+        if (want.isEmpty() && m_list->count() > 0 && m_list->currentRow() < 0)
+            m_list->setCurrentRow(0);
+        updateEmpty();
+        updateHostPill();
+        return;
+    }
+    m_peerListSig = sig;
+
+    m_list->blockSignals(true);
+    m_list->clear();
     int row = -1;
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);

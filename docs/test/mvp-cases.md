@@ -908,6 +908,13 @@
 - 类型：手测
 - 结果：待手测
 
+### TC-168 列表去闪与文件进度顶条
+- 对应验收：L1–L4（`docs/requirements/20260922-peerlist-stable-filestrip.md`）
+- 步骤：静置看侧栏是否闪；上下线一台设备；传文件切「文件」Tab
+- 期望：静置不闪；状态变化能更新；文件 Tab 顶部为蓝条非独立浮卡
+- 类型：手测
+- 结果：待手测
+
 ### TC-64 并发线程数诚实化
 - 对应验收：H1–H3（`docs/requirements/20260922-threads-honest.md`）
 - 步骤：打开设置看线程数不可改与说明；改设备名保存；再看 settings.json 的 transferThreads 未因本操作乱变

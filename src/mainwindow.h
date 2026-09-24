@@ -236,6 +236,7 @@ private:
 
     QHash<QString, QVector<ChatMsg> > m_log;
     QHash<QString, int> m_unread; // 对端 ip:port → 未读条数
+    QString m_peerListSig; // 侧栏内容签名，未变则跳过整表重建
     QStringList m_uploadQueue;
     bool m_uploading = false;
     bool m_uploadCanceling = false;
