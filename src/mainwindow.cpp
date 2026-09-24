@@ -583,10 +583,10 @@ void MainWindow::buildUi()
     addBtn->installEventFilter(this);
     // 同一行高 + 垂直居中：标题、数量徽标、「+ 加 IP」中线齐平
     QFont titleFont = qApp->font();
-    titleFont.setPixelSize(14);
+    titleFont.setPixelSize(16);
     titleFont.setBold(true);
     sideTitle->setFont(titleFont);
-    const int lineH = QFontMetrics(titleFont).height() + 2;
+    const int lineH = QFontMetrics(titleFont).height();
     sideTitle->setFixedHeight(lineH);
     m_peerCount->setFixedHeight(lineH);
     addBtn->setFixedHeight(lineH);
@@ -1182,9 +1182,9 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal { background: #e2e8f0; margin: 28px 2px; border-radius: 2px; }"
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
-        "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; padding: 0; margin: 0; }"
-        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 8px; padding: 0 7px;"
-        " font-size: 11px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
+        "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
+        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 0; padding: 0 6px;"
+        " font-size: 12px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
         "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
         /* 略加大顶内边距，抵消「+」字形视觉中心偏高 */
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
