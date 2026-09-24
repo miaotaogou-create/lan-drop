@@ -503,9 +503,47 @@ static void paintDoubleCheck(QPainter &p, qreal x, qreal y, qreal s, const QColo
     one(x + s * 0.32);
 }
 
+static void paintDownloadGlyph(QPainter &p, const QRectF &box, const QColor &color)
+{
+    QPen pen(color, qMax(1.5, box.width() * 0.12));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal cx = box.center().x();
+    const qreal top = box.top() + box.height() * 0.12;
+    const qreal mid = box.top() + box.height() * 0.55;
+    const qreal bot = box.bottom() - box.height() * 0.12;
+    p.drawLine(QPointF(cx, top), QPointF(cx, mid));
+    p.drawLine(QPointF(cx - box.width() * 0.28, mid - box.height() * 0.18), QPointF(cx, mid));
+    p.drawLine(QPointF(cx + box.width() * 0.28, mid - box.height() * 0.18), QPointF(cx, mid));
+    p.drawLine(QPointF(box.left() + box.width() * 0.12, bot),
+               QPointF(box.right() - box.width() * 0.12, bot));
+}
+
+static QPixmap cropLogical(const QPixmap &pm, const QRect &logicalRect)
+{
+    const qreal dpr = chatDpr();
+    const QRect device(qRound(logicalRect.x() * dpr), qRound(logicalRect.y() * dpr),
+                       qRound(logicalRect.width() * dpr), qRound(logicalRect.height() * dpr));
+    QPixmap out = pm.copy(device.intersected(pm.rect()));
+    out.setDevicePixelRatio(dpr);
+    return out;
+}
+
+static QString linkedImg(const QString &href, const QString &title, const QPixmap &pm)
+{
+    if (href.isEmpty())
+        return pixmapToImgHtml(pm);
+    return QStringLiteral("<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
+        .arg(href, title, pixmapToImgHtml(pm));
+}
+
+// 完成态操作区绘进白卡内；按行切片成可点链接，避免按钮落在气泡外
 static QString fileCardShellImgHtml(const QString &fileName, const QString &sizeLabel,
                                     bool asImage, bool pending, bool out, int pct,
-                                    const QString &shaShort)
+                                    const QString &shaShort, const QString &openHref,
+                                    const QString &revealHref, const QString &copyPathHref)
 {
     const int cardW = 320;
     const int pad = 14;
@@ -513,13 +551,18 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int icon = 40;
     const int gap = 12;
     const int barH = 6;
+    const bool hasActions = !pending && !openHref.isEmpty();
     QFont nameFont = qApp->font();
     nameFont.setPixelSize(14);
     nameFont.setBold(true);
     QFont metaFont = qApp->font();
     metaFont.setPixelSize(12);
+    QFont btnFont = qApp->font();
+    btnFont.setPixelSize(12);
+    btnFont.setBold(true);
     QFontMetrics nameFm(nameFont);
     QFontMetrics metaFm(metaFont);
+    QFontMetrics btnFm(btnFont);
     const int nameMaxW = cardW - pad * 2 - icon - gap;
     const QString elided = nameFm.elidedText(fileName, Qt::ElideMiddle, nameMaxW);
     const int nameH = nameFm.height();
@@ -527,7 +570,12 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int topH = qMax(icon, nameH + 4 + metaH);
     const int statusH = metaH;
     const int shaH = (!pending && !shaShort.isEmpty()) ? (6 + metaH) : 0;
-    const int innerH = pad + topH + gap + barH + 10 + statusH + shaH + pad;
+    const int btnH = 30;
+    const int actionGap = 10;
+    // 主按钮行 + 次要 chip 行 + 底边距
+    const int actionBlock = hasActions ? (actionGap + btnH + 8 + btnH) : 0;
+    const int bodyH = pad + topH + gap + barH + 10 + statusH + shaH;
+    const int innerH = bodyH + actionBlock + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
     QPixmap pm = makeDprPixmap(logicalW, logicalH);
@@ -543,7 +591,6 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
 
     const qreal ox = kShadowPad;
     const qreal oy = kShadowPad;
-    // 左上文件图标瓦片（参考图浅蓝底 + 文档线稿）
     const QRectF iconRect(ox + pad, oy + pad + (topH - icon) / 2.0, icon, icon);
     p.setPen(Qt::NoPen);
     p.setBrush(asImage ? QColor(QStringLiteral("#ecfdf5")) : QColor(QStringLiteral("#eff6ff")));
@@ -574,7 +621,6 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
             p.setBrush(QColor(QStringLiteral("#2563eb")));
             p.drawRoundedRect(fill, barH / 2.0, barH / 2.0);
         } else {
-            // 完成态：蓝→紫渐变满条（对齐参考图）
             QLinearGradient grad(fill.topLeft(), fill.topRight());
             grad.setColorAt(0.0, QColor(QStringLiteral("#3b82f6")));
             grad.setColorAt(1.0, QColor(QStringLiteral("#7c3aed")));
@@ -607,6 +653,7 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
                    QString::fromUtf8(u8"传输完成 (已落盘)"));
     }
 
+    int shaBottom = statusY + statusH;
     if (shaH > 0) {
         const int shaY = statusY + statusH + 6;
         const int shield = 14;
@@ -619,8 +666,136 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
         p.drawText(QRect(int(ox) + pad + shield + 6, shaY, contentW - shield - 6, metaH),
                    Qt::AlignLeft | Qt::AlignVCenter,
                    QStringLiteral("SHA256: %1").arg(shaShort));
+        shaBottom = shaY + metaH;
     }
-    return pixmapToImgHtml(pm);
+
+    QRect primaryRect;
+    QRect revealRect;
+    QRect copyRect;
+    int actRow1Bottom = 0;
+    int actRow2Top = 0;
+    if (hasActions) {
+        const int actY = shaBottom + actionGap;
+        const QString primaryLabel = out ? QString::fromUtf8(u8"打开文件")
+                                         : QString::fromUtf8(u8"下载保存至本地");
+        const int glyph = 14;
+        const int primaryW = glyph + 8 + btnFm.horizontalAdvance(primaryLabel) + 20;
+        primaryRect = QRect(int(ox) + pad, actY, qMin(primaryW, contentW), btnH);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(QStringLiteral("#dbeafe")));
+        p.drawRoundedRect(QRectF(primaryRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
+        paintDownloadGlyph(p, QRectF(primaryRect.x() + 10, primaryRect.y() + (btnH - glyph) / 2.0,
+                                     glyph, glyph),
+                           QColor(QStringLiteral("#2563eb")));
+        p.setFont(btnFont);
+        p.setPen(QColor(QStringLiteral("#2563eb")));
+        p.drawText(QRect(primaryRect.x() + 10 + glyph + 6, primaryRect.y(),
+                         primaryRect.width() - 16 - glyph, btnH),
+                   Qt::AlignLeft | Qt::AlignVCenter, primaryLabel);
+
+        // 脚注与主按钮同行（对齐参考图）
+        if (!out) {
+            const int footX = primaryRect.right() + 10;
+            const int footW = int(ox) + pad + contentW - footX;
+            if (footW > 40) {
+                p.setFont(metaFont);
+                p.setPen(QColor(QStringLiteral("#94a3b8")));
+                p.drawText(QRect(footX, actY, footW, btnH), Qt::AlignLeft | Qt::AlignVCenter,
+                           QString::fromUtf8(u8"局域网直传 · 已存入下载目录"));
+            }
+        }
+
+        // 次要操作仍在卡内第二行
+        const int row2Y = actY + btnH + 8;
+        const int chipGap = 6;
+        const int chipPadX = 10;
+        auto chipW = [&](const QString &t) { return btnFm.horizontalAdvance(t) + chipPadX * 2; };
+        const QString revealLabel = QString::fromUtf8(u8"目录");
+        const QString copyLabel = QString::fromUtf8(u8"复制路径");
+        revealRect = QRect(int(ox) + pad, row2Y, chipW(revealLabel), btnH);
+        p.setBrush(QColor(QStringLiteral("#f1f5f9")));
+        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+        p.drawRoundedRect(QRectF(revealRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
+        p.setFont(btnFont);
+        p.setPen(QColor(QStringLiteral("#334155")));
+        p.drawText(revealRect, Qt::AlignCenter, revealLabel);
+        copyRect = QRect(revealRect.right() + chipGap, row2Y, chipW(copyLabel), btnH);
+        p.setBrush(QColor(QStringLiteral("#f1f5f9")));
+        p.setPen(QPen(QColor(QStringLiteral("#e2e8f0")), 1.0));
+        p.drawRoundedRect(QRectF(copyRect).adjusted(0.5, 0.5, -0.5, -0.5), 8.0, 8.0);
+        p.setPen(QColor(QStringLiteral("#334155")));
+        p.drawText(copyRect, Qt::AlignCenter, copyLabel);
+        actRow1Bottom = actY + btnH;
+        actRow2Top = row2Y;
+    }
+
+    if (!hasActions)
+        return pixmapToImgHtml(pm);
+
+    const int bodyBottom = int(oy) + bodyH;
+    const int row1Top = bodyBottom;
+    const int row1Bottom = actRow1Bottom;
+    const int row2Bottom = actRow2Top + btnH;
+    const int footBottom = int(oy) + innerH;
+    QString html = QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;\">");
+    html += QStringLiteral("<tr><td>")
+        + linkedImg(openHref, QString::fromUtf8(u8"点击打开"),
+                    cropLogical(pm, QRect(0, 0, logicalW, row1Top)))
+        + QStringLiteral("</td></tr>");
+
+    // 主按钮行：左垫 + 主钮可点 + 右侧脚注不可点
+    {
+        const int rowH = row1Bottom - row1Top;
+        const int leftW = primaryRect.x();
+        html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\"><tr>");
+        html += QStringLiteral("<td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, row1Top, leftW, rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + linkedImg(openHref, QString::fromUtf8(u8"点击打开"),
+                        cropLogical(pm, QRect(primaryRect.x(), row1Top, primaryRect.width(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(primaryRect.right(), row1Top,
+                                                    logicalW - primaryRect.right(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("</tr></table></td></tr>");
+    }
+
+    // 目录 / 复制路径行
+    {
+        const int rowH = row2Bottom - actRow1Bottom;
+        const int y0 = actRow1Bottom;
+        html += QStringLiteral("<tr><td><table cellspacing=\"0\" cellpadding=\"0\"><tr>");
+        html += QStringLiteral("<td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, y0, revealRect.x(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + linkedImg(revealHref, QString::fromUtf8(u8"打开所在目录"),
+                        cropLogical(pm, QRect(revealRect.x(), y0, revealRect.width(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(revealRect.right(), y0,
+                                                    copyRect.x() - revealRect.right(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + linkedImg(copyPathHref, QString::fromUtf8(u8"点击复制路径"),
+                        cropLogical(pm, QRect(copyRect.x(), y0, copyRect.width(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("<td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(copyRect.right(), y0,
+                                                    logicalW - copyRect.right(), rowH)))
+            + QStringLiteral("</td>");
+        html += QStringLiteral("</tr></table></td></tr>");
+    }
+
+    if (footBottom > row2Bottom) {
+        html += QStringLiteral("<tr><td>")
+            + pixmapToImgHtml(cropLogical(pm, QRect(0, row2Bottom, logicalW, footBottom - row2Bottom)))
+            + QStringLiteral("</td></tr>");
+    }
+    html += QStringLiteral("</table>");
+    return html;
 }
 
 // Qt 富文本 border-radius 不可靠，操作胶囊绘成位图再嵌 <a>
@@ -668,36 +843,18 @@ static QString renderFileCard(const ChatMsg &m)
         ? QString::fromLatin1(m.path.toUtf8().toBase64(QByteArray::Base64UrlEncoding))
         : QString();
     QString openHref;
-    QString actions;
+    QString revealHref;
+    QString copyPathHref;
     if (!pathB64.isEmpty()) {
         openHref = QStringLiteral("landrop://open/") + pathB64;
-        const QString revealHref = QStringLiteral("landrop://reveal/") + pathB64;
-        const QString copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
-        actions = QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\"><tr>")
-            + actionChipHtml(openHref, QString::fromUtf8(u8"打开"),
-                             QString::fromUtf8(u8"点击打开"), true)
-            + QStringLiteral("<td width=\"6\"></td>")
-            + actionChipHtml(revealHref, QString::fromUtf8(u8"目录"),
-                             QString::fromUtf8(u8"打开所在目录"), false)
-            + QStringLiteral("<td width=\"6\"></td>")
-            + actionChipHtml(copyPathHref, QString::fromUtf8(u8"复制路径"),
-                             QString::fromUtf8(u8"点击复制路径"), false)
-            + QStringLiteral("</tr></table>");
-        if (!out) {
-            actions += QString::fromUtf8(
-                u8"<br/><font color=\"#94a3b8\" size=\"2\">局域网直传 · 已存入下载目录</font>");
-        }
-    } else {
-        actions = QString::fromUtf8(u8"<font color=\"#94a3b8\" size=\"3\">局域网直传</font>");
+        revealHref = QStringLiteral("landrop://reveal/") + pathB64;
+        copyPathHref = QStringLiteral("landrop://copypath/") + pathB64;
     }
     const int pct = pending ? qBound(0, 100, m.progressPct) : 100;
     const bool asImage = isImageFileName(m.text) || isImageFileName(m.path);
     QString shell = fileCardShellImgHtml(m.text, size, asImage, pending, out, pct,
-                                         pending ? QString() : sha);
-    if (!openHref.isEmpty()) {
-        shell = QStringLiteral("<a href=\"%1\" title=\"%2\" style=\"text-decoration:none;\">%3</a>")
-                    .arg(openHref, QString::fromUtf8(u8"点击打开"), shell);
-    }
+                                         pending ? QString() : sha, openHref, revealHref,
+                                         copyPathHref);
     QString thumbHtml;
     if (!pending && !m.path.isEmpty()) {
         const QString thumb = imageThumbFile(m.path);
@@ -712,7 +869,7 @@ static QString renderFileCard(const ChatMsg &m)
                                 .arg(openHref, src);
         }
     }
-    const QString card = shell + thumbHtml + QStringLiteral("<br/>") + actions;
+    const QString card = shell + thumbHtml;
     const QString head = metaLine(out ? QString() : m.who, m.time, pending ? -1 : m.rttMs, false, out);
     const QString avatar = letterAvatarHtml(
         faceName(m), out ? QStringLiteral("#2563eb") : QStringLiteral("#f97316"));
