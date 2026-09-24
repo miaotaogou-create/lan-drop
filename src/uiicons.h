@@ -32,6 +32,7 @@ QPixmap makeChatBubbleIcon(int logical = 14);
 QPixmap makeSearchIcon(int logical = 16);
 QPixmap makeFileDocIcon(int logical = 14);
 QPixmap makeCheckCircleIcon(int logical = 14);
+QPixmap makeTrashIcon(int logical = 16);
 QPixmap loadSvgPixmap(const QString &path, int logical);
 QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip);
 QIcon makePinIcon(bool pinned, const QColor &color);

@@ -657,6 +657,7 @@ void MainWindow::buildUi()
 
     QWidget *right = new QWidget;
     right->setObjectName(QStringLiteral("right"));
+    right->setMinimumWidth(320);
     QVBoxLayout *rightLay = new QVBoxLayout(right);
     rightLay->setContentsMargins(0, 0, 0, 0);
     rightLay->setSpacing(0);
@@ -692,6 +693,7 @@ void MainWindow::buildUi()
     m_peerHeader = new QWidget;
     m_peerHeader->setObjectName(QStringLiteral("peerHeader"));
     m_peerHeader->setFixedHeight(52);
+    m_peerHeader->installEventFilter(this);
     QHBoxLayout *peerHeadLay = new QHBoxLayout(m_peerHeader);
     peerHeadLay->setContentsMargins(14, 6, 14, 6);
     peerHeadLay->setSpacing(10);
@@ -708,6 +710,8 @@ void MainWindow::buildUi()
     peerTitleRow->setSpacing(6);
     m_peerName = new QLabel;
     m_peerName->setObjectName(QStringLiteral("peerName"));
+    m_peerName->setMinimumWidth(40);
+    m_peerName->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_peerOnlineDot = new QLabel;
     m_peerOnlineDot->setFixedSize(7, 7);
     m_peerAddr = new QLabel;
@@ -715,10 +719,10 @@ void MainWindow::buildUi()
     m_peerAddr->setCursor(Qt::PointingHandCursor);
     m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口"));
     m_peerAddr->installEventFilter(this);
-    peerTitleRow->addWidget(m_peerName, 0, Qt::AlignVCenter);
+    m_peerAddr->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    peerTitleRow->addWidget(m_peerName, 1, Qt::AlignVCenter);
     peerTitleRow->addWidget(m_peerOnlineDot, 0, Qt::AlignVCenter);
     peerTitleRow->addWidget(m_peerAddr, 0, Qt::AlignVCenter);
-    peerTitleRow->addStretch(1);
     m_peerMeta = new QLabel;
     m_peerMeta->setObjectName(QStringLiteral("peerMeta"));
     m_peerMeta->setTextFormat(Qt::RichText);
@@ -756,6 +760,7 @@ void MainWindow::buildUi()
     filesTabLay->addWidget(m_filesTabBadge, 0, Qt::AlignVCenter);
 
     QFrame *tabBar = new QFrame;
+    m_sessionTabBar = tabBar;
     tabBar->setObjectName(QStringLiteral("sessionTabBar"));
     tabBar->setAttribute(Qt::WA_StyledBackground, true);
     QHBoxLayout *tabBarLay = new QHBoxLayout(tabBar);
@@ -764,8 +769,20 @@ void MainWindow::buildUi()
     tabBarLay->addWidget(m_tabChat);
     tabBarLay->addWidget(filesTabWrap);
 
+    m_clearChatBtn = new QPushButton;
+    m_clearChatBtn->setObjectName(QStringLiteral("sessionIconBtn"));
+    m_clearChatBtn->setFixedSize(32, 32);
+    m_clearChatBtn->setCursor(Qt::PointingHandCursor);
+    m_clearChatBtn->setFocusPolicy(Qt::NoFocus);
+    m_clearChatBtn->setFlat(true);
+    m_clearChatBtn->setToolTip(QString::fromUtf8(u8"清空聊天记录"));
+    m_clearChatBtn->setIcon(QIcon(makeTrashIcon(16)));
+    m_clearChatBtn->setIconSize(QSize(16, 16));
+    connect(m_clearChatBtn, SIGNAL(clicked()), this, SLOT(clearSelectedPeerChat()));
+
     peerHeadLay->addWidget(m_peerAvatar, 0, Qt::AlignVCenter);
     peerHeadLay->addLayout(peerInfoCol, 1);
+    peerHeadLay->addWidget(m_clearChatBtn, 0, Qt::AlignVCenter);
     peerHeadLay->addWidget(tabBar, 0, Qt::AlignVCenter);
 
     m_connBannerHost = new QWidget;
@@ -937,6 +954,7 @@ void MainWindow::buildUi()
     syncSendBtn();
     QLabel *inputHint = new QLabel(QString::fromUtf8(u8"回车发送 · Shift+回车换行"));
     inputHint->setObjectName(QStringLiteral("inputHint"));
+    m_inputHint = inputHint;
     QHBoxLayout *sendRow = new QHBoxLayout;
     sendRow->setContentsMargins(0, 0, 2, 2);
     sendRow->addWidget(inputHint, 0, Qt::AlignVCenter);
@@ -1121,7 +1139,9 @@ void MainWindow::applyStyle()
         "#iconBtn:pressed { background: #e2e8f0; }"
         "#minBtn, #maxBtn, #closeBtn, #pinBtn { background: transparent; border: none; border-radius: 6px; padding: 0; }"
         "#minBtn:hover, #maxBtn:hover, #pinBtn:hover { background: #f1f5f9; }"
+        "#minBtn:pressed, #maxBtn:pressed, #pinBtn:pressed { background: #e2e8f0; }"
         "#pinBtn:checked { background: #eff6ff; }"
+        "#pinBtn:checked:pressed { background: #dbeafe; }"
         "#closeBtn:hover { background: #ef4444; }"
         "#side { background: #ffffff; border-right: 1px solid #e8eef5; }"
         "#bodySplit::handle:horizontal { background: #e2e8f0; margin: 28px 2px; border-radius: 2px; }"
@@ -1134,6 +1154,7 @@ void MainWindow::applyStyle()
         "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
         " padding: 4px 10px; font-size: 12px; font-weight: 600; min-height: 26px; }"
         "#addBtn:hover { background: #dbeafe; }"
+        "#addBtn:pressed { background: #bfdbfe; }"
         "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
         "#searchShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
         "#searchIcon { background: transparent; border: none; }"
@@ -1185,7 +1206,8 @@ void MainWindow::applyStyle()
         "#sessionTabBadge { background: #eff6ff; color: #1d4ed8; border-radius: 8px;"
         " padding: 1px 6px; font-size: 10px; font-weight: 700; min-width: 14px; }"
         "#sessionIconBtn { background: transparent; border: 1px solid transparent; border-radius: 9px; padding: 0; }"
-        "#sessionIconBtn:hover { background: #f1f5f9; border-color: #e2e8f0; }"
+        "#sessionIconBtn:hover { background: #fef2f2; border-color: #fecaca; }"
+        "#sessionIconBtn:pressed { background: #fee2e2; border-color: #fca5a5; }"
         "#connBannerHost { background: transparent; }"
         "#connBanner { background-color: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 16px; }"
@@ -1258,6 +1280,9 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     }
     if (m_chatHost && watched == m_chatHost && event->type() == QEvent::Resize) {
         placeJumpBottomBtn();
+    }
+    if (m_peerHeader && watched == m_peerHeader && event->type() == QEvent::Resize) {
+        elidePeerHeader();
     }
     if (m_hostPill && watched == m_hostPill) {
         if (event->type() == QEvent::MouseButtonPress) {
@@ -2270,7 +2295,7 @@ void MainWindow::persistWindowGeometry()
     if (m_bodySplit && m_bodySplit->count() >= 1) {
         const QList<int> sizes = m_bodySplit->sizes();
         if (!sizes.isEmpty())
-            m_settings.sideWidth = qBound(220, 480, sizes.at(0));
+            m_settings.sideWidth = qBound(220, sizes.at(0), 480);
     }
     const QString peer = currentKey();
     if (!peer.isEmpty())
@@ -2341,10 +2366,10 @@ void MainWindow::applySideWidth()
     if (!m_bodySplit)
         return;
     int w = m_settings.sideWidth > 0 ? m_settings.sideWidth : 300;
-    w = qBound(220, 480, w);
-    const int total = qMax(m_bodySplit->width(), w + 400);
+    w = qBound(220, w, 480);
+    const int total = qMax(m_bodySplit->width(), w + 320);
     QList<int> sizes;
-    sizes << w << qMax(400, total - w);
+    sizes << w << qMax(320, total - w);
     m_bodySplit->setSizes(sizes);
 }
 
@@ -3035,12 +3060,15 @@ void MainWindow::updatePeerSession()
     const QString addr = QStringLiteral("%1:%2").arg(ip).arg(port);
     const bool online = found && peer.online();
     m_peerAvatar->setPixmap(makePeerAvatar(label, peer.osName, 36));
-    m_peerName->setText(label);
+    m_peerTitleFull = label;
+    m_peerAddrFull = addr;
+    m_peerName->setToolTip(label);
     m_peerName->setStyleSheet(online
                                   ? QStringLiteral("color:#0f172a;")
                                   : QStringLiteral("color:#94a3b8;"));
     m_peerOnlineDot->setPixmap(makeStatusDot(online, 7));
-    m_peerAddr->setText(addr);
+    m_peerAddr->setToolTip(QString::fromUtf8(u8"点击复制对端 IP:端口\n%1").arg(addr));
+    elidePeerHeader();
     const QString pingText = (m_pingKey == addr && !m_pingText.isEmpty())
         ? m_pingText
         : QString::fromUtf8(u8"—");
@@ -3290,6 +3318,39 @@ void MainWindow::syncSendBtn()
         icon = faded;
     }
     m_sendBtn->setIcon(QIcon(icon));
+    if (m_inputHint) {
+        if (!hasPeer)
+            m_inputHint->setText(QString::fromUtf8(u8"选择设备后发送"));
+        else if (!hasText)
+            m_inputHint->setText(QString::fromUtf8(u8"输入消息后发送"));
+        else
+            m_inputHint->setText(QString::fromUtf8(u8"回车发送 · Shift+回车换行"));
+    }
+}
+
+void MainWindow::elidePeerHeader()
+{
+    if (!m_peerHeader || !m_peerName || !m_peerAddr)
+        return;
+    int reserved = 14 + 14 + 36 + 10 + 7 + 6 + 10;
+    if (m_clearChatBtn)
+        reserved += m_clearChatBtn->width() + 10;
+    if (m_sessionTabBar)
+        reserved += m_sessionTabBar->sizeHint().width() + 10;
+    const int addrMax = qBound(72, m_peerHeader->width() / 3, 160);
+    QFontMetrics addrFm(m_peerAddr->font());
+    const QString addrShow = m_peerAddrFull.isEmpty()
+        ? QString()
+        : addrFm.elidedText(m_peerAddrFull, Qt::ElideMiddle, addrMax);
+    m_peerAddr->setText(addrShow);
+    reserved += addrFm.horizontalAdvance(addrShow.isEmpty() ? QStringLiteral("0.0.0.0:0000")
+                                                           : addrShow);
+    const int nameMax = qMax(40, m_peerHeader->width() - reserved);
+    QFontMetrics nameFm(m_peerName->font());
+    const QString nameShow = m_peerTitleFull.isEmpty()
+        ? QString()
+        : nameFm.elidedText(m_peerTitleFull, Qt::ElideRight, nameMax);
+    m_peerName->setText(nameShow);
 }
 
 void MainWindow::syncCancelUploadBtn()

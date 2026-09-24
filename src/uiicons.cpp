@@ -435,6 +435,36 @@ QPixmap makeCheckCircleIcon(int logical)
     return pm;
 }
 
+QPixmap makeTrashIcon(int logical)
+{
+    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
+    const int px = logical * dpr;
+    QPixmap pm(px, px);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const qreal s = logical;
+    QPen pen(QColor(QStringLiteral("#64748b")), qMax(1.3, s * 0.09));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawLine(QPointF(s * 0.28, s * 0.34), QPointF(s * 0.72, s * 0.34));
+    p.drawLine(QPointF(s * 0.38, s * 0.34), QPointF(s * 0.42, s * 0.22));
+    p.drawLine(QPointF(s * 0.62, s * 0.34), QPointF(s * 0.58, s * 0.22));
+    p.drawLine(QPointF(s * 0.42, s * 0.22), QPointF(s * 0.58, s * 0.22));
+    QPainterPath body;
+    body.moveTo(s * 0.32, s * 0.38);
+    body.lineTo(s * 0.36, s * 0.82);
+    body.lineTo(s * 0.64, s * 0.82);
+    body.lineTo(s * 0.68, s * 0.38);
+    p.drawPath(body);
+    p.drawLine(QPointF(s * 0.46, s * 0.46), QPointF(s * 0.46, s * 0.72));
+    p.drawLine(QPointF(s * 0.54, s * 0.46), QPointF(s * 0.54, s * 0.72));
+    return pm;
+}
+
 QPixmap loadSvgPixmap(const QString &path, int logical)
 {
     const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));

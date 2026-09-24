@@ -127,6 +127,7 @@ private:
     void markChatNewBelowIfAway();
     void syncJumpBottomBtn();
     void placeJumpBottomBtn();
+    void elidePeerHeader();
     void updateChrome();
     void updateEmpty();
     void updateHostPill();
@@ -194,9 +195,13 @@ private:
     QLabel *m_peerOnlineDot = 0;
     QLabel *m_peerAddr = 0;
     QLabel *m_peerMeta = 0;
+    QPushButton *m_clearChatBtn = 0;
+    QWidget *m_sessionTabBar = 0;
     QPushButton *m_tabChat = 0;
     QPushButton *m_tabFiles = 0;
     QLabel *m_filesTabBadge = 0;
+    QString m_peerTitleFull;
+    QString m_peerAddrFull;
     QWidget *m_connBannerHost = 0;
     QWidget *m_connBanner = 0;
     QLabel *m_connBannerText = 0;
@@ -213,6 +218,7 @@ private:
     QWidget *m_fileLiveHost = 0;
     QWidget *m_progressHost = 0;
     QPlainTextEdit *m_input = 0;
+    QLabel *m_inputHint = 0;
     QPushButton *m_sendBtn = 0;
     QLabel *m_progress = 0;
     QProgressBar *m_xferBar = 0;
