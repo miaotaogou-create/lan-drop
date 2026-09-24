@@ -574,27 +574,18 @@ void MainWindow::buildUi()
     m_peerCount->setObjectName(QStringLiteral("peerCount"));
     m_peerCount->setAlignment(Qt::AlignCenter);
     m_peerCount->setProperty("empty", true);
-    QPushButton *addBtn = new QPushButton(QString::fromUtf8(u8"+ 加 IP"));
+    // 用 QLabel 而非 QPushButton：后者在 Windows/麒麟上文字常视觉偏上
+    QLabel *addBtn = new QLabel(QString::fromUtf8(u8"+ 加 IP"));
     addBtn->setObjectName(QStringLiteral("addBtn"));
     addBtn->setCursor(Qt::PointingHandCursor);
-    addBtn->setFocusPolicy(Qt::NoFocus);
-    addBtn->setFlat(true);
-    connect(addBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
-    // 左侧标题+数量包一层，与右侧按钮同用 AlignVCenter，避免 QLayout 默认顶齐
-    QWidget *titleHost = new QWidget;
-    titleHost->setObjectName(QStringLiteral("sideTitleHost"));
-    QHBoxLayout *titleGroup = new QHBoxLayout(titleHost);
-    titleGroup->setContentsMargins(0, 0, 0, 0);
-    titleGroup->setSpacing(6);
-    titleGroup->addWidget(sideTitle, 0, Qt::AlignVCenter);
-    titleGroup->addWidget(m_peerCount, 0, Qt::AlignVCenter);
-    const int headLineH = 24;
-    sideTitle->setFixedHeight(headLineH);
-    m_peerCount->setFixedHeight(headLineH);
-    addBtn->setFixedHeight(headLineH);
-    sideHead->addWidget(titleHost, 0, Qt::AlignVCenter);
+    addBtn->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    addBtn->setAttribute(Qt::WA_Hover, true);
+    addBtn->installEventFilter(this);
+    // 与标题同一行基线对齐；数量徽标垂直居中挂在标题旁
+    sideHead->addWidget(sideTitle, 0, Qt::AlignBaseline);
+    sideHead->addWidget(m_peerCount, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
-    sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
+    sideHead->addWidget(addBtn, 0, Qt::AlignBaseline);
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
@@ -1180,12 +1171,11 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#sideTitleHost { background: transparent; }"
-        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 0 7px;"
+        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 1px 7px;"
         " font-size: 11px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
         "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
-        " padding: 0 6px; margin: 0; font-size: 12px; font-weight: 600; }"
+        " padding: 1px 6px 2px 6px; margin: 0; font-size: 13px; font-weight: 600; }"
         "#addBtn:hover { background: #f1f5f9; color: #334155; }"
         "#addBtn:pressed { background: #e2e8f0; color: #0f172a; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
@@ -1305,6 +1295,14 @@ void MainWindow::applyStyle()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched && watched->objectName() == QLatin1String("addBtn")
+        && event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton) {
+            addPeer();
+            return true;
+        }
+    }
     if (m_chatPage && watched == m_chatPage && event->type() == QEvent::Resize
         && m_chatDropHint && m_chatDropHint->isVisible()) {
         setChatDropHint(true);
