@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QFontDatabase>
+#include <QGuiApplication>
 #include <QLibraryInfo>
 #include <QTranslator>
 
@@ -52,6 +53,11 @@ static void applyHighDpiAttrs()
 {
 #ifdef Q_OS_WIN
     enablePerMonitorDpiV2();
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    // 保留 1.25 等分数倍率，避免被四舍五入成 1 导致位图发虚
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);

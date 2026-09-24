@@ -3631,6 +3631,8 @@ void MainWindow::refreshChatHtml(bool forceBottom)
     const bool stick = forceBottom || !bar || oldMax <= 0
         || (oldMax - oldVal) <= 80;
 
+    setChatRenderDevicePixelRatio(m_chat->devicePixelRatioF());
+    m_chat->clear();
     m_chat->setHtml(renderChatHtml(m_log.value(currentKey())));
 
     if (!bar)
@@ -3652,8 +3654,11 @@ void MainWindow::refreshChatHtml(bool forceBottom)
 void MainWindow::refreshFilesView()
 {
     const QVector<ChatMsg> msgs = m_log.value(currentKey());
-    if (m_files)
+    if (m_files) {
+        setChatRenderDevicePixelRatio(m_files->devicePixelRatioF());
+        m_files->clear();
         m_files->setHtml(renderFilesHtml(msgs));
+    }
     if (m_tabFiles)
         m_tabFiles->setText(filesTabLabel(0));
     syncFilesTabBadge(m_filesTabBadge, countFiles(msgs));
@@ -4487,12 +4492,24 @@ void MainWindow::showEvent(QShowEvent *event)
 
 void MainWindow::onWindowScreenChanged()
 {
+    // 等 DPR 落稳再按当前屏重画气泡 PNG
+    if (m_chat)
+        setChatRenderDevicePixelRatio(m_chat->devicePixelRatioF());
     refreshChatHtml(true);
     refreshFilesView();
     updateHostPill();
     updatePeerSession();
+    updateEmpty();
     if (m_list)
         refreshPeers();
+}
+
+bool MainWindow::event(QEvent *event)
+{
+    // 无边框窗 screenChanged 有时不发；ScreenChangeInternal 更稳
+    if (event->type() == QEvent::ScreenChangeInternal)
+        QTimer::singleShot(0, this, SLOT(onWindowScreenChanged()));
+    return QMainWindow::event(event);
 }
 
 bool MainWindow::handleNativeFileDrop(void *message, long *result)

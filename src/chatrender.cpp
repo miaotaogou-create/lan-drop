@@ -16,9 +16,34 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <QtMath>
 #include <QUrl>
 
 // —— 本模块自用（不依赖 uiicons；体积格式复用 fmtutil）——
+
+// qApp->devicePixelRatio() 取的是全机最高屏；主 125%/副 100% 时副屏也会按 1.25 错画。
+static qreal s_chatDpr = 0.0;
+
+void setChatRenderDevicePixelRatio(qreal dpr)
+{
+    s_chatDpr = dpr;
+}
+
+static qreal chatDpr()
+{
+    if (s_chatDpr > 0.05)
+        return s_chatDpr;
+    return qMax(1.0, qApp->devicePixelRatio());
+}
+
+static QPixmap makeDprPixmap(int logicalW, int logicalH)
+{
+    const qreal dpr = chatDpr();
+    QPixmap pm(qMax(1, qCeil(logicalW * dpr)), qMax(1, qCeil(logicalH * dpr)));
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    return pm;
+}
 
 static QString htmlEsc(const QString &s)
 {
@@ -83,10 +108,7 @@ static QString letterAvatarHtml(const QString &name, const QString &bg)
     const QString ch = avatarInitial(name);
     // 参考图比例：略放大，与更大气泡协调
     const int logical = 44;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logical * dpr, logical * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logical, logical);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -126,10 +148,7 @@ static QString textBubbleImgHtml(const QString &text, bool out)
     const int innerH = contentH + padY * 2;
     const int logicalW = innerW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -203,10 +222,7 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     const int innerH = contentH + padY * 2;
     const int logicalW = innerW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -242,10 +258,7 @@ static QString metaBadgeImgHtml(const QString &text, const QColor &bg, const QCo
     const int innerH = qMax(18, fm.height() + padY * 2);
     const int innerW = fm.horizontalAdvance(text) + padX * 2;
     const qreal radius = 6.0;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(innerW * dpr, innerH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(innerW, innerH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -424,10 +437,7 @@ static QString fileCardShellImgHtml(const QString &fileName, const QString &size
     const int innerH = pad + topH + gap + barH + 8 + statusH + shaH + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -514,10 +524,7 @@ static QString actionChipHtml(const QString &href, const QString &label, const Q
     const int innerH = qMax(26, fm.height() + padY * 2);
     const int innerW = fm.horizontalAdvance(label) + padX * 2;
     const qreal radius = 8.0;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(innerW * dpr, innerH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(innerW, innerH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -617,10 +624,7 @@ static QString systemCapsuleImgHtml(const QString &text, bool fail)
     const int innerH = contentH + padY * 2;
     const int logicalW = innerW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -721,10 +725,7 @@ static QString emptyGuideCardImgHtml(const QString &title, const QStringList &ke
     const int innerH = pad + titleH + capsBlock + footH + pad;
     const int logicalW = cardW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
-    const int dpr = qMax(1, qRound(qApp->devicePixelRatio()));
-    QPixmap pm(logicalW * dpr, logicalH * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
+    QPixmap pm = makeDprPixmap(logicalW, logicalH);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);

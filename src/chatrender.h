@@ -6,6 +6,9 @@
 #include <QString>
 #include <QVector>
 
+// 按聊天控件所在屏幕的 DPR 画气泡位图（勿用 qApp 全机最高值）
+void setChatRenderDevicePixelRatio(qreal dpr);
+
 QString renderChatHtml(const QVector<ChatMsg> &msgs);
 QString renderFilesHtml(const QVector<ChatMsg> &msgs);
 int countFiles(const QVector<ChatMsg> &msgs);
