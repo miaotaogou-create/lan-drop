@@ -1112,6 +1112,10 @@ void MainWindow::applyStyle()
         " border-left: 3px solid #2563eb; color: #0f172a; }"
         "#peerList::item:selected:hover { background: #dbeafe; border-color: #60a5fa;"
         " border-left: 3px solid #2563eb; }"
+        "#peerRow { background: transparent; }"
+        "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
+        "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
+        "#peerRowSub { background: transparent; }"
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
@@ -2760,45 +2764,56 @@ void MainWindow::refreshPeers()
     for (int i = 0; i < list.size(); ++i) {
         const Peer &p = list.at(i);
         const QString fullAddr = p.ip + QLatin1Char(':') + QString::number(p.port);
-        QStringList bits;
-        if (p.port == m_settings.port)
-            bits << p.ip;
-        else
-            bits << fullAddr;
-        if (!p.online())
-            bits << QString::fromUtf8(u8"离线");
-        if (p.manual)
-            bits << QString::fromUtf8(u8"手动");
+        const QString addrShort = (p.port == m_settings.port) ? p.ip : fullAddr;
+        const bool online = p.online();
         const bool pinned = m_settings.pinnedPeers.contains(p.key());
-        if (pinned)
-            bits << QString::fromUtf8(u8"置顶");
-        if (!p.osName.trimmed().isEmpty())
-            bits << p.osName.trimmed();
-        if (!p.tag.trimmed().isEmpty())
-            bits << p.tag.trimmed();
         const int unread = m_unread.value(p.key(), 0);
+        // 文本留给搜索；界面用 itemWidget 画胶囊副行
         QListWidgetItem *it = new QListWidgetItem(
-            QStringLiteral("%1\n%2").arg(p.label(), bits.join(QString::fromUtf8(u8"  ·  "))));
-        it->setIcon(QIcon(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned)));
+            p.label() + QLatin1Char(' ') + fullAddr + QLatin1Char(' ') + p.tag + QLatin1Char(' ')
+            + p.osName);
         it->setSizeHint(QSize(0, 66));
-        it->setToolTip(fullAddr + (bits.size() > 1
-                                       ? (QString::fromUtf8(u8"\n") + bits.mid(1).join(QString::fromUtf8(u8" · ")))
-                                       : QString()));
+        it->setToolTip(fullAddr);
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
         it->setData(Qt::UserRole + 2, p.label());
         it->setData(Qt::UserRole + 3, p.manual);
         it->setData(Qt::UserRole + 4, p.tag);
-        if (!p.online())
-            it->setForeground(QBrush(QColor(QStringLiteral("#94a3b8"))));
-        if (unread > 0) {
-            QFont f = it->font();
-            f.setBold(true);
-            it->setFont(f);
-            if (p.online())
-                it->setForeground(QBrush(QColor(QStringLiteral("#0f172a"))));
-        }
         m_list->addItem(it);
+
+        QWidget *rowHost = new QWidget;
+        rowHost->setObjectName(QStringLiteral("peerRow"));
+        rowHost->setAttribute(Qt::WA_TranslucentBackground, true);
+        QHBoxLayout *rowLay = new QHBoxLayout(rowHost);
+        rowLay->setContentsMargins(2, 4, 4, 4);
+        rowLay->setSpacing(10);
+        QLabel *av = new QLabel;
+        av->setFixedSize(44, 44);
+        av->setPixmap(makePeerListAvatar(p.label(), p.osName, unread, 44, pinned));
+        QVBoxLayout *textCol = new QVBoxLayout;
+        textCol->setContentsMargins(0, 2, 0, 2);
+        textCol->setSpacing(3);
+        QLabel *nameLab = new QLabel(p.label());
+        nameLab->setObjectName(QStringLiteral("peerRowName"));
+        nameLab->setProperty("offline", !online);
+        nameLab->style()->unpolish(nameLab);
+        nameLab->style()->polish(nameLab);
+        if (unread > 0) {
+            QFont f = nameLab->font();
+            f.setBold(true);
+            nameLab->setFont(f);
+        }
+        QLabel *subLab = new QLabel;
+        subLab->setObjectName(QStringLiteral("peerRowSub"));
+        const int subMax = qMax(120, m_list->viewport()->width() - 78);
+        subLab->setPixmap(makePeerSubline(addrShort, !online, p.manual, pinned, p.osName, p.tag,
+                                          subMax));
+        textCol->addWidget(nameLab);
+        textCol->addWidget(subLab);
+        rowLay->addWidget(av, 0, Qt::AlignVCenter);
+        rowLay->addLayout(textCol, 1);
+        m_list->setItemWidget(it, rowHost);
+
         if (!want.isEmpty() && p.key() == want)
             row = m_list->count() - 1;
     }

@@ -34,6 +34,10 @@ QPixmap makeCheckCircleIcon(int logical = 14);
 QPixmap loadSvgPixmap(const QString &path, int logical);
 QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString &tip);
 QIcon makePinIcon(bool pinned, const QColor &color);
+QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &fg,
+                           const QColor &border);
+QPixmap makePeerSubline(const QString &addr, bool offline, bool manual, bool pinned,
+                        const QString &osName, const QString &tag, int maxLogicalW = 168);
 
 // 聊天气泡 HTML 仍用首字头像
 QString avatarInitial(const QString &name);
