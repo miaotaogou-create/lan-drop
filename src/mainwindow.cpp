@@ -1193,16 +1193,12 @@ void MainWindow::applyStyle()
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
-        /* 选中条改由行内 peerRowIndicator 绘制，避免 round+border-left 破皮 */
-        "#peerList::item { background: #ffffff; border: 1px solid #eef2f7;"
+        "#peerList::item { background: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 12px; padding: 2px 4px; margin: 3px 0; color: transparent; }"
-        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0; }"
-        "#peerList::item:selected { background: #f0f7ff; border: 1px solid #93c5fd; color: transparent; }"
-        "#peerList::item:selected:hover { background: #e8f1ff; border-color: #60a5fa; }"
+        "#peerList::item:hover { background: #f8fafc; border-color: #cbd5e1; }"
+        "#peerList::item:selected { background: #f0f7ff; border: 1px solid #3b82f6; color: transparent; }"
+        "#peerList::item:selected:hover { background: #e8f1ff; border-color: #2563eb; }"
         "#peerRow { background: transparent; }"
-        "#peerRowIndicator { background: transparent; border: none; border-radius: 2px; min-width: 3px;"
-        " max-width: 3px; }"
-        "#peerRowIndicator[active=\"true\"] { background: #2563eb; }"
         "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
         "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
         "#peerRowIp { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
@@ -2931,28 +2927,6 @@ void MainWindow::updateEmpty()
         updatePeerSession();
 }
 
-void MainWindow::updatePeerRowIndicators()
-{
-    if (!m_list)
-        return;
-    const int cur = m_list->currentRow();
-    for (int i = 0; i < m_list->count(); ++i) {
-        QWidget *row = m_list->itemWidget(m_list->item(i));
-        if (!row)
-            continue;
-        QLabel *ind = row->findChild<QLabel *>(QStringLiteral("peerRowIndicator"));
-        if (!ind)
-            continue;
-        const bool on = (i == cur);
-        if (ind->property("active").toBool() == on)
-            continue;
-        ind->setProperty("active", on);
-        ind->style()->unpolish(ind);
-        ind->style()->polish(ind);
-        ind->update();
-    }
-}
-
 void MainWindow::updatePeerListPings()
 {
     if (!m_list)
@@ -3074,16 +3048,8 @@ void MainWindow::refreshPeers()
         rowHost->setObjectName(QStringLiteral("peerRow"));
         rowHost->setAttribute(Qt::WA_TranslucentBackground, true);
         QHBoxLayout *rowLay = new QHBoxLayout(rowHost);
-        rowLay->setContentsMargins(6, 6, 10, 6);
+        rowLay->setContentsMargins(10, 6, 10, 6);
         rowLay->setSpacing(10);
-        // 内嵌 3px 指示条：与圆角卡片解耦，避免 QSS border-left 破皮
-        QLabel *ind = new QLabel;
-        ind->setObjectName(QStringLiteral("peerRowIndicator"));
-        ind->setFixedWidth(3);
-        ind->setMinimumHeight(28);
-        ind->setMaximumHeight(36);
-        ind->setAttribute(Qt::WA_StyledBackground, true);
-        ind->setProperty("active", false);
         QLabel *av = new QLabel;
         av->setFixedSize(44, 44);
         av->setScaledContents(false);
@@ -3146,7 +3112,6 @@ void MainWindow::refreshPeers()
             tip += QString::fromUtf8(u8"\n已置顶");
         it->setToolTip(tip);
 
-        rowLay->addWidget(ind, 0, Qt::AlignVCenter);
         rowLay->addWidget(av, 0, Qt::AlignVCenter);
         rowLay->addLayout(textCol, 1);
         rowLay->addLayout(rightCol, 0);
@@ -3168,7 +3133,6 @@ void MainWindow::refreshPeers()
         showChat();
     else
         updateEmpty();
-    updatePeerRowIndicators();
     updateHostPill();
 #ifdef Q_OS_WIN
     if (m_list) {
@@ -3343,7 +3307,6 @@ void MainWindow::showChat()
     refreshFilesView();
     updatePeerSession();
     updateInputPlaceholder();
-    updatePeerRowIndicators();
     if (m_input) {
         QTimer::singleShot(0, this, [this]() {
             if (m_input && currentPeer(0, 0, 0))
