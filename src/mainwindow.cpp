@@ -1606,7 +1606,7 @@ void MainWindow::syncPinBtn()
     m_pinBtn->setIcon(makePinIcon(on, on ? QColor(QStringLiteral("#2563eb"))
                                          : QColor(QStringLiteral("#475569"))));
     m_pinBtn->setToolTip(on ? QString::fromUtf8(u8"取消置顶")
-                            : QString::fromUtf8(u8"窗口置顶"));
+                            : QString::fromUtf8(u8"钉住窗口 / 保持置顶"));
 }
 
 void MainWindow::toggleAlwaysOnTop(bool on)

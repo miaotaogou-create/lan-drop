@@ -20,6 +20,8 @@
         <file alias="shield-check.svg">shield-check.svg</file>
         <file alias="toggle-off.svg">toggle-off.svg</file>
         <file alias="toggle-on.svg">toggle-on.svg</file>
+        <file alias="pin-off.svg">pin-off.svg</file>
+        <file alias="pin-on.svg">pin-on.svg</file>
     </qresource>
     <qresource prefix="/avatars">
         <file>avatar_ubuntu.svg</file>

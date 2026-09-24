@@ -470,18 +470,11 @@ QPushButton *chromeBtn(ChromeIcon kind, const QString &objectName, const QString
 
 QIcon makePinIcon(bool pinned, const QColor &color)
 {
-    const int s = 18;
-    QPixmap pm = makeDprPixmap(s);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    if (pinned)
-        p.setBrush(color);
-    else
-        p.setBrush(Qt::NoBrush);
-    p.drawEllipse(QRectF(5.0, 2.5, 8.0, 8.0));
-    p.drawLine(QPointF(9.0, 10.5), QPointF(9.0, 15.0));
-    return QIcon(pm);
+    Q_UNUSED(color);
+    // 成对 SVG：斜插镂空 / 垂直蓝实心；颜色写在矢量里，与齿轮线宽一致
+    return QIcon(renderSvgIcon(pinned ? QStringLiteral(":/icons/pin-on.svg")
+                                      : QStringLiteral(":/icons/pin-off.svg"),
+                               18));
 }
 
 QPixmap makePeerStatusChip(const QString &text, const QColor &bg, const QColor &fg,
