@@ -44,21 +44,20 @@ mkdir -p "$IME_PIC"
 for f in "$APPDIR/plugins/platforminputcontexts/"*; do
     [ -e "$f" ] || continue
     base=$(basename "$f")
-    [ -e "$IME_PIC/$base" ] || ln -sf "$f" "$IME_PIC/$base" 2>/dev/null || true
+    # 每次启动刷新：AppImage 挂载点路径会变，旧 symlink 会失效
+    ln -sf "$f" "$IME_PIC/$base" 2>/dev/null || true
 done
 
 FCITX_DST="$IME_PIC/libfcitxplatforminputcontextplugin.so"
-if [ ! -e "$FCITX_DST" ]; then
-    for cand in \
-        /usr/lib/aarch64-linux-gnu/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
-        /usr/lib/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
-        /usr/lib64/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so; do
-        if [ -f "$cand" ]; then
-            ln -sf "$cand" "$FCITX_DST" 2>/dev/null || cp -L "$cand" "$FCITX_DST" 2>/dev/null || true
-            break
-        fi
-    done
-fi
+for cand in \
+    /usr/lib/aarch64-linux-gnu/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
+    /usr/lib/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so \
+    /usr/lib64/qt5/plugins/platforminputcontexts/libfcitxplatforminputcontextplugin.so; do
+    if [ -f "$cand" ]; then
+        ln -sf "$cand" "$FCITX_DST" 2>/dev/null || cp -L "$cand" "$FCITX_DST" 2>/dev/null || true
+        break
+    fi
+done
 
 # 先搜可写 IME 层，再搜包内 platforms/imageformats 等
 export QT_PLUGIN_PATH="$IME_ROOT:$APPDIR/plugins"
