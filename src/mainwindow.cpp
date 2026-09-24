@@ -578,13 +578,21 @@ void MainWindow::buildUi()
     addBtn->setObjectName(QStringLiteral("addBtn"));
     addBtn->setCursor(Qt::PointingHandCursor);
     addBtn->setFocusPolicy(Qt::NoFocus);
+    addBtn->setFlat(true);
     connect(addBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
-    QHBoxLayout *titleGroup = new QHBoxLayout;
+    // 左侧标题+数量包一层，与右侧按钮同用 AlignVCenter，避免 QLayout 默认顶齐
+    QWidget *titleHost = new QWidget;
+    titleHost->setObjectName(QStringLiteral("sideTitleHost"));
+    QHBoxLayout *titleGroup = new QHBoxLayout(titleHost);
     titleGroup->setContentsMargins(0, 0, 0, 0);
     titleGroup->setSpacing(6);
     titleGroup->addWidget(sideTitle, 0, Qt::AlignVCenter);
     titleGroup->addWidget(m_peerCount, 0, Qt::AlignVCenter);
-    sideHead->addLayout(titleGroup, 0);
+    const int headLineH = 24;
+    sideTitle->setFixedHeight(headLineH);
+    m_peerCount->setFixedHeight(headLineH);
+    addBtn->setFixedHeight(headLineH);
+    sideHead->addWidget(titleHost, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
     sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
 
@@ -1172,11 +1180,12 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
-        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 2px 7px;"
+        "#sideTitleHost { background: transparent; }"
+        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 0 7px;"
         " font-size: 11px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
         "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
-        " padding: 4px 6px; font-size: 12px; font-weight: 600; min-height: 24px; }"
+        " padding: 0 6px; margin: 0; font-size: 12px; font-weight: 600; }"
         "#addBtn:hover { background: #f1f5f9; color: #334155; }"
         "#addBtn:pressed { background: #e2e8f0; color: #0f172a; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
