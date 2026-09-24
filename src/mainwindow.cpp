@@ -581,13 +581,10 @@ void MainWindow::buildUi()
     titleFont.setPixelSize(16);
     titleFont.setBold(true);
     sideTitle->setFont(titleFont);
+    addBtn->setFont(titleFont);
     const int lineH = QFontMetrics(titleFont).height();
     sideTitle->setFixedHeight(lineH);
     addBtn->setFixedHeight(lineH);
-    QFont addFont = qApp->font();
-    addFont.setPixelSize(14);
-    addFont.setBold(true);
-    addBtn->setFont(addFont);
     sideHead->addWidget(sideTitle, 0, Qt::AlignVCenter);
     sideHead->addStretch(1);
     sideHead->addWidget(addBtn, 0, Qt::AlignVCenter);
@@ -1176,9 +1173,8 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
-        /* 略加大顶内边距，抵消「+」字形视觉中心偏高 */
         "#addBtn { background: transparent; border: none; border-radius: 6px; color: #64748b;"
-        " padding: 3px 6px 1px 6px; margin: 0; font-size: 14px; font-weight: 600; }"
+        " padding: 0 4px; margin: 0; font-size: 16px; font-weight: 700; }"
         "#addBtn:hover { background: #f1f5f9; color: #334155; }"
         "#addBtn:pressed { background: #e2e8f0; color: #0f172a; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
