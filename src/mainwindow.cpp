@@ -1275,17 +1275,16 @@ void MainWindow::applyStyle()
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 10px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
-        /* 设备行：无硬边框，与搜索框同宽同圆角；悬停淡灰、选中浅蓝底 */
-        "#peerList::item { background: transparent; border: none;"
+        /* 设备行白卡三态：默认白+灰边，悬停浅灰，选中才浅蓝+蓝边 */
+        "#peerList::item { background: #ffffff; border: 1px solid #e2e8f0;"
         " border-radius: 10px; padding: 0; margin: 0 0 6px 0; color: transparent; }"
-        "#peerList::item:hover { background: #f1f5f9; }"
-        "#peerList::item:selected { background: #eff6ff; border: none; color: transparent; }"
-        "#peerList::item:selected:hover { background: #dbeafe; }"
+        "#peerList::item:hover { background: #f8fafc; border-color: #cbd5e1; }"
+        "#peerList::item:selected { background: #eff6ff; border: 1px solid #3b82f6; color: transparent; }"
+        "#peerList::item:selected:hover { background: #dbeafe; border-color: #3b82f6; }"
         "#peerRow { background: transparent; }"
-        "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
+        "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 600; background: transparent; }"
         "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
-        "#peerRowIp { color: #64748b; font-size: 11px; font-family: Consolas, 'Courier New', monospace;"
-        " background: transparent; border: none; }"
+        "#peerRowIp { color: #64748b; font-size: 12px; font-weight: 500; background: transparent; border: none; }"
         "#peerRowOs { background: transparent; border: none; }"
         "#peerRowPingHost { background: transparent; border: none; }"
         "#peerRowPingIcon { background: transparent; border: none; }"
@@ -3158,6 +3157,25 @@ void MainWindow::refreshPeers()
         QLabel *nameLab = new QLabel(p.label());
         nameLab->setObjectName(QStringLiteral("peerRowName"));
         nameLab->setProperty("offline", !online);
+        {
+            QFont nameFont = qApp->font();
+            const QStringList prefer = QStringList()
+                << QStringLiteral("Microsoft YaHei UI")
+                << QStringLiteral("Microsoft YaHei")
+                << QString::fromUtf8(u8"微软雅黑")
+                << QStringLiteral("Segoe UI");
+            const QStringList fams = QFontDatabase().families();
+            for (int i = 0; i < prefer.size(); ++i) {
+                if (fams.contains(prefer.at(i))) {
+                    nameFont.setFamily(prefer.at(i));
+                    break;
+                }
+            }
+            nameFont.setPixelSize(13);
+            nameFont.setWeight(QFont::DemiBold);
+            nameFont.setStyleStrategy(QFont::PreferAntialias);
+            nameLab->setFont(nameFont);
+        }
         nameLab->style()->unpolish(nameLab);
         nameLab->style()->polish(nameLab);
         if (unread > 0) {
@@ -3165,9 +3183,32 @@ void MainWindow::refreshPeers()
             f.setBold(true);
             nameLab->setFont(f);
         }
-        // 参考图：副行只留 IP，主机名/链路描述不进列表
+        // 参考图：副行只留 IP；非等宽加深板岩灰，避免细 Courier 发虚
         QLabel *ipLab = new QLabel(addrShort);
         ipLab->setObjectName(QStringLiteral("peerRowIp"));
+        {
+            QFont ipFont = qApp->font();
+            const QStringList prefer = QStringList()
+                << QStringLiteral("Segoe UI")
+                << QStringLiteral("Microsoft YaHei UI")
+                << QStringLiteral("Microsoft YaHei")
+                << QString::fromUtf8(u8"微软雅黑");
+            const QStringList fams = QFontDatabase().families();
+            for (int i = 0; i < prefer.size(); ++i) {
+                if (fams.contains(prefer.at(i))) {
+                    ipFont.setFamily(prefer.at(i));
+                    break;
+                }
+            }
+            ipFont.setPixelSize(12);
+            ipFont.setWeight(QFont::Medium);
+            ipFont.setStyleStrategy(QFont::PreferAntialias);
+            ipLab->setFont(ipFont);
+            QPalette pal = ipLab->palette();
+            pal.setColor(QPalette::WindowText, QColor(QStringLiteral("#64748b")));
+            pal.setColor(QPalette::Text, QColor(QStringLiteral("#64748b")));
+            ipLab->setPalette(pal);
+        }
         textCol->addWidget(nameLab);
         textCol->addWidget(ipLab);
 
