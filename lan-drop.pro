@@ -39,6 +39,9 @@ HEADERS += \
 
 RESOURCES += icons/icons.qrc
 
+# Windows 资源管理器 / 任务栏 exe 图标（多尺寸 ICO）
+win32: RC_ICONS = icons/landrop.ico
+
 # MSVC 没有 BOM 时容易误判 UTF-8 源文件；另：不要对中文用 QStringLiteral，
 # 它会展开成 u"" "中文"，在 VS2017 上拼接会把字编坏，请写 QString::fromUtf8(u8"...")。
 win32 {

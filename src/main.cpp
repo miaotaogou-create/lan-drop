@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QLibraryInfo>
 #include <QTranslator>
 
@@ -94,7 +95,11 @@ int main(int argc, char *argv[])
     // 关主窗默认进托盘，不随最后窗口关闭而退出
     QApplication::setQuitOnLastWindowClosed(false);
 
+    const QIcon appIcon(QStringLiteral(":/icons/landrop_app_icon.svg"));
+    app.setWindowIcon(appIcon);
+
     MainWindow w;
+    w.setWindowIcon(appIcon);
     w.show();
     return app.exec();
 }

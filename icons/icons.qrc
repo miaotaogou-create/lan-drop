@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/icons">
+        <file alias="landrop_app_icon.svg">landrop_app_icon.svg</file>
         <file alias="paperclip.svg">paperclip.svg</file>
         <file alias="folder.svg">folder.svg</file>
         <file alias="folder-plus.svg">folder-plus.svg</file>

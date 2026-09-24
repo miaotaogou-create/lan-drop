@@ -1549,7 +1549,7 @@ void MainWindow::setupTray()
     if (!QSystemTrayIcon::isSystemTrayAvailable())
         return;
     m_tray = new QSystemTrayIcon(this);
-    m_tray->setIcon(QIcon(makeRadioLogo(32)));
+    m_tray->setIcon(QIcon(QStringLiteral(":/icons/landrop_app_icon.svg")));
     m_tray->setToolTip(QString::fromUtf8(u8"局域快传 · 后台接收中"));
     QMenu *menu = new QMenu(this);
     styleAppMenu(menu);
