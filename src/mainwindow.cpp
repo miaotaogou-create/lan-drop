@@ -599,10 +599,35 @@ void MainWindow::buildUi()
 
     m_search = new QLineEdit;
     m_search->setObjectName(QStringLiteral("search"));
-    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索名称、IP 或标签…（Ctrl+F）"));
+    m_search->setPlaceholderText(QString::fromUtf8(u8"搜索设备、IP…（Ctrl+F）"));
     m_search->setToolTip(QString::fromUtf8(u8"Ctrl+F 聚焦；Esc 清除搜索"));
     m_search->setClearButtonEnabled(true);
     m_search->setFrame(false);
+    {
+        // 与聊天输入同系：雅黑 UI + 抗锯齿；占位走 palette（Qt5 无可靠 ::placeholder）
+        QFont searchFont = qApp->font();
+        const QStringList prefer = QStringList()
+            << QStringLiteral("Microsoft YaHei UI")
+            << QStringLiteral("Microsoft YaHei")
+            << QString::fromUtf8(u8"微软雅黑")
+            << QStringLiteral("Segoe UI")
+            << QStringLiteral("Noto Sans CJK SC")
+            << QStringLiteral("PingFang SC");
+        const QStringList fams = QFontDatabase().families();
+        for (int i = 0; i < prefer.size(); ++i) {
+            if (fams.contains(prefer.at(i))) {
+                searchFont.setFamily(prefer.at(i));
+                break;
+            }
+        }
+        searchFont.setPixelSize(12);
+        searchFont.setStyleStrategy(QFont::PreferAntialias);
+        m_search->setFont(searchFont);
+        QPalette pal = m_search->palette();
+        pal.setColor(QPalette::Text, QColor(QStringLiteral("#1e293b")));
+        pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#94a3b8")));
+        m_search->setPalette(pal);
+    }
     m_search->installEventFilter(this);
     connect(m_search, SIGNAL(textChanged(QString)), this, SLOT(filterPeers(QString)));
     QShortcut *findShortcut = new QShortcut(QKeySequence::Find, this);
@@ -1218,7 +1243,7 @@ void MainWindow::applyStyle()
         "#searchShell[focused=\"true\"] { background: #ffffff; border: 1px solid #3b82f6; }"
         "#searchIcon { background: transparent; border: none; }"
         "#search { background: transparent; border: none; padding: 6px 4px;"
-        " color: #334155; selection-background-color: #bfdbfe; }"
+        " color: #1e293b; font-size: 12px; selection-background-color: #bfdbfe; }"
         "#search:focus { background: transparent; border: none; }"
         "#search QToolButton { background: transparent; border: none; border-radius: 6px; padding: 2px; }"
         "#search QToolButton:hover { background: #f1f5f9; }"

@@ -196,9 +196,9 @@
 - 结果：待目视确认
 
 ### TC-65 搜索占位与无匹配空态
-- 对应验收：A2–A4（`docs/requirements/20260922-copy-honest-search.md`）
+- 对应验收：A2–A4（`docs/requirements/20260922-copy-honest-search.md`）；S3（`docs/requirements/20260924-search-placeholder-font.md`）
 - 步骤：看搜索占位；有对端时输入不可能匹配的关键字；再清空搜索
-- 期望：占位含标签；无匹配时右侧有说明；清空后列表恢复
+- 期望：占位为「搜索设备、IP…（Ctrl+F）」；无匹配时右侧有说明；清空后列表恢复
 - 类型：手测
 - 结果：待手测
 
@@ -728,9 +728,9 @@
 - 结果：待手测
 
 ### TC-141 搜索快捷键与列表拖放遮罩
-- 对应验收：S1–S3（`docs/requirements/20260922-search-hint-drop-list.md`）
-- 步骤：看搜索占位；悬停文件卡复制路径；向侧栏设备列表拖文件
-- 期望：占位含 Ctrl+F；悬停有提示；侧栏出现「拖到具体设备上…」遮罩
+- 对应验收：S1–S3（`docs/requirements/20260922-search-hint-drop-list.md`）；S1–S4（`docs/requirements/20260924-search-placeholder-font.md`）
+- 步骤：看搜索占位字色与清晰度；悬停文件卡复制路径；向侧栏设备列表拖文件
+- 期望：占位为「搜索设备、IP…（Ctrl+F）」、冷灰 `#94a3b8`、无明显发虚；悬停有提示；侧栏出现「拖到具体设备上…」遮罩
 - 类型：手测
 - 结果：待手测
 
