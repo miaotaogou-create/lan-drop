@@ -27,8 +27,10 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDragEnterEvent>
+#include <QDragLeaveEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QAbstractScrollArea>
 #include <QElapsedTimer>
 #include <QEvent>
 #include <QEventLoop>
@@ -247,91 +249,6 @@ private:
     int m_depth = 0;
 };
 
-// 拖到设备列表某行：选中该对端再发送
-class PeerListDropFilter : public QObject
-{
-public:
-    explicit PeerListDropFilter(QListWidget *list, QObject *parent = 0)
-        : QObject(parent)
-        , m_list(list)
-    {
-    }
-    std::function<void(const QStringList &, bool fromFolder)> onFiles;
-    std::function<void(const QList<QUrl> &)> onUrls;
-    std::function<void()> onMiss;
-    std::function<void(bool)> onActive;
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override
-    {
-        Q_UNUSED(watched);
-        if (!m_list)
-            return false;
-        if (event->type() == QEvent::DragEnter) {
-            QDragEnterEvent *de = static_cast<QDragEnterEvent *>(event);
-            if (de->mimeData() && de->mimeData()->hasUrls()) {
-                de->acceptProposedAction();
-                ++m_depth;
-                if (m_depth == 1 && onActive)
-                    onActive(true);
-                return true;
-            }
-        }
-        if (event->type() == QEvent::DragMove) {
-            QDragMoveEvent *de = static_cast<QDragMoveEvent *>(event);
-            if (de->mimeData() && de->mimeData()->hasUrls()) {
-                const QPoint pos = (watched == m_list->viewport())
-                    ? de->pos()
-                    : m_list->viewport()->mapFrom(m_list, de->pos());
-                if (QListWidgetItem *it = m_list->itemAt(pos))
-                    m_list->setCurrentItem(it);
-                de->acceptProposedAction();
-                return true;
-            }
-        }
-        if (event->type() == QEvent::DragLeave) {
-            m_depth = qMax(0, m_depth - 1);
-            if (m_depth == 0 && onActive)
-                onActive(false);
-            return false;
-        }
-        if (event->type() == QEvent::Drop) {
-            QDropEvent *de = static_cast<QDropEvent *>(event);
-            m_depth = 0;
-            if (onActive)
-                onActive(false);
-            const QPoint pos = (watched == m_list->viewport())
-                ? de->pos()
-                : m_list->viewport()->mapFrom(m_list, de->pos());
-            QListWidgetItem *it = m_list->itemAt(pos);
-            if (!de->mimeData() || !de->mimeData()->hasUrls())
-                return false;
-            if (!it) {
-                if (onMiss)
-                    onMiss();
-                de->acceptProposedAction();
-                return true;
-            }
-            m_list->setCurrentItem(it);
-            if (onUrls) {
-                onUrls(de->mimeData()->urls());
-            } else if (onFiles) {
-                bool hadDir = false;
-                const QStringList paths = localSendPathsFromUrls(de->mimeData()->urls(), &hadDir, 0);
-                if (!paths.isEmpty())
-                    onFiles(paths, hadDir);
-            }
-            de->acceptProposedAction();
-            return true;
-        }
-        return QObject::eventFilter(watched, event);
-    }
-
-private:
-    QListWidget *m_list = 0;
-    int m_depth = 0;
-};
-
 // 弹窗阴影见 uidialogs::applyFloatingShadow
 
 MainWindow::MainWindow(QWidget *parent)
@@ -362,8 +279,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     buildUi();
     applyStyle();
-    setupChatDrop();
-    setupPeerListDrop();
+    setupWindowDrop();
 
     m_chatSaveTimer = new QTimer(this);
     m_chatSaveTimer->setSingleShot(true);
@@ -3007,6 +2923,12 @@ void MainWindow::refreshPeers()
     else
         updateEmpty();
     updateHostPill();
+    // 列表重建后确保 viewport 不抢主窗口 drop
+    if (m_list) {
+        m_list->setAcceptDrops(false);
+        if (m_list->viewport())
+            m_list->viewport()->setAcceptDrops(false);
+    }
 }
 
 void MainWindow::setSessionTab(int index)
@@ -4371,40 +4293,123 @@ void MainWindow::enqueueMoreUploads(const QStringList &paths, bool announceFolde
         pumpUploadQueue();
 }
 
-void MainWindow::setupChatDrop()
+void MainWindow::silenceChildDrops(QWidget *root)
 {
-    ShareDropFilter *filter = new ShareDropFilter(this);
-    filter->onUrls = [this](const QList<QUrl> &urls) { handleDroppedUrls(urls); };
-    filter->onActive = [this](bool on) { setChatDropHint(on); };
-    // 只挂会话页：子控件不接 drop，事件落到 chatPage，避免进出子控件时高亮闪烁
-    if (m_chatPage) {
-        m_chatPage->setAcceptDrops(true);
-        m_chatPage->installEventFilter(filter);
-        m_chatPage->installEventFilter(this); // 同步遮罩几何
+    if (!root)
+        return;
+    root->setAcceptDrops(false);
+    const QList<QWidget *> kids = root->findChildren<QWidget *>();
+    for (int i = 0; i < kids.size(); ++i)
+        kids.at(i)->setAcceptDrops(false);
+    const QList<QAbstractScrollArea *> areas = root->findChildren<QAbstractScrollArea *>();
+    for (int i = 0; i < areas.size(); ++i) {
+        QAbstractScrollArea *sa = areas.at(i);
+        sa->setAcceptDrops(false);
+        if (sa->viewport())
+            sa->viewport()->setAcceptDrops(false);
     }
-    QWidget *inner[] = { m_chat, m_composer, m_inputShell, m_sessionStack, m_files };
-    for (int i = 0; i < 5; ++i) {
-        if (inner[i])
-            inner[i]->setAcceptDrops(false);
-    }
+}
+
+void MainWindow::setupWindowDrop()
+{
+    // QTextBrowser/QPlainTextEdit 的 viewport 默认抢 drop，Explorer 拖入无反应。
+    // 子控件全部关闭 acceptDrops，由主窗口统一接收。
+    setAcceptDrops(true);
+    if (centralWidget())
+        silenceChildDrops(centralWidget());
     if (m_chat)
         m_chat->installEventFilter(this); // Ctrl+V 粘贴发文件
 }
 
-void MainWindow::setupPeerListDrop()
+void MainWindow::updateDropChrome(const QPoint &globalPos)
 {
-    if (!m_list)
+    bool overList = false;
+    if (m_list && m_list->isVisible()) {
+        const QPoint lp = m_list->viewport()->mapFromGlobal(globalPos);
+        overList = m_list->viewport()->rect().contains(lp);
+        if (overList) {
+            if (QListWidgetItem *it = m_list->itemAt(lp))
+                m_list->setCurrentItem(it);
+        }
+    }
+    if (overList) {
+        setListDropHint(true);
+        setChatDropHint(false);
         return;
-    PeerListDropFilter *filter = new PeerListDropFilter(m_list, this);
-    filter->onUrls = [this](const QList<QUrl> &urls) { handleDroppedUrls(urls); };
-    filter->onMiss = [this]() {
+    }
+    setListDropHint(false);
+    bool overRight = false;
+    if (m_pages && m_pages->isVisible()) {
+        const QPoint rp = m_pages->mapFromGlobal(globalPos);
+        overRight = m_pages->rect().contains(rp);
+    }
+    setChatDropHint(overRight);
+}
+
+bool MainWindow::selectPeerAtGlobalPos(const QPoint &globalPos, bool *overListBlank)
+{
+    if (overListBlank)
+        *overListBlank = false;
+    if (!m_list || !m_list->isVisible())
+        return false;
+    const QPoint lp = m_list->viewport()->mapFromGlobal(globalPos);
+    if (!m_list->viewport()->rect().contains(lp))
+        return false;
+    QListWidgetItem *it = m_list->itemAt(lp);
+    if (!it) {
+        if (overListBlank)
+            *overListBlank = true;
+        return false;
+    }
+    m_list->setCurrentItem(it);
+    return true;
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+        event->ignore();
+        return;
+    }
+    event->acceptProposedAction();
+    updateDropChrome(mapToGlobal(event->pos()));
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent *event)
+{
+    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+        event->ignore();
+        return;
+    }
+    event->acceptProposedAction();
+    updateDropChrome(mapToGlobal(event->pos()));
+}
+
+void MainWindow::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    Q_UNUSED(event);
+    setChatDropHint(false);
+    setListDropHint(false);
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    setChatDropHint(false);
+    setListDropHint(false);
+    if (!event->mimeData() || !event->mimeData()->hasUrls()) {
+        event->ignore();
+        return;
+    }
+    const QPoint globalPos = mapToGlobal(event->pos());
+    bool overListBlank = false;
+    selectPeerAtGlobalPos(globalPos, &overListBlank);
+    if (overListBlank) {
         setProgress(QString::fromUtf8(u8"请拖到具体设备上"));
-    };
-    filter->onActive = [this](bool on) { setListDropHint(on); };
-    m_list->setAcceptDrops(true);
-    m_list->viewport()->setAcceptDrops(true);
-    m_list->installEventFilter(filter);
-    m_list->viewport()->installEventFilter(filter);
+        event->acceptProposedAction();
+        return;
+    }
+    handleDroppedUrls(event->mimeData()->urls());
+    event->acceptProposedAction();
 }
 
 void MainWindow::setListDropHint(bool on)

@@ -19,6 +19,10 @@ class HttpServer;
 class WindowChrome;
 class QAction;
 class QCloseEvent;
+class QDragEnterEvent;
+class QDragLeaveEvent;
+class QDragMoveEvent;
+class QDropEvent;
 class QFrame;
 class QLabel;
 class QLineEdit;
@@ -50,6 +54,10 @@ protected:
     bool nativeEvent(const QByteArray &eventType, void *message, long *result) override;
     void changeEvent(QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private slots:
     void refreshPeers();
@@ -102,11 +110,13 @@ private:
     void buildUi();
     void applyStyle();
     void setupTray();
-    void setupChatDrop();
-    void setupPeerListDrop();
+    void setupWindowDrop();
+    void silenceChildDrops(QWidget *root);
     void hideToTray();
     void setListDropHint(bool on);
     void setChatDropHint(bool on);
+    void updateDropChrome(const QPoint &globalPos);
+    bool selectPeerAtGlobalPos(const QPoint &globalPos, bool *overListBlank);
     void enqueueDroppedPaths(const QStringList &paths, bool fromFolder = false);
     void handleDroppedUrls(const QList<QUrl> &urls);
     void pumpZipQueue();
