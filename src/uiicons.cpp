@@ -6,6 +6,7 @@
 #include <QFont>
 #include <QFontMetrics>
 #include <QHash>
+#include <QLinearGradient>
 #include <QList>
 #include <QPainter>
 #include <QPainterPath>
@@ -162,8 +163,9 @@ QString avatarInitial(const QString &name)
 
 static QColor avatarColorForName(const QString &name)
 {
+    // 更亮更干净的 Fluent 色阶，避免姜黄发脏
     static const char *kColors[] = {
-        "#f97316", "#2563eb", "#059669", "#7c3aed", "#db2777", "#0891b2", "#ca8a04"
+        "#F59E0B", "#3B82F6", "#10B981", "#8B5CF6", "#EC4899", "#06B6D4", "#F97316"
     };
     const uint h = qHash(name.isEmpty() ? QStringLiteral("?") : name);
     return QColor(QString::fromLatin1(kColors[h % 7]));
@@ -216,19 +218,25 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setPen(Qt::NoPen);
-    p.setBrush(avatarColorForName(name));
-    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 10.0, 10.0);
+    const QColor base = avatarColorForName(name);
+    QLinearGradient grad(0, 0, 0, logical);
+    grad.setColorAt(0.0, base.lighter(112));
+    grad.setColorAt(1.0, base.darker(108));
+    p.setBrush(grad);
+    p.drawRoundedRect(QRectF(0.5, 0.5, logical - 1.0, logical - 1.0), 11.0, 11.0);
     QFont font = qApp->font();
     font.setPixelSize(qMax(14, logical * 2 / 5));
     font.setBold(true);
     p.setFont(font);
     p.setPen(Qt::white);
     p.drawText(QRectF(0, 0, logical, logical), Qt::AlignCenter, avatarInitial(name));
-    // 右下角设备类型小标（笔记本/手机/平板）
+    // 右下角设备角标：白环隔离 + 浅蓝底，避免黏在头像上
     const int badge = qMax(14, logical * 14 / 44);
     const QRectF badgeRect(logical - badge - 1.0, logical - badge - 1.0, badge, badge);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#dbeafe")));
+    p.setBrush(Qt::white);
+    p.drawEllipse(badgeRect.adjusted(-1.5, -1.5, 1.5, 1.5));
+    p.setBrush(QColor(QStringLiteral("#eff6ff")));
     p.drawEllipse(badgeRect);
     DeviceKind kind = DevLaptop;
     const int k = deviceKindFromOs(osName);
@@ -236,7 +244,7 @@ QPixmap makePeerAvatar(const QString &name, const QString &osName, int logical)
         kind = DevPhone;
     else if (k == 2)
         kind = DevTablet;
-    paintDeviceGlyph(p, kind, badgeRect.adjusted(2.5, 2.5, -2.5, -2.5),
+    paintDeviceGlyph(p, kind, badgeRect.adjusted(2.8, 2.8, -2.8, -2.8),
                      QColor(QStringLiteral("#2563eb")));
     return pm;
 }

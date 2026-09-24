@@ -145,6 +145,7 @@ private:
     void updateChrome();
     void refreshChromePixmaps();
     void updateEmpty();
+    void updatePeerRowIndicators();
     void updateHostPill();
     void updatePeerSession();
     void setSessionTab(int index);

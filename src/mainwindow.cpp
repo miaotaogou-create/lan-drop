@@ -561,8 +561,8 @@ void MainWindow::buildUi()
     side->setMinimumWidth(220);
     side->setMaximumWidth(480);
     QVBoxLayout *sideLay = new QVBoxLayout(side);
-    sideLay->setContentsMargins(16, 14, 16, 14);
-    sideLay->setSpacing(10);
+    sideLay->setContentsMargins(16, 16, 16, 16);
+    sideLay->setSpacing(12);
 
     QHBoxLayout *sideHead = new QHBoxLayout;
     sideHead->setContentsMargins(0, 0, 0, 0);
@@ -605,10 +605,11 @@ void MainWindow::buildUi()
     });
     m_searchShell = new QWidget;
     m_searchShell->setObjectName(QStringLiteral("searchShell"));
+    m_searchShell->setAttribute(Qt::WA_StyledBackground, true);
     applyFloatingShadow(m_searchShell);
     QHBoxLayout *searchLay = new QHBoxLayout(m_searchShell);
-    searchLay->setContentsMargins(12, 0, 6, 0);
-    searchLay->setSpacing(6);
+    searchLay->setContentsMargins(12, 2, 8, 2);
+    searchLay->setSpacing(8);
     QLabel *searchIcon = new QLabel;
     searchIcon->setObjectName(QStringLiteral("searchIcon"));
     searchIcon->setFixedSize(16, 16);
@@ -622,7 +623,7 @@ void MainWindow::buildUi()
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setIconSize(QSize(44, 44));
-    m_list->setSpacing(2);
+    m_list->setSpacing(4);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_list, SIGNAL(currentRowChanged(int)), this, SLOT(showChat()));
     connect(m_list, SIGNAL(customContextMenuRequested(QPoint)),
@@ -1166,45 +1167,46 @@ void MainWindow::applyStyle()
         "#pinBtn:checked { background: #eff6ff; }"
         "#pinBtn:checked:pressed { background: #dbeafe; }"
         "#closeBtn:hover { background: #ef4444; }"
-        "#side { background: #ffffff; border-right: 1px solid #e8eef5; }"
+        "#side { background: #fafafa; border-right: 1px solid #e2e8f0; }"
         "#bodySplit::handle:horizontal { background: #e2e8f0; margin: 28px 2px; border-radius: 2px; }"
         "#bodySplit::handle:horizontal:hover { background: #3b82f6; }"
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
-        "#sideTitle { color: #0f172a; font-size: 13px; font-weight: 700; }"
-        "#peerCount { background: #eff6ff; color: #1d4ed8; border-radius: 9px; padding: 2px 8px;"
-        " font-size: 11px; font-weight: 700; min-width: 16px; }"
-        "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; }"
-        "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8;"
+        "#sideTitle { color: #0f172a; font-size: 14px; font-weight: 700; }"
+        "#peerCount { background: #eff6ff; color: #2563eb; border-radius: 10px; padding: 2px 7px;"
+        " font-size: 11px; font-weight: 600; min-width: 16px; border: 1px solid #dbeafe; }"
+        "#peerCount[empty=\"true\"] { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }"
+        "#addBtn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #2563eb;"
         " padding: 4px 10px; font-size: 12px; font-weight: 600; min-height: 26px; }"
-        "#addBtn:hover { background: #dbeafe; }"
+        "#addBtn:hover { background: #dbeafe; border-color: #93c5fd; }"
         "#addBtn:pressed { background: #bfdbfe; }"
-        "#searchShell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; }"
-        "#searchShell[focused=\"true\"] { border: 1px solid #3b82f6; }"
+        "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
+        "#searchShell[focused=\"true\"] { background: #ffffff; border: 1.5px solid #3b82f6; }"
         "#searchIcon { background: transparent; border: none; }"
         "#search { background: transparent; border: none; padding: 8px 4px;"
-        " color: #0f172a; selection-background-color: #bfdbfe; }"
+        " color: #334155; selection-background-color: #bfdbfe; }"
         "#search:focus { background: transparent; border: none; }"
         "#search QToolButton { background: transparent; border: none; border-radius: 6px; padding: 2px; }"
         "#search QToolButton:hover { background: #f1f5f9; }"
-        "#peerList { background: transparent; outline: none; }"
+        "#peerList { background: transparent; outline: none; padding: 2px 0; }"
         "#peerListHost { background: transparent; }"
         "#listEmptyHint { color: #94a3b8; background: transparent; padding: 16px 8px; }"
         "#listDropHint { background: rgba(239, 246, 255, 230); border: 2px dashed #3b82f6; border-radius: 12px; }"
         "#listDropHintLabel { color: #1d4ed8; font-size: 13px; font-weight: 700; background: transparent; }"
         "#listDropHintSub { color: #60a5fa; font-size: 12px; font-weight: 600; background: transparent; }"
-        "#peerList::item { background: #ffffff; border: 1px solid #eef2f7;"
-        " border-left: 3px solid transparent; border-radius: 12px;"
-        " padding: 2px 8px; margin: 3px 2px; color: transparent; }"
-        "#peerList::item:hover { background: #f8fafc; border-color: #e2e8f0;"
-        " border-left: 3px solid #cbd5e1; }"
-        "#peerList::item:selected { background: #eff6ff; border-color: #93c5fd;"
-        " border-left: 3px solid #2563eb; color: transparent; }"
-        "#peerList::item:selected:hover { background: #dbeafe; border-color: #60a5fa;"
-        " border-left: 3px solid #2563eb; }"
+        /* 选中条改由行内 peerRowIndicator 绘制，避免 round+border-left 破皮 */
+        "#peerList::item { background: transparent; border: 1px solid transparent;"
+        " border-radius: 12px; padding: 2px 4px; margin: 2px 0; color: transparent; }"
+        "#peerList::item:hover { background: #f1f5f9; border-color: transparent; }"
+        "#peerList::item:selected { background: #f0f7ff; border: 1px solid #bfdbfe; color: transparent; }"
+        "#peerList::item:selected:hover { background: #e8f1ff; border-color: #93c5fd; }"
         "#peerRow { background: transparent; }"
+        "#peerRowIndicator { background: transparent; border: none; border-radius: 2px; min-width: 3px;"
+        " max-width: 3px; }"
+        "#peerRowIndicator[active=\"true\"] { background: #2563eb; }"
         "#peerRowName { color: #0f172a; font-size: 13px; font-weight: 700; background: transparent; }"
         "#peerRowName[offline=\"true\"] { color: #94a3b8; }"
         "#peerRowSub { background: transparent; }"
+        "#peerOnlineDot { background: transparent; border: none; }"
         "#right { background: #f1f5f9; }"
         "#emptyHost { background: #f1f5f9; }"
         "#emptyCard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; }"
@@ -2925,6 +2927,28 @@ void MainWindow::updateEmpty()
         updatePeerSession();
 }
 
+void MainWindow::updatePeerRowIndicators()
+{
+    if (!m_list)
+        return;
+    const int cur = m_list->currentRow();
+    for (int i = 0; i < m_list->count(); ++i) {
+        QWidget *row = m_list->itemWidget(m_list->item(i));
+        if (!row)
+            continue;
+        QLabel *ind = row->findChild<QLabel *>(QStringLiteral("peerRowIndicator"));
+        if (!ind)
+            continue;
+        const bool on = (i == cur);
+        if (ind->property("active").toBool() == on)
+            continue;
+        ind->setProperty("active", on);
+        ind->style()->unpolish(ind);
+        ind->style()->polish(ind);
+        ind->update();
+    }
+}
+
 void MainWindow::refreshPeers()
 {
     const QString keep = currentKey();
@@ -3000,7 +3024,7 @@ void MainWindow::refreshPeers()
         const int unread = m_unread.value(p.key(), 0);
         // 搜索串进 UserRole+5；item 明文不画，避免与 itemWidget 叠字
         QListWidgetItem *it = new QListWidgetItem;
-        it->setSizeHint(QSize(0, 56));
+        it->setSizeHint(QSize(0, 60));
         it->setToolTip(fullAddr);
         it->setData(Qt::UserRole, p.ip);
         it->setData(Qt::UserRole + 1, p.port);
@@ -3016,8 +3040,16 @@ void MainWindow::refreshPeers()
         rowHost->setObjectName(QStringLiteral("peerRow"));
         rowHost->setAttribute(Qt::WA_TranslucentBackground, true);
         QHBoxLayout *rowLay = new QHBoxLayout(rowHost);
-        rowLay->setContentsMargins(4, 2, 6, 2);
+        rowLay->setContentsMargins(6, 4, 8, 4);
         rowLay->setSpacing(10);
+        // 内嵌 3px 指示条：与圆角卡片解耦，避免 QSS border-left 破皮
+        QLabel *ind = new QLabel;
+        ind->setObjectName(QStringLiteral("peerRowIndicator"));
+        ind->setFixedWidth(3);
+        ind->setMinimumHeight(28);
+        ind->setMaximumHeight(36);
+        ind->setAttribute(Qt::WA_StyledBackground, true);
+        ind->setProperty("active", false);
         QLabel *av = new QLabel;
         av->setFixedSize(44, 44);
         av->setScaledContents(false);
@@ -3038,13 +3070,20 @@ void MainWindow::refreshPeers()
         }
         QLabel *subLab = new QLabel;
         subLab->setObjectName(QStringLiteral("peerRowSub"));
-        const int subMax = qMax(120, m_list->viewport()->width() - 78);
+        const int subMax = qMax(100, m_list->viewport()->width() - 96);
         subLab->setPixmap(makePeerSubline(addrShort, !online, p.manual, pinned, p.osName, p.tag,
                                           subMax));
         textCol->addWidget(nameLab);
         textCol->addWidget(subLab);
+        QLabel *dot = new QLabel;
+        dot->setObjectName(QStringLiteral("peerOnlineDot"));
+        dot->setFixedSize(8, 8);
+        dot->setPixmap(makeStatusDot(online, 8));
+        dot->setToolTip(online ? QString::fromUtf8(u8"在线") : QString::fromUtf8(u8"离线"));
+        rowLay->addWidget(ind, 0, Qt::AlignVCenter);
         rowLay->addWidget(av, 0, Qt::AlignVCenter);
         rowLay->addLayout(textCol, 1);
+        rowLay->addWidget(dot, 0, Qt::AlignVCenter);
         m_list->setItemWidget(it, rowHost);
 
         if (!want.isEmpty() && p.key() == want)
@@ -3063,6 +3102,7 @@ void MainWindow::refreshPeers()
         showChat();
     else
         updateEmpty();
+    updatePeerRowIndicators();
     updateHostPill();
 #ifdef Q_OS_WIN
     if (m_list) {
@@ -3237,6 +3277,7 @@ void MainWindow::showChat()
     refreshFilesView();
     updatePeerSession();
     updateInputPlaceholder();
+    updatePeerRowIndicators();
     if (m_input) {
         QTimer::singleShot(0, this, [this]() {
             if (m_input && currentPeer(0, 0, 0))
