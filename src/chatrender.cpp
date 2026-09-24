@@ -219,21 +219,43 @@ static bool looksLikeCommentLine(const QString &line)
     return false;
 }
 
+// 双层方框复制图标（对齐文档站代码块顶栏）
+static void paintCopyGlyph(QPainter &p, const QRectF &r, const QColor &color)
+{
+    const qreal s = qMin(r.width(), r.height());
+    if (s < 4.0)
+        return;
+    const QPointF o(r.center().x() - s * 0.5, r.center().y() - s * 0.5);
+    QPen pen(color, qMax(1.15, s * 0.11));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal rr = qMax(1.2, s * 0.10);
+    p.drawRoundedRect(QRectF(o.x() + s * 0.30, o.y() + s * 0.06, s * 0.58, s * 0.58), rr, rr);
+    p.drawRoundedRect(QRectF(o.x() + s * 0.06, o.y() + s * 0.30, s * 0.58, s * 0.58), rr, rr);
+}
+
 static QString renderCodeBlock(const QString &lang, const QString &code)
 {
     const QString href = QStringLiteral("landrop://copy/")
         + QString::fromLatin1(code.toUtf8().toBase64(QByteArray::Base64UrlEncoding));
-    // Qt 富文本无可靠圆角：整块绘成深色圆角卡；「复制」画在顶栏右侧，整卡可点
+    // Qt 富文本无可靠圆角：整块绘成深色圆角卡；顶栏浅于正文，「复制」带图标在右侧，整卡可点
     const int maxW = 420;
     const int padX = 14;
-    const int padY = 12;
+    const int headPadY = 8;
+    const int codePadY = 12;
     const qreal radius = 14.0;
+    const int iconSz = 14;
+    const int iconTextGap = 4;
     const QString copyLabel = QString::fromUtf8(u8"复制");
+    const QColor headBg(QStringLiteral("#334155"));
+    const QColor bodyBg(QStringLiteral("#0f172a"));
+    const QColor mutedFg(QStringLiteral("#94a3b8"));
     QFont headFont = qApp->font();
     headFont.setPixelSize(13);
     QFont copyFont = qApp->font();
     copyFont.setPixelSize(12);
-    copyFont.setBold(true);
     QFont codeFont(QStringLiteral("Consolas"));
     if (!codeFont.exactMatch())
         codeFont = QFont(QStringLiteral("Courier New"));
@@ -247,14 +269,16 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     for (int i = 0; i < lines.size(); ++i)
         codeTextW = qMax(codeTextW, codeFm.horizontalAdvance(lines.at(i)));
     const int codeTextH = qMax(codeFm.height(), lines.size() * codeFm.lineSpacing());
-    const int copyW = copyFm.horizontalAdvance(copyLabel);
+    const int copyTextW = copyFm.horizontalAdvance(copyLabel);
+    const int copyClusterW = iconSz + iconTextGap + copyTextW;
+    const int headTextH = qMax(headFm.height(), qMax(copyFm.height(), iconSz));
+    const int headBandH = headTextH + headPadY * 2;
     const int contentW = qMax(160, qMin(maxW - padX * 2,
-                                        qMax(headFm.horizontalAdvance(lang) + copyW + 24, codeTextW)));
-    const int headH = qMax(headFm.height(), copyFm.height());
-    const int gap = 8;
-    const int contentH = headH + gap + codeTextH;
+                                        qMax(headFm.horizontalAdvance(lang) + copyClusterW + 24,
+                                             codeTextW)));
+    const int codeBandH = codeTextH + codePadY * 2;
     const int innerW = contentW + padX * 2;
-    const int innerH = contentH + padY * 2;
+    const int innerH = headBandH + codeBandH;
     const int logicalW = innerW + kShadowPad * 2;
     const int logicalH = innerH + kShadowPad * 2;
     QPixmap pm = makeDprPixmap(logicalW, logicalH);
@@ -263,26 +287,37 @@ static QString renderCodeBlock(const QString &lang, const QString &code)
     p.setRenderHint(QPainter::TextAntialiasing, true);
     const QRectF box(kShadowPad + 0.5, kShadowPad + 0.5, innerW - 1.0, innerH - 1.0);
     paintSoftShadow(p, box, radius);
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(QStringLiteral("#1e293b")));
-    p.drawRoundedRect(box, radius, radius);
-    const int headY = kShadowPad + padY;
+    QPainterPath clip;
+    clip.addRoundedRect(box, radius, radius);
+    p.setClipPath(clip);
+    p.fillRect(QRectF(box.left(), box.top(), box.width(), headBandH), headBg);
+    p.fillRect(QRectF(box.left(), box.top() + headBandH, box.width(),
+                       box.height() - headBandH),
+               bodyBg);
+    p.setClipping(false);
+
+    const int headY = kShadowPad + headPadY;
+    const int contentLeft = kShadowPad + padX;
     p.setFont(headFont);
-    p.setPen(QColor(QStringLiteral("#94a3b8")));
-    p.drawText(QRect(kShadowPad + padX, headY, contentW - copyW - 12, headH),
+    p.setPen(mutedFg);
+    p.drawText(QRect(contentLeft, headY, contentW - copyClusterW - 12, headTextH),
                Qt::AlignLeft | Qt::AlignVCenter, lang);
-    // 顶栏右侧「复制」字样（整卡包在复制链里，故可点）
+    // 顶栏右侧：图标 +「复制」（整卡包在复制链里，故可点）
+    const int copyRight = contentLeft + contentW;
+    const int copyTextX = copyRight - copyTextW;
+    const int iconX = copyTextX - iconTextGap - iconSz;
+    paintCopyGlyph(p, QRectF(iconX, headY + (headTextH - iconSz) * 0.5, iconSz, iconSz), mutedFg);
     p.setFont(copyFont);
-    p.setPen(QColor(QStringLiteral("#93c5fd")));
-    p.drawText(QRect(kShadowPad + padX, headY, contentW, headH),
-               Qt::AlignRight | Qt::AlignVCenter, copyLabel);
-    int y = kShadowPad + padY + headH + gap;
+    p.setPen(mutedFg);
+    p.drawText(QRect(copyTextX, headY, copyTextW, headTextH),
+               Qt::AlignLeft | Qt::AlignVCenter, copyLabel);
+
+    int y = kShadowPad + headBandH + codePadY;
     p.setFont(codeFont);
     for (int i = 0; i < lines.size(); ++i) {
         const QString &line = lines.at(i);
-        p.setPen(looksLikeCommentLine(line) ? QColor(QStringLiteral("#94a3b8"))
-                                            : QColor(QStringLiteral("#e2e8f0")));
-        p.drawText(QRect(kShadowPad + padX, y, contentW, codeFm.height()),
+        p.setPen(looksLikeCommentLine(line) ? mutedFg : QColor(QStringLiteral("#e2e8f0")));
+        p.drawText(QRect(contentLeft, y, contentW, codeFm.height()),
                    Qt::AlignLeft | Qt::AlignVCenter, line);
         y += codeFm.lineSpacing();
     }
