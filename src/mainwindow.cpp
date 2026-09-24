@@ -1204,7 +1204,7 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
         "#btnAddIp { background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 600;"
-        " border: 1px solid #bfdbfe; border-radius: 6px; padding: 0 8px; }"
+        " border: 1px solid #bfdbfe; border-radius: 6px; padding: 0 8px; margin-top: 3px; }"
         "#btnAddIp:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }"
         "#btnAddIp:pressed { background: #bfdbfe; border-color: #60a5fa; color: #1e40af; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
