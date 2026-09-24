@@ -595,9 +595,9 @@ void MainWindow::buildUi()
     m_addIpBtn->setCursor(Qt::PointingHandCursor);
     m_addIpBtn->setFocusPolicy(Qt::NoFocus);
     m_addIpBtn->setFlat(true);
-    m_addIpBtn->setFixedHeight(26);
-    m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 13)));
-    m_addIpBtn->setIconSize(QSize(13, 13));
+    m_addIpBtn->setFixedHeight(24);
+    m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 12)));
+    m_addIpBtn->setIconSize(QSize(12, 12));
     m_addIpBtn->setToolTip(QString::fromUtf8(u8"手动添加设备 IP"));
     connect(m_addIpBtn, SIGNAL(clicked()), this, SLOT(addPeer()));
 
@@ -1204,7 +1204,9 @@ void MainWindow::applyStyle()
         "#bodySplit::handle:horizontal:pressed { background: #2563eb; }"
         "#sideTitle { color: #0f172a; font-size: 16px; font-weight: 700; padding: 0; margin: 0; }"
         "#btnAddIp { background: #eff6ff; color: #2563eb; font-size: 12px; font-weight: 600;"
-        " border: 1px solid #bfdbfe; border-radius: 6px; padding: 0 8px; margin-top: 3px; }"
+        " border: 1px solid #bfdbfe; border-radius: 6px;"
+        " padding-top: 1px; padding-bottom: 1px; padding-left: 8px; padding-right: 8px;"
+        " margin-top: 2px; }"
         "#btnAddIp:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }"
         "#btnAddIp:pressed { background: #bfdbfe; border-color: #60a5fa; color: #1e40af; }"
         "#searchShell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }"
@@ -1533,8 +1535,8 @@ void MainWindow::refreshChromePixmaps()
         m_setBtn->setIconSize(QSize(18, 18));
     }
     if (m_addIpBtn) {
-        m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 13)));
-        m_addIpBtn->setIconSize(QSize(13, 13));
+        m_addIpBtn->setIcon(QIcon(renderSvgIcon(QStringLiteral(":/icons/plus-small.svg"), 12)));
+        m_addIpBtn->setIconSize(QSize(12, 12));
     }
     if (m_minBtn)
         m_minBtn->setIcon(makeChromeIcon(IconMinimize, QColor(QStringLiteral("#475569"))));
