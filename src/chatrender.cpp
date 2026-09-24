@@ -48,11 +48,6 @@ static QPixmap makeDprPixmap(int logicalW, int logicalH)
     return pm;
 }
 
-static QString htmlEsc(const QString &s)
-{
-    return s.toHtmlEscaped();
-}
-
 static QString avatarInitial(const QString &name)
 {
     for (int i = 0; i < name.size(); ++i) {
